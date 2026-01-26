@@ -1,0 +1,38 @@
+import { CommitHash } from "@/components/commit-hash";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { GitCommitIcon } from "@primer/octicons-react";
+import { TimelineEventWrapper } from "./timeline-event-wrapper";
+
+interface CommitEventProps {
+  commit: {
+    oid: string;
+    message: string;
+    author?: {
+      name?: string | null;
+      avatarUrl: string;
+      user?: { login: string } | null;
+    } | null;
+    committedDate: string;
+  };
+}
+
+export function CommitEvent({ commit }: CommitEventProps) {
+  const login = commit.author?.user?.login ?? commit.author?.name ?? "unknown";
+  const avatarUrl = commit.author?.avatarUrl ?? "";
+
+  return (
+    <TimelineEventWrapper>
+      <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+        <GitCommitIcon size={16} />
+        <Avatar className="h-5 w-5">
+          <AvatarImage src={avatarUrl} />
+          <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
+        </Avatar>
+        <span>{login}</span>
+        <span>added a commit:</span>
+        <CommitHash sha={commit.oid} />
+        <span className="truncate flex-1 font-mono">{commit.message}</span>
+      </div>
+    </TimelineEventWrapper>
+  );
+}

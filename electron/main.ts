@@ -1,0 +1,683 @@
+import { app, BrowserWindow, ipcMain, dialog } from "electron";
+import { query } from "@anthropic-ai/claude-agent-sdk";
+import path from "path";
+import { fileURLToPath } from "url";
+import fs from "fs";
+import os from "os";
+import { simpleGit, SimpleGit, StatusResult } from "simple-git";
+import keytar from "keytar";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const SERVICE_NAME = "codeflow";
+const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
+
+let mainWindow: BrowserWindow | null = null;
+let currentAbortController: AbortController | null = null;
+let currentQuery: ReturnType<typeof query> | null = null;
+let chatAbortController: AbortController | null = null;
+let chatQuery: ReturnType<typeof query> | null = null;
+
+// Git types
+interface GitFileStatus {
+  path: string;
+  status: string;
+}
+
+interface GitStatus {
+  branch: string;
+  ahead: number;
+  behind: number;
+  files: GitFileStatus[];
+}
+
+interface GitCommit {
+  sha: string;
+  message: string;
+  author: string;
+  date: string;
+  additions?: number;
+  deletions?: number;
+}
+
+interface CommitFile {
+  path: string;
+  status: string;
+  diff: string;
+}
+
+interface CommitDetail {
+  commit: GitCommit;
+  files: CommitFile[];
+}
+
+interface ClaudeCliCredentials {
+  accessToken: string | null;
+  expiresAt: number | null;
+}
+
+// Helper to get git instance for a path
+function getGit(repoPath: string): SimpleGit {
+  return simpleGit(repoPath);
+}
+
+// Helper to map simple-git status to our status format
+function mapFileStatus(statusCode: string): string {
+  if (statusCode === "?" || statusCode === "A") return "added";
+  if (statusCode === "M") return "modified";
+  if (statusCode === "D") return "deleted";
+  if (statusCode === "R") return "renamed";
+  return "untracked";
+}
+
+function createWindow(): void {
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false, // Needed for keytar
+      preload: path.join(__dirname, "preload.cjs"),
+    },
+    titleBarStyle: "hiddenInset",
+    trafficLightPosition: { x: 16, y: 16 },
+  });
+
+  if (isDev) {
+    mainWindow.loadURL("http://localhost:5173");
+    mainWindow.webContents.openDevTools();
+  } else {
+    mainWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"));
+  }
+}
+
+app.whenReady().then(() => {
+  createWindow();
+
+  app.on("activate", () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
+  });
+});
+
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") {
+    app.quit();
+  }
+});
+
+// ==================== Git IPC Handlers ====================
+
+ipcMain.handle("git:current-branch", async (_event, repoPath: string) => {
+  try {
+    const git = getGit(repoPath);
+    const branch = await git.revparse(["--abbrev-ref", "HEAD"]);
+    return branch.trim() || "HEAD";
+  } catch (error) {
+    console.error("git:current-branch error:", error);
+    return "main";
+  }
+});
+
+ipcMain.handle("git:branches", async (_event, repoPath: string) => {
+  try {
+    const git = getGit(repoPath);
+    const branchSummary = await git.branchLocal();
+    return branchSummary.all;
+  } catch (error) {
+    console.error("git:branches error:", error);
+    return ["main"];
+  }
+});
+
+ipcMain.handle("git:status", async (_event, repoPath: string) => {
+  try {
+    const git = getGit(repoPath);
+    const status: StatusResult = await git.status();
+
+    const files: GitFileStatus[] = [];
+
+    // Map all file types
+    for (const file of status.not_added) {
+      files.push({ path: file, status: "untracked" });
+    }
+    for (const file of status.created) {
+      files.push({ path: file, status: "added" });
+    }
+    for (const file of status.modified) {
+      files.push({ path: file, status: "modified" });
+    }
+    for (const file of status.deleted) {
+      files.push({ path: file, status: "deleted" });
+    }
+    for (const file of status.renamed) {
+      files.push({ path: file.to, status: "renamed" });
+    }
+
+    const result: GitStatus = {
+      branch: status.current || "HEAD",
+      ahead: status.ahead,
+      behind: status.behind,
+      files,
+    };
+
+    return result;
+  } catch (error) {
+    console.error("git:status error:", error);
+    return {
+      branch: "main",
+      ahead: 0,
+      behind: 0,
+      files: [],
+    };
+  }
+});
+
+ipcMain.handle(
+  "git:log",
+  async (_event, repoPath: string, branch: string, limit: number) => {
+    try {
+      const git = getGit(repoPath);
+      const log = await git.log({
+        maxCount: limit,
+        [branch]: null,
+      });
+
+      const commits: GitCommit[] = log.all.map((commit) => ({
+        sha: commit.hash,
+        message: commit.message.split("\n")[0],
+        author: commit.author_name,
+        date: commit.date,
+        additions: undefined,
+        deletions: undefined,
+      }));
+
+      return commits;
+    } catch (error) {
+      console.error("git:log error:", error);
+      return [];
+    }
+  }
+);
+
+ipcMain.handle(
+  "git:diff-file",
+  async (_event, repoPath: string, file: string) => {
+    try {
+      const git = getGit(repoPath);
+      const diff = await git.diff(["--", file]);
+      return diff;
+    } catch (error) {
+      console.error("git:diff-file error:", error);
+      return "";
+    }
+  }
+);
+
+ipcMain.handle(
+  "git:commit-detail",
+  async (_event, repoPath: string, sha: string) => {
+    try {
+      const git = getGit(repoPath);
+
+      // Get commit info
+      const log = await git.log({
+        maxCount: 1,
+        [sha]: null,
+        "--stat": null,
+      });
+
+      const commitInfo = log.latest;
+      if (!commitInfo) {
+        throw new Error("Commit not found");
+      }
+
+      // Get the full diff for this commit
+      const diff = await git.show([sha, "--patch", "--format="]);
+
+      // Parse the diff to get files
+      const files: CommitFile[] = [];
+      const diffSections = diff.split(/^diff --git /m).slice(1);
+
+      for (const section of diffSections) {
+        const lines = section.split("\n");
+        const headerMatch = lines[0].match(/a\/(.+) b\/(.+)/);
+        if (!headerMatch) continue;
+
+        const filePath = headerMatch[2];
+        let status = "modified";
+
+        // Check for new/deleted file indicators
+        if (section.includes("new file mode")) {
+          status = "added";
+        } else if (section.includes("deleted file mode")) {
+          status = "deleted";
+        } else if (section.includes("rename from")) {
+          status = "renamed";
+        }
+
+        // Get just the diff part (after the header)
+        const diffStartIndex = section.indexOf("@@");
+        const diffContent =
+          diffStartIndex > -1 ? section.substring(diffStartIndex) : "";
+
+        files.push({
+          path: filePath,
+          status,
+          diff: diffContent,
+        });
+      }
+
+      // Parse stats from the diff output
+      const statMatch = diff.match(/(\d+) insertions?\(\+\)/);
+      const delMatch = diff.match(/(\d+) deletions?\(-\)/);
+
+      const result: CommitDetail = {
+        commit: {
+          sha: commitInfo.hash,
+          message: commitInfo.message,
+          author: commitInfo.author_name,
+          date: commitInfo.date,
+          additions: statMatch ? parseInt(statMatch[1], 10) : 0,
+          deletions: delMatch ? parseInt(delMatch[1], 10) : 0,
+        },
+        files,
+      };
+
+      return result;
+    } catch (error) {
+      console.error("git:commit-detail error:", error);
+      throw error;
+    }
+  }
+);
+
+ipcMain.handle(
+  "git:commit",
+  async (_event, repoPath: string, files: string[], message: string) => {
+    try {
+      const git = getGit(repoPath);
+      await git.add(files);
+      const result = await git.commit(message);
+      return result.commit;
+    } catch (error) {
+      console.error("git:commit error:", error);
+      throw error;
+    }
+  }
+);
+
+ipcMain.handle(
+  "git:remote-url",
+  async (_event, repoPath: string, remote: string) => {
+    try {
+      const git = getGit(repoPath);
+      const remotes = await git.getRemotes(true);
+      const remoteObj = remotes.find((r) => r.name === remote);
+      return remoteObj?.refs.fetch || "";
+    } catch (error) {
+      console.error("git:remote-url error:", error);
+      return "";
+    }
+  }
+);
+
+ipcMain.handle(
+  "git:fetch",
+  async (_event, repoPath: string, remote: string) => {
+    try {
+      const git = getGit(repoPath);
+      await git.fetch(remote);
+      return { success: true };
+    } catch (error) {
+      console.error("git:fetch error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+);
+
+ipcMain.handle(
+  "git:pull",
+  async (_event, repoPath: string, remote: string, branch: string) => {
+    try {
+      const git = getGit(repoPath);
+      await git.pull(remote, branch);
+      return { success: true };
+    } catch (error) {
+      console.error("git:pull error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+);
+
+ipcMain.handle(
+  "git:push",
+  async (
+    _event,
+    repoPath: string,
+    remote: string,
+    branch: string,
+    force: boolean
+  ) => {
+    try {
+      const git = getGit(repoPath);
+      const options = force ? ["--force"] : [];
+      await git.push(remote, branch, options);
+      return { success: true };
+    } catch (error) {
+      console.error("git:push error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+);
+
+ipcMain.handle(
+  "git:create-branch",
+  async (
+    _event,
+    repoPath: string,
+    branchName: string,
+    checkout: boolean
+  ) => {
+    try {
+      const git = getGit(repoPath);
+      if (checkout) {
+        await git.checkoutLocalBranch(branchName);
+      } else {
+        await git.branch([branchName]);
+      }
+      return { success: true };
+    } catch (error) {
+      console.error("git:create-branch error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+);
+
+ipcMain.handle(
+  "git:checkout",
+  async (_event, repoPath: string, branch: string) => {
+    try {
+      const git = getGit(repoPath);
+      await git.checkout(branch);
+      return { success: true };
+    } catch (error) {
+      console.error("git:checkout error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+);
+
+ipcMain.handle(
+  "git:delete-branch",
+  async (_event, repoPath: string, branch: string, force: boolean) => {
+    try {
+      const git = getGit(repoPath);
+      const options = force ? ["-D", branch] : ["-d", branch];
+      await git.branch(options);
+      return { success: true };
+    } catch (error) {
+      console.error("git:delete-branch error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+);
+
+// ==================== Credential IPC Handlers ====================
+
+ipcMain.handle("credential:get", async (_event, key: string) => {
+  try {
+    const password = await keytar.getPassword(SERVICE_NAME, key);
+    return password;
+  } catch (error) {
+    console.error("credential:get error:", error);
+    return null;
+  }
+});
+
+ipcMain.handle(
+  "credential:set",
+  async (_event, key: string, value: string) => {
+    try {
+      await keytar.setPassword(SERVICE_NAME, key, value);
+      return { success: true };
+    } catch (error) {
+      console.error("credential:set error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+);
+
+ipcMain.handle("credential:delete", async (_event, key: string) => {
+  try {
+    await keytar.deletePassword(SERVICE_NAME, key);
+    return { success: true };
+  } catch (error) {
+    console.error("credential:delete error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+});
+
+ipcMain.handle("credential:get-claude-cli", async () => {
+  try {
+    // Try macOS Keychain first via keytar
+    if (process.platform === "darwin") {
+      const username = os.userInfo().username;
+      const keychainData = await keytar.getPassword(
+        "Claude Code-credentials",
+        username
+      );
+      if (keychainData) {
+        try {
+          const parsed = JSON.parse(keychainData);
+          if (parsed.claudeAiOauth) {
+            const oauth = parsed.claudeAiOauth;
+            const nowMs = Date.now();
+
+            if (oauth.expiresAt && oauth.expiresAt > nowMs) {
+              return {
+                accessToken: oauth.accessToken || null,
+                expiresAt: oauth.expiresAt,
+              } as ClaudeCliCredentials;
+            } else if (oauth.accessToken && !oauth.expiresAt) {
+              return {
+                accessToken: oauth.accessToken,
+                expiresAt: null,
+              } as ClaudeCliCredentials;
+            }
+          }
+        } catch {
+          // JSON parse error, continue to file fallback
+        }
+      }
+    }
+
+    // Try credentials file (works on all platforms)
+    const credPath = path.join(os.homedir(), ".claude", ".credentials.json");
+    if (fs.existsSync(credPath)) {
+      const content = fs.readFileSync(credPath, "utf-8");
+      const parsed = JSON.parse(content);
+      if (parsed.claudeAiOauth) {
+        const oauth = parsed.claudeAiOauth;
+        const nowMs = Date.now();
+
+        if (oauth.expiresAt && oauth.expiresAt > nowMs) {
+          return {
+            accessToken: oauth.accessToken || null,
+            expiresAt: oauth.expiresAt,
+          } as ClaudeCliCredentials;
+        } else if (oauth.accessToken && !oauth.expiresAt) {
+          return {
+            accessToken: oauth.accessToken,
+            expiresAt: null,
+          } as ClaudeCliCredentials;
+        }
+      }
+    }
+
+    return { accessToken: null, expiresAt: null } as ClaudeCliCredentials;
+  } catch (error) {
+    console.error("credential:get-claude-cli error:", error);
+    return { accessToken: null, expiresAt: null } as ClaudeCliCredentials;
+  }
+});
+
+// ==================== Dialog IPC Handlers ====================
+
+ipcMain.handle("dialog:open-folder", async () => {
+  if (!mainWindow) return null;
+
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ["openDirectory"],
+    title: "Select Git Repository",
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return null;
+  }
+
+  return result.filePaths[0];
+});
+
+// ==================== Claude Agent SDK IPC Handlers ====================
+
+ipcMain.handle("agent:query", async (_event, prompt: string) => {
+  if (!mainWindow) return;
+
+  currentAbortController = new AbortController();
+
+  try {
+    currentQuery = query({
+      prompt,
+      options: {
+        abortController: currentAbortController,
+        allowedTools: ["Read", "Glob", "Grep", "Bash"],
+        permissionMode: "acceptEdits",
+      },
+    });
+
+    for await (const message of currentQuery) {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("agent:message", message);
+      }
+    }
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("agent:done");
+    }
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("agent:interrupted");
+      }
+    } else {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("agent:error", String(error));
+      }
+    }
+  } finally {
+    currentAbortController = null;
+    currentQuery = null;
+  }
+});
+
+ipcMain.handle("agent:interrupt", async () => {
+  if (currentQuery) {
+    await currentQuery.interrupt();
+  }
+});
+
+// ==================== Shell/URL IPC Handlers ====================
+
+ipcMain.handle("shell:open-external", async (_event, url: string) => {
+  const { shell } = await import("electron");
+  await shell.openExternal(url);
+});
+
+// ==================== Claude Chat IPC Handlers ====================
+
+ipcMain.handle(
+  "claude:chat",
+  async (
+    _event,
+    prompt: string,
+    options?: { systemPrompt?: string; allowedTools?: string[] }
+  ) => {
+    if (!mainWindow) return;
+
+    chatAbortController = new AbortController();
+
+    try {
+      chatQuery = query({
+        prompt,
+        options: {
+          abortController: chatAbortController,
+          systemPrompt: options?.systemPrompt || undefined,
+          allowedTools: options?.allowedTools || [
+            "Read",
+            "Glob",
+            "Grep",
+            "Bash",
+          ],
+          permissionMode: "acceptEdits",
+        },
+      });
+
+      for await (const message of chatQuery) {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("claude:chat:message", message);
+        }
+      }
+
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("claude:chat:done");
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("claude:chat:interrupted");
+        }
+      } else {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("claude:chat:error", String(error));
+        }
+      }
+    } finally {
+      chatAbortController = null;
+      chatQuery = null;
+    }
+  }
+);
+
+ipcMain.handle("claude:chat:interrupt", async () => {
+  if (chatQuery) {
+    await chatQuery.interrupt();
+  }
+});

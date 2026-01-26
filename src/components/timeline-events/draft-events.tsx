@@ -1,0 +1,67 @@
+import { RelativeTime } from "@/components/relative-time";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { GitPullRequestDraftIcon, EyeIcon } from "@primer/octicons-react";
+import { TimelineEventWrapper } from "./timeline-event-wrapper";
+import { getActorLogin, getActorAvatarUrl, type Actor } from "./types";
+
+// Convert to Draft Event
+interface ConvertToDraftEventProps {
+  actor: Actor;
+  createdAt: string;
+}
+
+export function ConvertToDraftEvent({
+  actor,
+  createdAt,
+}: ConvertToDraftEventProps) {
+  const login = getActorLogin(actor);
+  const avatarUrl = getActorAvatarUrl(actor);
+
+  return (
+    <TimelineEventWrapper>
+      <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+        <GitPullRequestDraftIcon size={16} />
+        <Avatar className="h-5 w-5">
+          <AvatarImage src={avatarUrl} />
+          <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
+        </Avatar>
+        <span>{login}</span>
+        <span>marked this pull request as draft</span>
+        <span>
+          <RelativeTime date={createdAt} />
+        </span>
+      </div>
+    </TimelineEventWrapper>
+  );
+}
+
+// Ready for Review Event
+interface ReadyForReviewEventProps {
+  actor: Actor;
+  createdAt: string;
+}
+
+export function ReadyForReviewEvent({
+  actor,
+  createdAt,
+}: ReadyForReviewEventProps) {
+  const login = getActorLogin(actor);
+  const avatarUrl = getActorAvatarUrl(actor);
+
+  return (
+    <TimelineEventWrapper>
+      <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+        <EyeIcon size={16} className="text-green-500" />
+        <Avatar className="h-5 w-5">
+          <AvatarImage src={avatarUrl} />
+          <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
+        </Avatar>
+        <span>{login}</span>
+        <span>marked this pull request as ready for review</span>
+        <span>
+          <RelativeTime date={createdAt} />
+        </span>
+      </div>
+    </TimelineEventWrapper>
+  );
+}
