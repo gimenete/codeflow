@@ -25,7 +25,10 @@ class LocalStorageStore implements CredentialStore {
 // Type definition for the credential API exposed by Electron preload
 interface CredentialAPI {
   get(key: string): Promise<string | null>;
-  set(key: string, value: string): Promise<{ success: boolean; error?: string }>;
+  set(
+    key: string,
+    value: string,
+  ): Promise<{ success: boolean; error?: string }>;
   delete(key: string): Promise<{ success: boolean; error?: string }>;
 }
 

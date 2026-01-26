@@ -102,7 +102,7 @@ interface GitAPI {
   getDiffFile(path: string, file: string): Promise<string>;
   getCommitDetail(
     path: string,
-    sha: string
+    sha: string,
   ): Promise<{
     commit: GitCommit;
     files: Array<{ path: string; status: string; diff: string }>;
@@ -111,32 +111,32 @@ interface GitAPI {
   getRemoteUrl(path: string, remote: string): Promise<string>;
   fetch(
     path: string,
-    remote: string
+    remote: string,
   ): Promise<{ success: boolean; error?: string }>;
   pull(
     path: string,
     remote: string,
-    branch: string
+    branch: string,
   ): Promise<{ success: boolean; error?: string }>;
   push(
     path: string,
     remote: string,
     branch: string,
-    force: boolean
+    force: boolean,
   ): Promise<{ success: boolean; error?: string }>;
   createBranch(
     path: string,
     branchName: string,
-    checkout: boolean
+    checkout: boolean,
   ): Promise<{ success: boolean; error?: string }>;
   checkout(
     path: string,
-    branch: string
+    branch: string,
   ): Promise<{ success: boolean; error?: string }>;
   deleteBranch(
     path: string,
     branch: string,
-    force: boolean
+    force: boolean,
   ): Promise<{ success: boolean; error?: string }>;
 }
 
@@ -324,7 +324,7 @@ export async function commitChanges(
   path: string,
   files: string[],
   message: string,
-  description?: string
+  description?: string,
 ): Promise<{ success: boolean; error?: string }> {
   if (!isElectron() || !window.gitAPI) {
     return { success: false, error: "Not available in web mode" };
@@ -356,7 +356,7 @@ export async function openFolderPicker(): Promise<string | null> {
 
 export async function gitFetch(
   path: string,
-  remote: string = "origin"
+  remote: string = "origin",
 ): Promise<{ success: boolean; error?: string }> {
   if (!isElectron() || !window.gitAPI) {
     return { success: false, error: "Not available in web mode" };
@@ -375,7 +375,7 @@ export async function gitFetch(
 export async function gitPull(
   path: string,
   remote: string,
-  branch: string
+  branch: string,
 ): Promise<{ success: boolean; error?: string }> {
   if (!isElectron() || !window.gitAPI) {
     return { success: false, error: "Not available in web mode" };
@@ -395,7 +395,7 @@ export async function gitPush(
   path: string,
   remote: string,
   branch: string,
-  force: boolean = false
+  force: boolean = false,
 ): Promise<{ success: boolean; error?: string }> {
   if (!isElectron() || !window.gitAPI) {
     return { success: false, error: "Not available in web mode" };
@@ -413,7 +413,7 @@ export async function gitPush(
 
 export async function getRemoteUrl(
   path: string,
-  remote: string = "origin"
+  remote: string = "origin",
 ): Promise<string | null> {
   if (!isElectron() || !window.gitAPI) {
     return null;
@@ -429,7 +429,7 @@ export async function getRemoteUrl(
 export async function createBranch(
   path: string,
   name: string,
-  checkout: boolean = true
+  checkout: boolean = true,
 ): Promise<{ success: boolean; error?: string }> {
   if (!isElectron() || !window.gitAPI) {
     return { success: false, error: "Not available in web mode" };
@@ -447,7 +447,7 @@ export async function createBranch(
 
 export async function checkoutBranch(
   path: string,
-  branch: string
+  branch: string,
 ): Promise<{ success: boolean; error?: string }> {
   if (!isElectron() || !window.gitAPI) {
     return { success: false, error: "Not available in web mode" };
@@ -466,7 +466,7 @@ export async function checkoutBranch(
 export async function deleteBranch(
   path: string,
   branch: string,
-  force: boolean = false
+  force: boolean = false,
 ): Promise<{ success: boolean; error?: string }> {
   if (!isElectron() || !window.gitAPI) {
     return { success: false, error: "Not available in web mode" };

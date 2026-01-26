@@ -375,7 +375,7 @@ export const useSavedQueriesStore = create<SavedQueriesState>()(
           for (const [accountId, queries] of Object.entries(
             state.queriesByAccount as Record<string, unknown[]>,
           )) {
-            queriesByAccount[accountId] = (queries as unknown[]).map((q) => {
+            queriesByAccount[accountId] = queries.map((q) => {
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const oldQuery = q as any;
               const { type, filters, ...rest } = oldQuery;
@@ -401,7 +401,7 @@ export const useSavedQueriesStore = create<SavedQueriesState>()(
               {
                 id: DEFAULT_GROUP_ID,
                 title: DEFAULT_GROUP_TITLE,
-                queries: queries as SavedQuery[],
+                queries: queries,
               },
             ];
           }
@@ -427,12 +427,16 @@ export function useQueryById(
   accountId: string,
   queryId: string,
 ): SavedQuery | null {
+  // Always call the hook unconditionally to satisfy React's rules of hooks
+  const storeQuery = useSavedQueriesStore((state) =>
+    state.getQueryById(accountId, queryId),
+  );
+
   // Check system queries first (not stored in state)
   const systemQuery = systemQueries.find((q) => q.id === queryId);
   if (systemQuery) {
     return { ...systemQuery, accountId } as SavedQuery;
   }
-  return useSavedQueriesStore((state) =>
-    state.getQueryById(accountId, queryId),
-  );
+
+  return storeQuery;
 }

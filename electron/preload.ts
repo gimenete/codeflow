@@ -62,7 +62,11 @@ const gitAPI = {
     return ipcRenderer.invoke("git:status", path);
   },
 
-  getLog: (path: string, branch: string, limit: number): Promise<GitCommit[]> => {
+  getLog: (
+    path: string,
+    branch: string,
+    limit: number,
+  ): Promise<GitCommit[]> => {
     return ipcRenderer.invoke("git:log", path, branch, limit);
   },
 
@@ -86,15 +90,28 @@ const gitAPI = {
     return ipcRenderer.invoke("git:fetch", path, remote);
   },
 
-  pull: (path: string, remote: string, branch: string): Promise<OperationResult> => {
+  pull: (
+    path: string,
+    remote: string,
+    branch: string,
+  ): Promise<OperationResult> => {
     return ipcRenderer.invoke("git:pull", path, remote, branch);
   },
 
-  push: (path: string, remote: string, branch: string, force: boolean): Promise<OperationResult> => {
+  push: (
+    path: string,
+    remote: string,
+    branch: string,
+    force: boolean,
+  ): Promise<OperationResult> => {
     return ipcRenderer.invoke("git:push", path, remote, branch, force);
   },
 
-  createBranch: (path: string, branchName: string, checkout: boolean): Promise<OperationResult> => {
+  createBranch: (
+    path: string,
+    branchName: string,
+    checkout: boolean,
+  ): Promise<OperationResult> => {
     return ipcRenderer.invoke("git:create-branch", path, branchName, checkout);
   },
 
@@ -102,7 +119,11 @@ const gitAPI = {
     return ipcRenderer.invoke("git:checkout", path, branch);
   },
 
-  deleteBranch: (path: string, branch: string, force: boolean): Promise<OperationResult> => {
+  deleteBranch: (
+    path: string,
+    branch: string,
+    force: boolean,
+  ): Promise<OperationResult> => {
     return ipcRenderer.invoke("git:delete-branch", path, branch, force);
   },
 };
@@ -178,7 +199,7 @@ const shellAPI = {
 const claudeChatAPI = {
   sendMessage: (
     prompt: string,
-    options?: { systemPrompt?: string; allowedTools?: string[] }
+    options?: { systemPrompt?: string; allowedTools?: string[] },
   ): Promise<void> => {
     return ipcRenderer.invoke("claude:chat", prompt, options);
   },
@@ -189,7 +210,7 @@ const claudeChatAPI = {
 
   onMessage: (callback: MessageCallback): void => {
     ipcRenderer.on("claude:chat:message", (_event, message) =>
-      callback(message)
+      callback(message),
     );
   },
 

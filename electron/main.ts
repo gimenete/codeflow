@@ -200,7 +200,7 @@ ipcMain.handle(
       console.error("git:log error:", error);
       return [];
     }
-  }
+  },
 );
 
 ipcMain.handle(
@@ -214,7 +214,7 @@ ipcMain.handle(
       console.error("git:diff-file error:", error);
       return "";
     }
-  }
+  },
 );
 
 ipcMain.handle(
@@ -292,7 +292,7 @@ ipcMain.handle(
       console.error("git:commit-detail error:", error);
       throw error;
     }
-  }
+  },
 );
 
 ipcMain.handle(
@@ -307,7 +307,7 @@ ipcMain.handle(
       console.error("git:commit error:", error);
       throw error;
     }
-  }
+  },
 );
 
 ipcMain.handle(
@@ -322,7 +322,7 @@ ipcMain.handle(
       console.error("git:remote-url error:", error);
       return "";
     }
-  }
+  },
 );
 
 ipcMain.handle(
@@ -339,7 +339,7 @@ ipcMain.handle(
         error: error instanceof Error ? error.message : String(error),
       };
     }
-  }
+  },
 );
 
 ipcMain.handle(
@@ -356,7 +356,7 @@ ipcMain.handle(
         error: error instanceof Error ? error.message : String(error),
       };
     }
-  }
+  },
 );
 
 ipcMain.handle(
@@ -366,7 +366,7 @@ ipcMain.handle(
     repoPath: string,
     remote: string,
     branch: string,
-    force: boolean
+    force: boolean,
   ) => {
     try {
       const git = getGit(repoPath);
@@ -380,17 +380,12 @@ ipcMain.handle(
         error: error instanceof Error ? error.message : String(error),
       };
     }
-  }
+  },
 );
 
 ipcMain.handle(
   "git:create-branch",
-  async (
-    _event,
-    repoPath: string,
-    branchName: string,
-    checkout: boolean
-  ) => {
+  async (_event, repoPath: string, branchName: string, checkout: boolean) => {
     try {
       const git = getGit(repoPath);
       if (checkout) {
@@ -406,7 +401,7 @@ ipcMain.handle(
         error: error instanceof Error ? error.message : String(error),
       };
     }
-  }
+  },
 );
 
 ipcMain.handle(
@@ -423,7 +418,7 @@ ipcMain.handle(
         error: error instanceof Error ? error.message : String(error),
       };
     }
-  }
+  },
 );
 
 ipcMain.handle(
@@ -441,7 +436,7 @@ ipcMain.handle(
         error: error instanceof Error ? error.message : String(error),
       };
     }
-  }
+  },
 );
 
 // ==================== Credential IPC Handlers ====================
@@ -456,21 +451,18 @@ ipcMain.handle("credential:get", async (_event, key: string) => {
   }
 });
 
-ipcMain.handle(
-  "credential:set",
-  async (_event, key: string, value: string) => {
-    try {
-      await keytar.setPassword(SERVICE_NAME, key, value);
-      return { success: true };
-    } catch (error) {
-      console.error("credential:set error:", error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
+ipcMain.handle("credential:set", async (_event, key: string, value: string) => {
+  try {
+    await keytar.setPassword(SERVICE_NAME, key, value);
+    return { success: true };
+  } catch (error) {
+    console.error("credential:set error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
-);
+});
 
 ipcMain.handle("credential:delete", async (_event, key: string) => {
   try {
@@ -492,7 +484,7 @@ ipcMain.handle("credential:get-claude-cli", async () => {
       const username = os.userInfo().username;
       const keychainData = await keytar.getPassword(
         "Claude Code-credentials",
-        username
+        username,
       );
       if (keychainData) {
         try {
@@ -628,7 +620,7 @@ ipcMain.handle(
   async (
     _event,
     prompt: string,
-    options?: { systemPrompt?: string; allowedTools?: string[] }
+    options?: { systemPrompt?: string; allowedTools?: string[] },
   ) => {
     if (!mainWindow) return;
 
@@ -673,7 +665,7 @@ ipcMain.handle(
       chatAbortController = null;
       chatQuery = null;
     }
-  }
+  },
 );
 
 ipcMain.handle("claude:chat:interrupt", async () => {

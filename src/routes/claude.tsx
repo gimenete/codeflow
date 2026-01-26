@@ -99,7 +99,9 @@ function ClaudePage() {
     if (!inputValue.trim() || isStreaming) return;
 
     if (!isElectronWithChatAPI()) {
-      setError("Chat requires running in Electron with Claude CLI authentication");
+      setError(
+        "Chat requires running in Electron with Claude CLI authentication",
+      );
       return;
     }
 
@@ -152,6 +154,7 @@ function ClaudePage() {
     const chatAPI = getClaudeChatAPI();
 
     const handleMessage = (message: AgentMessage) => {
+      console.log("message:", message);
       const conversationId = conversationIdRef.current;
       if (!conversationId) return;
 
@@ -161,7 +164,10 @@ function ClaudePage() {
         if (text) {
           accumulatedTextRef.current += text;
           appendStreamingContent(text);
-          updateLastAssistantMessage(conversationId, accumulatedTextRef.current);
+          updateLastAssistantMessage(
+            conversationId,
+            accumulatedTextRef.current,
+          );
           scrollToBottom();
         }
       }
@@ -215,7 +221,12 @@ function ClaudePage() {
     return () => {
       chatAPI.removeAllListeners();
     };
-  }, [appendStreamingContent, updateLastAssistantMessage, setStreaming, scrollToBottom]);
+  }, [
+    appendStreamingContent,
+    updateLastAssistantMessage,
+    setStreaming,
+    scrollToBottom,
+  ]);
 
   const handleStop = useCallback(() => {
     if (isElectronWithChatAPI()) {

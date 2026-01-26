@@ -40,7 +40,7 @@ export interface AgentMessage {
 export interface ClaudeChatAPI {
   sendMessage: (
     prompt: string,
-    options?: { systemPrompt?: string; allowedTools?: string[] }
+    options?: { systemPrompt?: string; allowedTools?: string[] },
   ) => Promise<void>;
   interrupt: () => Promise<void>;
   onMessage: (callback: (message: AgentMessage) => void) => void;
@@ -65,7 +65,7 @@ export function isElectronWithChatAPI(): boolean {
 export function getClaudeChatAPI(): ClaudeChatAPI {
   if (!window.claudeChatAPI) {
     throw new Error(
-      "Claude Chat API not available. Make sure you're running in Electron."
+      "Claude Chat API not available. Make sure you're running in Electron.",
     );
   }
   return window.claudeChatAPI;
@@ -92,7 +92,7 @@ export function hasToolUse(message: AgentMessage): boolean {
 
 // Get tool use blocks from an agent message
 export function getToolUseBlocks(
-  message: AgentMessage
+  message: AgentMessage,
 ): Array<{ name: string; input: unknown; id: string }> {
   if (message.type === "assistant" && message.message?.content) {
     return message.message.content

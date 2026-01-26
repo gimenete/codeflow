@@ -13,7 +13,6 @@ import { loadAccounts } from "@/lib/auth";
 import {
   BreadcrumbProvider,
   useBreadcrumbContext,
-  type BreadcrumbDropdownItem,
   type BreadcrumbItem,
 } from "@/lib/breadcrumbs";
 import {
@@ -94,7 +93,7 @@ function NavbarBreadcrumbs({ breadcrumbs }: { breadcrumbs: BreadcrumbItem[] }) {
                         );
                       }
                     }
-                    const menuItem = dropdownItem as BreadcrumbDropdownItem;
+                    const menuItem = dropdownItem;
                     return (
                       <DropdownMenuItem
                         key={dropdownIndex}

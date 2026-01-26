@@ -4,7 +4,7 @@ export function isElectron(): boolean {
     typeof window !== "undefined" &&
     "electronAPI" in window &&
     (window as unknown as { electronAPI: { isElectron: boolean } }).electronAPI
-      ?.isElectron === true
+      ?.isElectron
   );
 }
 

@@ -1,4 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function UnknownEvent(_props: { typename: string }) {
   // Return null to hide unknown events in production
   // For debugging, uncomment the return statement below:

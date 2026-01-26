@@ -451,20 +451,6 @@ export function useIssueOrPRDetail(
   };
 }
 
-type MetadataIssue = Extract<
-  NonNullable<
-    NonNullable<GetIssueOrPrMetadataQuery["repository"]>["issueOrPullRequest"]
-  >,
-  { __typename: "Issue" }
->;
-
-type MetadataPullRequest = Extract<
-  NonNullable<
-    NonNullable<GetIssueOrPrMetadataQuery["repository"]>["issueOrPullRequest"]
-  >,
-  { __typename: "PullRequest" }
->;
-
 export async function fetchIssueOrPullMetadata(
   account: GitHubAccount,
   owner: string,
@@ -485,7 +471,7 @@ export async function fetchIssueOrPullMetadata(
   }
 
   if (item.__typename === "PullRequest") {
-    const pr = item as MetadataPullRequest;
+    const pr = item;
     const prData: PullRequestMetadata = {
       id: pr.id,
       number: pr.number,
@@ -562,7 +548,7 @@ export async function fetchIssueOrPullMetadata(
     };
     return prData;
   } else {
-    const issue = item as MetadataIssue;
+    const issue = item;
     const issueData: IssueMetadata = {
       id: issue.id,
       number: issue.number,
@@ -741,7 +727,7 @@ export function useIssueMetadata(
   const result = useIssueOrPullMetadata(accountId, owner, repo, number);
   return {
     ...result,
-    data: result.data as IssueMetadata | null,
+    data: result.data,
   };
 }
 
