@@ -65,7 +65,7 @@ function CommitDetailView() {
         label: sha.substring(0, 7),
       },
     ];
-  }, [repository?.name, branch, branches, currentBranch, repo, sha, navigate]);
+  }, [repository, repo, branch, branches, sha, navigate, currentBranch]);
 
   useBreadcrumbs(breadcrumbs);
 

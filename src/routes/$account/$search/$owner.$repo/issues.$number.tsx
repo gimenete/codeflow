@@ -78,9 +78,6 @@ function IssueDetail() {
       query?.name,
       search,
       savedSearchDropdownItems,
-      owner,
-      repo,
-      number,
     ],
   );
 

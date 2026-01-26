@@ -88,7 +88,7 @@ export function useBreadcrumbs(items?: BreadcrumbItem[]) {
       // Clear breadcrumbs when component unmounts
       setBreadcrumbs([]);
     };
-  }, [JSON.stringify(items), setBreadcrumbs]);
+  }, [items, setBreadcrumbs]);
 
   return { breadcrumbs, setBreadcrumbs };
 }

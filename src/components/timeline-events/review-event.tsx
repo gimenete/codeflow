@@ -3,7 +3,7 @@ import { RelativeTime } from "@/components/relative-time";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CheckIcon, XIcon, CommentIcon } from "@primer/octicons-react";
 import { getActorLogin, getActorAvatarUrl, type Actor } from "./types";
-import type { PullRequestReviewState } from "@/generated/graphql";
+import { PullRequestReviewState } from "@/generated/graphql";
 
 interface ReviewEventProps {
   author: Actor;
@@ -23,9 +23,9 @@ export function ReviewEvent({
 
   return (
     <div className="flex items-start gap-2 py-2">
-      {state === "APPROVED" ? (
+      {state === PullRequestReviewState.Approved ? (
         <CheckIcon size={16} className="text-green-500 mt-0.5" />
-      ) : state === "CHANGES_REQUESTED" ? (
+      ) : state === PullRequestReviewState.ChangesRequested ? (
         <XIcon size={16} className="text-red-500 mt-0.5" />
       ) : (
         <CommentIcon size={16} className="text-muted-foreground mt-0.5" />
@@ -38,9 +38,9 @@ export function ReviewEvent({
           </Avatar>
           <span className="font-medium">{login}</span>
           <span className="text-muted-foreground">
-            {state === "APPROVED"
+            {state === PullRequestReviewState.Approved
               ? "approved these changes"
-              : state === "CHANGES_REQUESTED"
+              : state === PullRequestReviewState.ChangesRequested
                 ? "requested changes"
                 : "reviewed"}
           </span>

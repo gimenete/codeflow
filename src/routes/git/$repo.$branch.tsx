@@ -138,13 +138,13 @@ function BranchLayout() {
       },
     ];
   }, [
-    repository?.name,
+    repository,
+    repo,
     branch,
     branches,
-    currentBranch,
-    repo,
-    handleCheckoutBranch,
     navigate,
+    currentBranch,
+    handleCheckoutBranch,
   ]);
 
   useBreadcrumbs(breadcrumbs);
