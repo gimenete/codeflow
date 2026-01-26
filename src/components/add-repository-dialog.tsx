@@ -58,7 +58,7 @@ export function AddRepositoryDialog({
       setPath("");
       setName("");
       onOpenChange(false);
-      navigate({ to: "/git/$repo", params: { repo: repo.id } });
+      void navigate({ to: "/git/$repo", params: { repo: repo.id } });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add repository");
     } finally {

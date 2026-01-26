@@ -63,7 +63,7 @@ export function SaveQueryDialog({
     onOpenChange(false);
 
     // Navigate to the new query
-    navigate({
+    void navigate({
       to: "/$account/$search",
       params: { account: accountId, search: newQuery.id },
       search: {},

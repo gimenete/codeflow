@@ -46,13 +46,13 @@ export function useAccounts() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    loadAccounts().then((data) => {
+    void loadAccounts().then((data) => {
       setAccounts(data);
       setIsLoading(false);
     });
 
     const listener = () => {
-      loadAccounts().then(setAccounts);
+      void loadAccounts().then(setAccounts);
     };
     listeners.add(listener);
     return () => {

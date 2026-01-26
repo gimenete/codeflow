@@ -115,7 +115,7 @@ function PullFilesTab() {
 
   const handleCommitSelect = (value: string) => {
     const newCommit = value === "all" ? undefined : value;
-    navigate({
+    void navigate({
       to: ".",
       search: newCommit ? { commit: newCommit } : {},
       replace: true,

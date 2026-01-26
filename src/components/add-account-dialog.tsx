@@ -54,7 +54,7 @@ export function AddAccountDialog({
       setToken("");
       setHost("github.com");
       onOpenChange(false);
-      navigate({ to: "/$account", params: { account: account.id } });
+      void navigate({ to: "/$account", params: { account: account.id } });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {

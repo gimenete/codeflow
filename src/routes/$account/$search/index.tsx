@@ -81,7 +81,7 @@ function SearchResults() {
       } else {
         newFilters[key] = value;
       }
-      navigate({
+      void navigate({
         to: "/$account/$search",
         params: { account, search },
         search: newFilters,
@@ -110,7 +110,7 @@ function SearchResults() {
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
-          fetchNextPage();
+          void fetchNextPage();
         }
       },
       { threshold: 0.1 },
@@ -132,7 +132,7 @@ function SearchResults() {
       }
     }
     updateQuery(account, query.id, { filters: mergedFilters });
-    navigate({
+    void navigate({
       to: "/$account/$search",
       params: { account, search },
       search: {},
@@ -218,7 +218,7 @@ function SearchResults() {
                   newFilters.state = "open";
                 }
               }
-              navigate({
+              void navigate({
                 to: "/$account/$search",
                 params: { account, search },
                 search: newFilters,

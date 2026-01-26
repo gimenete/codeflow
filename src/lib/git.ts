@@ -186,7 +186,7 @@ export function useBranches(path: string | undefined) {
       }
     }
 
-    fetchBranches();
+    void fetchBranches();
   }, [path]);
 
   return { branches, currentBranch };
@@ -225,7 +225,7 @@ export function useGitStatus(path: string | undefined) {
   }, [path]);
 
   useEffect(() => {
-    refresh();
+    void refresh();
   }, [refresh]);
 
   return { status, isLoading, refresh };
@@ -254,7 +254,7 @@ export function useGitLog(path: string | undefined, branch: string) {
       }
     }
 
-    fetchLog();
+    void fetchLog();
   }, [path, branch]);
 
   return { commits, isLoading };
@@ -279,7 +279,7 @@ export function useFileDiff(path: string | undefined, file: string | null) {
       }
     }
 
-    fetchDiff();
+    void fetchDiff();
   }, [path, file]);
 
   return { diff };
@@ -314,7 +314,7 @@ export function useCommitDetail(path: string | undefined, sha: string) {
       }
     }
 
-    fetchCommit();
+    void fetchCommit();
   }, [path, sha]);
 
   return { commit, files, isLoading };

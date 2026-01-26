@@ -132,7 +132,7 @@ function ClaudePage() {
 
     // Send via IPC
     const chatAPI = getClaudeChatAPI();
-    chatAPI.sendMessage(userMessage, {
+    void chatAPI.sendMessage(userMessage, {
       systemPrompt: settings.systemPrompt || undefined,
     });
   }, [
@@ -231,7 +231,7 @@ function ClaudePage() {
   const handleStop = useCallback(() => {
     if (isElectronWithChatAPI()) {
       const chatAPI = getClaudeChatAPI();
-      chatAPI.interrupt();
+      void chatAPI.interrupt();
     }
   }, []);
 

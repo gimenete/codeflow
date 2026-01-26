@@ -85,7 +85,7 @@ function BranchLayout() {
       if (!repository?.path || targetBranch === currentBranch) return;
       const result = await checkoutBranch(repository.path, targetBranch);
       if (result.success) {
-        navigate({
+        void navigate({
           to: "/git/$repo/$branch/changes",
           params: { repo, branch: targetBranch },
         });
@@ -96,7 +96,7 @@ function BranchLayout() {
 
   const handleBranchCreated = useCallback(
     (newBranch: string) => {
-      navigate({
+      void navigate({
         to: "/git/$repo/$branch/changes",
         params: { repo, branch: newBranch },
       });

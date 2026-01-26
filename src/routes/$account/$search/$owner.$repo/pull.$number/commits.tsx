@@ -28,7 +28,7 @@ function PullCommitsTab() {
   }, [commitsData]);
 
   const handleCommitClick = (sha: string) => {
-    navigate({
+    void navigate({
       to: "/$account/$search/$owner/$repo/pull/$number/files",
       params: { account, search, owner, repo, number },
       search: { commit: sha },

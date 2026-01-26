@@ -43,7 +43,7 @@ export function SearchNavigation({
     const account = getAccount(accountId);
     if (!account) return;
 
-    queryClient.prefetchQuery({
+    void queryClient.prefetchQuery({
       queryKey: [
         "github-metadata",
         accountId,

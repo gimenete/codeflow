@@ -79,7 +79,7 @@ export function CreateBranchDialog({
               onChange={(e) => setBranchName(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && branchName.trim()) {
-                  handleCreate();
+                  void handleCreate();
                 }
               }}
             />
