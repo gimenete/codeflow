@@ -8,9 +8,9 @@ export interface Conversation {
   messages: ChatMessage[];
   createdAt: string;
   updatedAt: string;
-  // Task-related fields
+  // Branch-related fields
   cwd?: string; // Working directory for Claude operations
-  taskId?: string; // Link to task if created from task view
+  branchId?: string; // Link to tracked branch if created from branch view
 }
 
 export interface ClaudeSettings {
@@ -32,12 +32,12 @@ interface ClaudeState {
 
   // Actions - Conversations
   createConversation: () => string;
-  createConversationForTask: (taskId: string, cwd: string) => string;
+  createConversationForBranch: (branchId: string, cwd: string) => string;
   deleteConversation: (id: string) => void;
   clearConversation: (id: string) => void;
   setActiveConversation: (id: string | null) => void;
   getActiveConversation: () => Conversation | null;
-  getConversationByTaskId: (taskId: string) => Conversation | null;
+  getConversationByBranchId: (branchId: string) => Conversation | null;
 
   // Actions - Messages
   addMessage: (conversationId: string, message: ChatMessage) => void;
@@ -94,7 +94,7 @@ export const useClaudeStore = create<ClaudeState>()(
         return id;
       },
 
-      createConversationForTask: (taskId, cwd) => {
+      createConversationForBranch: (branchId, cwd) => {
         const id = generateId();
         const now = new Date().toISOString();
         const conversation: Conversation = {
@@ -103,7 +103,7 @@ export const useClaudeStore = create<ClaudeState>()(
           messages: [],
           createdAt: now,
           updatedAt: now,
-          taskId,
+          branchId,
           cwd,
         };
         set((state) => ({
@@ -156,8 +156,8 @@ export const useClaudeStore = create<ClaudeState>()(
         );
       },
 
-      getConversationByTaskId: (taskId) => {
-        return get().conversations.find((c) => c.taskId === taskId) ?? null;
+      getConversationByBranchId: (branchId) => {
+        return get().conversations.find((c) => c.branchId === branchId) ?? null;
       },
 
       addMessage: (conversationId, message) => {
@@ -243,8 +243,17 @@ export const useClaudeStore = create<ClaudeState>()(
           }
         }
         if (version < 4) {
-          // Migration from version 3: add cwd and taskId fields to conversations
+          // Migration from version 3: add cwd and branchId fields to conversations
           // No changes needed - new fields are optional and will be undefined for existing conversations
+          // Note: taskId was renamed to branchId in version 4
+          const conversations =
+            (state.conversations as Array<Record<string, unknown>>) ?? [];
+          state.conversations = conversations.map((c) => {
+            if (c.taskId) {
+              return { ...c, branchId: c.taskId, taskId: undefined };
+            }
+            return c;
+          });
         }
         return state as unknown as ClaudeState;
       },
@@ -277,8 +286,10 @@ export function useStreamingContent(): string {
   return useClaudeStore((state) => state.streamingContent);
 }
 
-export function useConversationByTaskId(taskId: string): Conversation | null {
+export function useConversationByBranchId(
+  branchId: string,
+): Conversation | null {
   return useClaudeStore(
-    (state) => state.conversations.find((c) => c.taskId === taskId) ?? null,
+    (state) => state.conversations.find((c) => c.branchId === branchId) ?? null,
   );
 }

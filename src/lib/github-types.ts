@@ -286,10 +286,10 @@ export interface SearchResultsPage {
   hasNextPage: boolean;
 }
 
-// Projects feature types
-export interface Project {
+// Repositories feature types
+export interface Repository {
   id: string;
-  slug: string; // URL-friendly (e.g., "my-project")
+  slug: string; // URL-friendly (e.g., "my-repo")
   name: string;
   path: string; // Local git repo path
   githubAccountId: string | null;
@@ -299,9 +299,9 @@ export interface Project {
   updatedAt: string;
 }
 
-export interface Task {
+export interface TrackedBranch {
   id: string;
-  projectId: string;
+  repositoryId: string;
   branch: string; // Git branch name
   worktreePath: string | null; // Optional separate worktree path
   conversationId: string | null;

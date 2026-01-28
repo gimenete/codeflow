@@ -16,15 +16,18 @@ import {
   removeWatcherListeners,
 } from "@/lib/git";
 import { isElectron } from "@/lib/platform";
-import type { Task } from "@/lib/github-types";
+import type { TrackedBranch } from "@/lib/github-types";
 
-interface TaskDiffPanelProps {
-  task: Task;
-  projectPath: string;
+interface BranchDiffPanelProps {
+  branch: TrackedBranch;
+  repositoryPath: string;
 }
 
-export function TaskDiffPanel({ task, projectPath }: TaskDiffPanelProps) {
-  const { status, isLoading, refresh } = useGitStatus(projectPath);
+export function BranchDiffPanel({
+  branch,
+  repositoryPath,
+}: BranchDiffPanelProps) {
+  const { status, isLoading, refresh } = useGitStatus(repositoryPath);
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
   const [fileDiffs, setFileDiffs] = useState<Record<string, string>>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -33,8 +36,8 @@ export function TaskDiffPanel({ task, projectPath }: TaskDiffPanelProps) {
   useEffect(() => {
     if (!isElectron()) return;
 
-    const watcherId = `task-${task.id}`;
-    const watchPath = task.worktreePath || projectPath;
+    const watcherId = `branch-${branch.id}`;
+    const watchPath = branch.worktreePath || repositoryPath;
 
     void startWatcher(watcherId, watchPath);
 
@@ -48,7 +51,7 @@ export function TaskDiffPanel({ task, projectPath }: TaskDiffPanelProps) {
       void stopWatcher(watcherId);
       removeWatcherListeners();
     };
-  }, [task.id, task.worktreePath, projectPath, refresh]);
+  }, [branch.id, branch.worktreePath, repositoryPath, refresh]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -68,7 +71,10 @@ export function TaskDiffPanel({ task, projectPath }: TaskDiffPanelProps) {
         // Fetch diff for this file if not already loaded
         if (!fileDiffs[filePath] && isElectron() && window.gitAPI) {
           try {
-            const diff = await window.gitAPI.getDiffFile(projectPath, filePath);
+            const diff = await window.gitAPI.getDiffFile(
+              repositoryPath,
+              filePath,
+            );
             setFileDiffs((prev) => ({ ...prev, [filePath]: diff }));
           } catch {
             setFileDiffs((prev) => ({
@@ -81,7 +87,7 @@ export function TaskDiffPanel({ task, projectPath }: TaskDiffPanelProps) {
 
       setExpandedFiles(newExpanded);
     },
-    [expandedFiles, fileDiffs, projectPath],
+    [expandedFiles, fileDiffs, repositoryPath],
   );
 
   const getStatusIcon = (fileStatus: string) => {
@@ -129,7 +135,7 @@ export function TaskDiffPanel({ task, projectPath }: TaskDiffPanelProps) {
       </div>
 
       {/* File list */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         {isLoading && files.length === 0 ? (
           <div className="p-4 text-center text-muted-foreground">
             Loading changes...

@@ -22,17 +22,17 @@ import {
   useClaudeSettings,
   useIsStreaming,
   useStreamingContent,
-  useConversationByTaskId,
+  useConversationByBranchId,
 } from "@/lib/claude-store";
-import { useTasksStore } from "@/lib/tasks-store";
-import type { Task } from "@/lib/github-types";
+import { useBranchesStore } from "@/lib/branches-store";
+import type { TrackedBranch } from "@/lib/github-types";
 
-interface TaskChatProps {
-  task: Task;
+interface BranchChatProps {
+  branch: TrackedBranch;
   cwd: string;
 }
 
-export function TaskChat({ task, cwd }: TaskChatProps) {
+export function BranchChat({ branch, cwd }: BranchChatProps) {
   const [inputValue, setInputValue] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,14 +41,14 @@ export function TaskChat({ task, cwd }: TaskChatProps) {
   const conversationIdRef = useRef<string | null>(null);
   const accumulatedTextRef = useRef<string>("");
 
-  const conversation = useConversationByTaskId(task.id);
+  const conversation = useConversationByBranchId(branch.id);
   const settings = useClaudeSettings();
   const isStreaming = useIsStreaming();
   const streamingContent = useStreamingContent();
-  const linkConversation = useTasksStore((state) => state.linkConversation);
+  const linkConversation = useBranchesStore((state) => state.linkConversation);
 
   const {
-    createConversationForTask,
+    createConversationForBranch,
     clearConversation,
     addMessage,
     updateLastAssistantMessage,
@@ -80,11 +80,11 @@ export function TaskChat({ task, cwd }: TaskChatProps) {
 
     setError(null);
 
-    // Create a conversation if none exists for this task
+    // Create a conversation if none exists for this branch
     let conversationId = conversation?.id;
     if (!conversationId) {
-      conversationId = createConversationForTask(task.id, cwd);
-      linkConversation(task.id, conversationId);
+      conversationId = createConversationForBranch(branch.id, cwd);
+      linkConversation(branch.id, conversationId);
     }
 
     // Store conversation ID for message handlers
@@ -114,10 +114,10 @@ export function TaskChat({ task, cwd }: TaskChatProps) {
     inputValue,
     isStreaming,
     conversation?.id,
-    task.id,
+    branch.id,
     cwd,
     settings.systemPrompt,
-    createConversationForTask,
+    createConversationForBranch,
     linkConversation,
     addMessage,
     setStreaming,
@@ -251,13 +251,13 @@ export function TaskChat({ task, cwd }: TaskChatProps) {
       </div>
 
       {/* Messages */}
-      <ScrollArea ref={scrollAreaRef} className="flex-1">
+      <ScrollArea ref={scrollAreaRef} className="flex-1 min-h-0">
         {displayMessages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-8 text-muted-foreground">
             <h3 className="text-base font-medium mb-2">Start working</h3>
             <p className="text-sm max-w-md">
-              Chat with Claude about this task. Claude has access to the files
-              in your project directory.
+              Chat with Claude about this branch. Claude has access to the files
+              in your repository directory.
             </p>
           </div>
         ) : (

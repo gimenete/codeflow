@@ -56,17 +56,17 @@ import type {
 } from "@/lib/github-types";
 import { useLocalRepositories, useAddRepositoryDialog } from "@/lib/git";
 import { isElectron } from "@/lib/platform";
-import { useProjects } from "@/lib/projects-store";
+import { useRepositories } from "@/lib/repositories-store";
 import {
   useSavedQueryGroups,
   useSavedQueriesStore,
 } from "@/lib/saved-queries-store";
 import { useSearchResults } from "@/lib/queries";
 import { AddAccountDialog } from "@/components/add-account-dialog";
-import { AddRepositoryDialog } from "@/components/add-repository-dialog";
+import { AddRepositoryDialog as AddLegacyRepositoryDialog } from "@/components/add-repository-dialog";
 import { AddGroupDialog } from "@/components/add-group-dialog";
-import { CreateProjectDialog } from "@/components/projects/create-project-dialog";
-import { ProjectCard } from "@/components/projects/project-card";
+import { AddRepositoryDialog } from "@/components/repositories/add-repository-dialog";
+import { RepositoryCard } from "@/components/repositories/repository-card";
 import { SavedQueryListItem } from "@/components/saved-query-list-item";
 import {
   SearchResultItem,
@@ -83,13 +83,13 @@ export const Route = createFileRoute("/")({
 function HomePage() {
   const { addAccount } = Route.useSearch();
   const { accounts } = useAccounts();
-  const { repositories } = useLocalRepositories();
-  const projects = useProjects();
+  const { repositories: legacyRepositories } = useLocalRepositories();
+  const repositories = useRepositories();
   const { isOpen: isAddAccountOpen, setOpen: setAddAccountOpen } =
     useAddAccountDialog(addAccount);
   const { isOpen: isAddRepoOpen, setOpen: setAddRepoOpen } =
     useAddRepositoryDialog();
-  const [isCreateProjectOpen, setCreateProjectOpen] = useState(false);
+  const [isAddRepositoryOpen, setAddRepositoryOpen] = useState(false);
 
   return (
     <div className="h-full overflow-auto">
@@ -103,33 +103,33 @@ function HomePage() {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold flex items-center gap-2">
                 <FolderKanban className="h-5 w-5" />
-                Projects
+                Repositories
               </h2>
-              <Button size="sm" onClick={() => setCreateProjectOpen(true)}>
+              <Button size="sm" onClick={() => setAddRepositoryOpen(true)}>
                 <Plus className="h-4 w-4 mr-1" />
-                New Project
+                Add Repository
               </Button>
             </div>
 
-            {projects.length === 0 ? (
+            {repositories.length === 0 ? (
               <Card>
                 <CardContent className="py-8 text-center text-muted-foreground">
-                  No projects yet.
+                  No repositories yet.
                   <br />
-                  Click "New Project" to create your first project.
+                  Click "Add Repository" to add your first repository.
                 </CardContent>
               </Card>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {projects.map((project) => (
-                  <ProjectCard key={project.id} project={project} />
+                {repositories.map((repository) => (
+                  <RepositoryCard key={repository.id} repository={repository} />
                 ))}
               </div>
             )}
           </section>
         )}
 
-        {isElectron() && repositories.length > 0 && (
+        {isElectron() && legacyRepositories.length > 0 && (
           <section className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold flex items-center gap-2">
@@ -143,7 +143,7 @@ function HomePage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {repositories.map((repo) => (
+              {legacyRepositories.map((repo) => (
                 <Link
                   key={repo.id}
                   to="/git/$repo"
@@ -199,11 +199,11 @@ function HomePage() {
         />
         {isElectron() && (
           <>
-            <CreateProjectDialog
-              open={isCreateProjectOpen}
-              onOpenChange={setCreateProjectOpen}
-            />
             <AddRepositoryDialog
+              open={isAddRepositoryOpen}
+              onOpenChange={setAddRepositoryOpen}
+            />
+            <AddLegacyRepositoryDialog
               open={isAddRepoOpen}
               onOpenChange={setAddRepoOpen}
             />

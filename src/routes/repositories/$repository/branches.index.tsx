@@ -15,28 +15,31 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useProjectsStore } from "@/lib/projects-store";
-import { useTasksByProjectId, useTasksStore } from "@/lib/tasks-store";
+import { useRepositoriesStore } from "@/lib/repositories-store";
+import {
+  useBranchesByRepositoryId,
+  useBranchesStore,
+} from "@/lib/branches-store";
 import { RelativeTime } from "@/components/relative-time";
-import { CreateTaskDialog } from "@/components/projects/create-task-dialog";
+import { TrackBranchDialog } from "@/components/repositories/track-branch-dialog";
 
-export const Route = createFileRoute("/projects/$project/tasks/")({
-  component: TasksListPage,
+export const Route = createFileRoute("/repositories/$repository/branches/")({
+  component: BranchesListPage,
 });
 
-function TasksListPage() {
-  const { project: projectSlug } = Route.useParams();
-  const project = useProjectsStore((state) =>
-    state.getProjectBySlug(projectSlug),
+function BranchesListPage() {
+  const { repository: repositorySlug } = Route.useParams();
+  const repository = useRepositoriesStore((state) =>
+    state.getRepositoryBySlug(repositorySlug),
   );
-  const tasks = useTasksByProjectId(project?.id ?? "");
-  const deleteTask = useTasksStore((state) => state.deleteTask);
-  const [createTaskOpen, setCreateTaskOpen] = useState(false);
+  const branches = useBranchesByRepositoryId(repository?.id ?? "");
+  const deleteBranch = useBranchesStore((state) => state.deleteBranch);
+  const [trackBranchOpen, setTrackBranchOpen] = useState(false);
 
-  if (!project) {
+  if (!repository) {
     return (
       <div className="p-6 text-center text-muted-foreground">
-        Project not found
+        Repository not found
       </div>
     );
   }
@@ -46,38 +49,38 @@ function TasksListPage() {
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Tasks</h1>
+            <h1 className="text-2xl font-bold">Tracked Branches</h1>
             <p className="text-muted-foreground">
               Manage your work branches and Claude conversations
             </p>
           </div>
-          <Button onClick={() => setCreateTaskOpen(true)}>
+          <Button onClick={() => setTrackBranchOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            New Task
+            Track Branch
           </Button>
         </div>
 
-        {tasks.length === 0 ? (
+        {branches.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <GitBranch className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-              <h3 className="text-lg font-medium mb-2">No tasks yet</h3>
+              <h3 className="text-lg font-medium mb-2">No branches tracked</h3>
               <p className="text-muted-foreground mb-4">
-                Create a task to start working on a feature or fix
+                Track a branch to start working on a feature or fix with Claude
               </p>
-              <Button onClick={() => setCreateTaskOpen(true)}>
+              <Button onClick={() => setTrackBranchOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
-                Create your first task
+                Track your first branch
               </Button>
             </CardContent>
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {tasks.map((task) => (
+            {branches.map((branch) => (
               <Link
-                key={task.id}
-                to="/projects/$project/tasks/$task"
-                params={{ project: projectSlug, task: task.id }}
+                key={branch.id}
+                to="/repositories/$repository/branches/$branch"
+                params={{ repository: repositorySlug, branch: branch.id }}
                 className="block"
               >
                 <Card className="hover:bg-accent/50 transition-colors cursor-pointer relative group h-full">
@@ -86,7 +89,7 @@ function TasksListPage() {
                       <div className="flex items-center gap-2 min-w-0 flex-1">
                         <GitBranch className="h-4 w-4 shrink-0 text-muted-foreground" />
                         <CardTitle className="text-base truncate">
-                          {task.branch}
+                          {branch.branch}
                         </CardTitle>
                       </div>
                       <DropdownMenu>
@@ -105,22 +108,22 @@ function TasksListPage() {
                             variant="destructive"
                             onClick={(e) => {
                               e.preventDefault();
-                              deleteTask(task.id);
+                              deleteBranch(branch.id);
                             }}
                           >
                             <Trash2 className="h-4 w-4" />
-                            Delete Task
+                            Untrack Branch
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
                     <CardDescription className="text-xs">
-                      Created <RelativeTime date={task.createdAt} />
+                      Tracked <RelativeTime date={branch.createdAt} />
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="text-sm text-muted-foreground">
-                      {task.conversationId
+                      {branch.conversationId
                         ? "Has conversation"
                         : "No conversation yet"}
                     </div>
@@ -131,11 +134,11 @@ function TasksListPage() {
           </div>
         )}
 
-        <CreateTaskDialog
-          projectId={project.id}
-          projectPath={project.path}
-          open={createTaskOpen}
-          onOpenChange={setCreateTaskOpen}
+        <TrackBranchDialog
+          repositoryId={repository.id}
+          repositoryPath={repository.path}
+          open={trackBranchOpen}
+          onOpenChange={setTrackBranchOpen}
         />
       </div>
     </div>

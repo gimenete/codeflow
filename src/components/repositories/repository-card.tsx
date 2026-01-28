@@ -14,34 +14,36 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { Project } from "@/lib/github-types";
-import { useProjectsStore } from "@/lib/projects-store";
-import { useTasksByProjectId } from "@/lib/tasks-store";
+import type { Repository } from "@/lib/github-types";
+import { useRepositoriesStore } from "@/lib/repositories-store";
+import { useBranchesByRepositoryId } from "@/lib/branches-store";
 
-interface ProjectCardProps {
-  project: Project;
+interface RepositoryCardProps {
+  repository: Repository;
 }
 
-export function ProjectCard({ project }: ProjectCardProps) {
-  const deleteProject = useProjectsStore((state) => state.deleteProject);
-  const tasks = useTasksByProjectId(project.id);
+export function RepositoryCard({ repository }: RepositoryCardProps) {
+  const deleteRepository = useRepositoriesStore(
+    (state) => state.deleteRepository,
+  );
+  const branches = useBranchesByRepositoryId(repository.id);
 
   const handleDelete = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    deleteProject(project.id);
+    deleteRepository(repository.id);
   };
 
   return (
     <Link
-      to="/projects/$project"
-      params={{ project: project.slug }}
+      to="/repositories/$repository"
+      params={{ repository: repository.slug }}
       className="block"
     >
       <Card className="hover:bg-accent/50 transition-colors cursor-pointer relative group">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">{project.name}</CardTitle>
+            <CardTitle className="text-lg">{repository.name}</CardTitle>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -56,26 +58,27 @@ export function ProjectCard({ project }: ProjectCardProps) {
               <DropdownMenuContent align="end">
                 <DropdownMenuItem variant="destructive" onClick={handleDelete}>
                   <Trash2 className="h-4 w-4" />
-                  Delete Project
+                  Remove Repository
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
           <CardDescription className="text-xs truncate">
-            {project.path}
+            {repository.path}
           </CardDescription>
         </CardHeader>
         <CardContent className="pb-4">
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            {project.githubOwner && project.githubRepo && (
+            {repository.githubOwner && repository.githubRepo && (
               <span>
-                {project.githubOwner}/{project.githubRepo}
+                {repository.githubOwner}/{repository.githubRepo}
               </span>
             )}
-            {tasks.length > 0 && (
+            {branches.length > 0 && (
               <span className="flex items-center gap-1">
                 <GitBranch className="h-3.5 w-3.5" />
-                {tasks.length} task{tasks.length !== 1 ? "s" : ""}
+                {branches.length} tracked branch
+                {branches.length !== 1 ? "es" : ""}
               </span>
             )}
           </div>

@@ -23,7 +23,6 @@ import {
 import { isElectron, isTauri } from "@/lib/platform";
 import { cn } from "@/lib/utils";
 import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/router-devtools";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useHotkeys } from "react-hotkeys-hook";
 
@@ -153,7 +152,7 @@ function RootLayoutContent() {
         className={cn(
           "border-b bg-background sticky top-0 z-50 transition-transform duration-300",
           isNavbarHidden && "-translate-y-full",
-          isElectron() && "app-region-drag",
+          isElectron() && "pl-4 app-region-drag",
         )}
       >
         <div
@@ -210,7 +209,7 @@ function RootLayoutContent() {
         <Outlet />
       </Scrollable.Layout>
 
-      {import.meta.env.DEV && <TanStackRouterDevtools />}
+      {/* {import.meta.env.DEV && <TanStackRouterDevtools />} */}
     </div>
   );
 }

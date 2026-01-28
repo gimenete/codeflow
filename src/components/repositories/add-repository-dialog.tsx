@@ -21,18 +21,18 @@ import {
 } from "@/components/ui/select";
 import { openFolderPicker, parseRemoteUrl } from "@/lib/git";
 import { isElectron } from "@/lib/platform";
-import { useProjectsStore } from "@/lib/projects-store";
+import { useRepositoriesStore } from "@/lib/repositories-store";
 import { useAccounts } from "@/lib/auth";
 
-interface CreateProjectDialogProps {
+interface AddRepositoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function CreateProjectDialog({
+export function AddRepositoryDialog({
   open,
   onOpenChange,
-}: CreateProjectDialogProps) {
+}: AddRepositoryDialogProps) {
   const [path, setPath] = useState("");
   const [name, setName] = useState("");
   const [githubAccountId, setGithubAccountId] = useState<string | null>(null);
@@ -45,7 +45,7 @@ export function CreateProjectDialog({
   const [isDetecting, setIsDetecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const addProject = useProjectsStore((state) => state.addProject);
+  const addRepository = useRepositoriesStore((state) => state.addRepository);
   const { accounts } = useAccounts();
   const navigate = useNavigate();
 
@@ -101,14 +101,14 @@ export function CreateProjectDialog({
     }
 
     if (!name.trim()) {
-      setError("Please enter a project name");
+      setError("Please enter a repository name");
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const project = addProject({
+      const repository = addRepository({
         name: name.trim(),
         path: path.trim(),
         githubAccountId,
@@ -123,11 +123,11 @@ export function CreateProjectDialog({
       onOpenChange(false);
 
       void navigate({
-        to: "/projects/$project",
-        params: { project: project.slug },
+        to: "/repositories/$repository",
+        params: { repository: repository.slug },
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create project");
+      setError(err instanceof Error ? err.message : "Failed to add repository");
     } finally {
       setIsLoading(false);
     }
@@ -152,9 +152,9 @@ export function CreateProjectDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create Project</DialogTitle>
+          <DialogTitle>Add Repository</DialogTitle>
           <DialogDescription>
-            Create a new project from a local git repository.
+            Add a local git repository to track branches and work with Claude.
           </DialogDescription>
         </DialogHeader>
 
@@ -187,12 +187,12 @@ export function CreateProjectDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="name">Project Name</Label>
+              <Label htmlFor="name">Repository Name</Label>
               <Input
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="My Project"
+                placeholder="My Repository"
               />
             </div>
 
@@ -237,7 +237,7 @@ export function CreateProjectDialog({
               disabled={!path.trim() || !name.trim() || isLoading}
             >
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create Project
+              Add Repository
             </Button>
           </DialogFooter>
         </form>

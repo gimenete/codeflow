@@ -21,35 +21,35 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBranches, createBranch } from "@/lib/git";
-import { useTasksStore, useTaskByBranch } from "@/lib/tasks-store";
+import { useBranchesStore, useBranchByName } from "@/lib/branches-store";
 
-interface CreateTaskDialogProps {
-  projectId: string;
-  projectPath: string;
+interface TrackBranchDialogProps {
+  repositoryId: string;
+  repositoryPath: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function CreateTaskDialog({
-  projectId,
-  projectPath,
+export function TrackBranchDialog({
+  repositoryId,
+  repositoryPath,
   open,
   onOpenChange,
-}: CreateTaskDialogProps) {
+}: TrackBranchDialogProps) {
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [selectedBranch, setSelectedBranch] = useState<string>("");
   const [newBranchName, setNewBranchName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { branches, currentBranch } = useBranches(projectPath);
-  const addTask = useTasksStore((state) => state.addTask);
+  const { branches, currentBranch } = useBranches(repositoryPath);
+  const addBranch = useBranchesStore((state) => state.addBranch);
   const navigate = useNavigate();
-  const { project: projectSlug } = useParams({ strict: false });
+  const { repository: repositorySlug } = useParams({ strict: false });
 
-  // Check if a task already exists for the selected branch
-  const existingTask = useTaskByBranch(
-    projectId,
+  // Check if a branch is already tracked
+  const existingTrackedBranch = useBranchByName(
+    repositoryId,
     mode === "existing" ? selectedBranch : newBranchName,
   );
 
@@ -68,15 +68,16 @@ export function CreateTaskDialog({
     e.preventDefault();
     setError(null);
 
-    const branch = mode === "existing" ? selectedBranch : newBranchName.trim();
+    const branchName =
+      mode === "existing" ? selectedBranch : newBranchName.trim();
 
-    if (!branch) {
+    if (!branchName) {
       setError("Please select or enter a branch name");
       return;
     }
 
-    if (existingTask) {
-      setError("A task already exists for this branch");
+    if (existingTrackedBranch) {
+      setError("This branch is already tracked");
       return;
     }
 
@@ -85,7 +86,7 @@ export function CreateTaskDialog({
     try {
       // Create new branch if needed
       if (mode === "new") {
-        const result = await createBranch(projectPath, branch, true);
+        const result = await createBranch(repositoryPath, branchName, true);
         if (!result.success) {
           setError(result.error ?? "Failed to create branch");
           setIsLoading(false);
@@ -93,10 +94,10 @@ export function CreateTaskDialog({
         }
       }
 
-      // Create the task
-      const task = addTask({
-        projectId,
-        branch,
+      // Track the branch
+      const trackedBranch = addBranch({
+        repositoryId,
+        branch: branchName,
         worktreePath: null,
         conversationId: null,
       });
@@ -107,13 +108,13 @@ export function CreateTaskDialog({
       setMode("existing");
       onOpenChange(false);
 
-      // Navigate to the new task
+      // Navigate to the new tracked branch
       void navigate({
-        to: "/projects/$project/tasks/$task",
-        params: { project: projectSlug!, task: task.id },
+        to: "/repositories/$repository/branches/$branch",
+        params: { repository: repositorySlug!, branch: trackedBranch.id },
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create task");
+      setError(err instanceof Error ? err.message : "Failed to track branch");
     } finally {
       setIsLoading(false);
     }
@@ -133,9 +134,9 @@ export function CreateTaskDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create Task</DialogTitle>
+          <DialogTitle>Track Branch</DialogTitle>
           <DialogDescription>
-            Create a new task from an existing branch or create a new branch.
+            Track an existing branch or create a new one to work with Claude.
           </DialogDescription>
         </DialogHeader>
 
@@ -194,9 +195,9 @@ export function CreateTaskDialog({
             </TabsContent>
           </Tabs>
 
-          {existingTask && (
+          {existingTrackedBranch && (
             <p className="text-sm text-amber-600">
-              A task already exists for this branch.
+              This branch is already tracked.
             </p>
           )}
           {error && <p className="text-sm text-destructive">{error}</p>}
@@ -215,11 +216,11 @@ export function CreateTaskDialog({
                 isLoading ||
                 (mode === "existing" && !selectedBranch) ||
                 (mode === "new" && !newBranchName.trim()) ||
-                !!existingTask
+                !!existingTrackedBranch
               }
             >
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create Task
+              Track Branch
             </Button>
           </DialogFooter>
         </form>
