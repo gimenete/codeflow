@@ -20,7 +20,7 @@ import {
   useIsLargeScreen,
   useNavigationHistory,
 } from "@/lib/hooks";
-import { isTauri } from "@/lib/platform";
+import { isElectron, isTauri } from "@/lib/platform";
 import { cn } from "@/lib/utils";
 import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/router-devtools";
@@ -153,20 +153,26 @@ function RootLayoutContent() {
         className={cn(
           "border-b bg-background sticky top-0 z-50 transition-transform duration-300",
           isNavbarHidden && "-translate-y-full",
+          isElectron() && "app-region-drag",
         )}
       >
-        <div className="flex h-12 items-center px-4 gap-2">
+        <div
+          className={cn(
+            "flex h-12 items-center px-4 gap-2",
+            isElectron() && "pl-[70px]", // Clear traffic light buttons
+          )}
+        >
           <Link
             to="/"
             search={{ addAccount: false }}
-            className="font-semibold text-lg mr-4"
+            className="font-semibold text-lg mr-4 app-region-no-drag"
           >
             Codeflow
           </Link>
 
           {/* Navigation buttons - Tauri only */}
           {isTauri() && (
-            <div className="flex items-center gap-1 mr-2">
+            <div className="flex items-center gap-1 mr-2 app-region-no-drag">
               <Button
                 variant="ghost"
                 size="icon"
@@ -190,7 +196,7 @@ function RootLayoutContent() {
             </div>
           )}
 
-          <nav className="flex items-center gap-1">
+          <nav className="flex items-center gap-1 app-region-no-drag">
             {breadcrumbs.length > 0 ? (
               <NavbarBreadcrumbs breadcrumbs={breadcrumbs} />
             ) : undefined}

@@ -40,7 +40,7 @@ export interface AgentMessage {
 export interface ClaudeChatAPI {
   sendMessage: (
     prompt: string,
-    options?: { systemPrompt?: string; allowedTools?: string[] },
+    options?: { systemPrompt?: string; allowedTools?: string[]; cwd?: string },
   ) => Promise<void>;
   interrupt: () => Promise<void>;
   onMessage: (callback: (message: AgentMessage) => void) => void;

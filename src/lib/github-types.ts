@@ -285,3 +285,26 @@ export interface SearchResultsPage {
   totalCount: number;
   hasNextPage: boolean;
 }
+
+// Projects feature types
+export interface Project {
+  id: string;
+  slug: string; // URL-friendly (e.g., "my-project")
+  name: string;
+  path: string; // Local git repo path
+  githubAccountId: string | null;
+  githubOwner: string | null;
+  githubRepo: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Task {
+  id: string;
+  projectId: string;
+  branch: string; // Git branch name
+  worktreePath: string | null; // Optional separate worktree path
+  conversationId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}

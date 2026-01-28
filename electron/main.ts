@@ -6,6 +6,7 @@ import fs from "fs";
 import os from "os";
 import { simpleGit, SimpleGit, StatusResult } from "simple-git";
 import keytar from "keytar";
+import chokidar from "chokidar";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,6 +19,9 @@ let currentAbortController: AbortController | null = null;
 let currentQuery: ReturnType<typeof query> | null = null;
 let chatAbortController: AbortController | null = null;
 let chatQuery: ReturnType<typeof query> | null = null;
+
+// File watchers map (watcherId -> watcher instance)
+const fileWatchers = new Map<string, chokidar.FSWatcher>();
 
 // Git types
 interface GitFileStatus {
@@ -439,6 +443,70 @@ ipcMain.handle(
   },
 );
 
+interface ParsedRemoteUrl {
+  owner: string | null;
+  repo: string | null;
+  host: string | null;
+}
+
+ipcMain.handle(
+  "git:parse-remote-url",
+  async (_event, repoPath: string, remoteName = "origin") => {
+    try {
+      const git = getGit(repoPath);
+      const remotes = await git.getRemotes(true);
+      const remote = remotes.find((r) => r.name === remoteName);
+      const url = remote?.refs.fetch || "";
+
+      if (!url) {
+        return { owner: null, repo: null, host: null } as ParsedRemoteUrl;
+      }
+
+      // Parse HTTPS URLs: https://github.com/owner/repo.git
+      const httpsMatch = url.match(
+        /https?:\/\/([^/]+)\/([^/]+)\/([^/]+?)(?:\.git)?$/,
+      );
+      if (httpsMatch) {
+        return {
+          host: httpsMatch[1],
+          owner: httpsMatch[2],
+          repo: httpsMatch[3].replace(/\.git$/, ""),
+        } as ParsedRemoteUrl;
+      }
+
+      // Parse SSH URLs: git@github.com:owner/repo.git
+      const sshMatch = url.match(/git@([^:]+):([^/]+)\/([^/]+?)(?:\.git)?$/);
+      if (sshMatch) {
+        return {
+          host: sshMatch[1],
+          owner: sshMatch[2],
+          repo: sshMatch[3].replace(/\.git$/, ""),
+        } as ParsedRemoteUrl;
+      }
+
+      return { owner: null, repo: null, host: null } as ParsedRemoteUrl;
+    } catch (error) {
+      console.error("git:parse-remote-url error:", error);
+      return { owner: null, repo: null, host: null } as ParsedRemoteUrl;
+    }
+  },
+);
+
+ipcMain.handle(
+  "git:diff-base",
+  async (_event, repoPath: string, baseBranch = "main") => {
+    try {
+      const git = getGit(repoPath);
+      // Get diff between current HEAD and the base branch
+      const diff = await git.diff([`${baseBranch}...HEAD`]);
+      return diff;
+    } catch (error) {
+      console.error("git:diff-base error:", error);
+      return "";
+    }
+  },
+);
+
 // ==================== Credential IPC Handlers ====================
 
 ipcMain.handle("credential:get", async (_event, key: string) => {
@@ -620,7 +688,7 @@ ipcMain.handle(
   async (
     _event,
     prompt: string,
-    options?: { systemPrompt?: string; allowedTools?: string[] },
+    options?: { systemPrompt?: string; allowedTools?: string[]; cwd?: string },
   ) => {
     if (!mainWindow) return;
 
@@ -639,6 +707,7 @@ ipcMain.handle(
             "Bash",
           ],
           permissionMode: "acceptEdits",
+          cwd: options?.cwd || undefined,
         },
       });
 
@@ -672,4 +741,86 @@ ipcMain.handle("claude:chat:interrupt", async () => {
   if (chatQuery) {
     await chatQuery.interrupt();
   }
+});
+
+// ==================== File Watcher IPC Handlers ====================
+
+ipcMain.handle(
+  "watcher:start",
+  async (_event, watcherId: string, watchPath: string) => {
+    try {
+      // Stop existing watcher with same ID if any
+      const existing = fileWatchers.get(watcherId);
+      if (existing) {
+        await existing.close();
+        fileWatchers.delete(watcherId);
+      }
+
+      const watcher = chokidar.watch(watchPath, {
+        ignored: [
+          /(^|[/\\])\../, // Ignore dotfiles
+          /node_modules/,
+          /\.git/,
+        ],
+        persistent: true,
+        ignoreInitial: true,
+        awaitWriteFinish: {
+          stabilityThreshold: 300,
+          pollInterval: 100,
+        },
+      });
+
+      watcher.on("all", (event, filePath) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("watcher:change", {
+            id: watcherId,
+            event,
+            path: filePath,
+          });
+        }
+      });
+
+      watcher.on("error", (error) => {
+        console.error(`Watcher ${watcherId} error:`, error);
+      });
+
+      fileWatchers.set(watcherId, watcher);
+      return { success: true };
+    } catch (error) {
+      console.error("watcher:start error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  },
+);
+
+ipcMain.handle("watcher:stop", async (_event, watcherId: string) => {
+  try {
+    const watcher = fileWatchers.get(watcherId);
+    if (watcher) {
+      await watcher.close();
+      fileWatchers.delete(watcherId);
+    }
+    return { success: true };
+  } catch (error) {
+    console.error("watcher:stop error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+});
+
+// Cleanup watchers on window close
+app.on("before-quit", async () => {
+  for (const [id, watcher] of fileWatchers) {
+    try {
+      await watcher.close();
+    } catch (error) {
+      console.error(`Error closing watcher ${id}:`, error);
+    }
+  }
+  fileWatchers.clear();
 });

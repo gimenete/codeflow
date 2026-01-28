@@ -126,6 +126,21 @@ const gitAPI = {
   ): Promise<OperationResult> => {
     return ipcRenderer.invoke("git:delete-branch", path, branch, force);
   },
+
+  parseRemoteUrl: (
+    path: string,
+    remoteName?: string,
+  ): Promise<{
+    owner: string | null;
+    repo: string | null;
+    host: string | null;
+  }> => {
+    return ipcRenderer.invoke("git:parse-remote-url", path, remoteName);
+  },
+
+  getDiffBase: (path: string, baseBranch?: string): Promise<string> => {
+    return ipcRenderer.invoke("git:diff-base", path, baseBranch);
+  },
 };
 
 // Credential API
@@ -195,11 +210,38 @@ const shellAPI = {
   },
 };
 
+// File Watcher API
+interface WatcherChangeEvent {
+  id: string;
+  event: string;
+  path: string;
+}
+
+type WatcherChangeCallback = (event: WatcherChangeEvent) => void;
+
+const watcherAPI = {
+  start: (watcherId: string, watchPath: string): Promise<OperationResult> => {
+    return ipcRenderer.invoke("watcher:start", watcherId, watchPath);
+  },
+
+  stop: (watcherId: string): Promise<OperationResult> => {
+    return ipcRenderer.invoke("watcher:stop", watcherId);
+  },
+
+  onChange: (callback: WatcherChangeCallback): void => {
+    ipcRenderer.on("watcher:change", (_event, data) => callback(data));
+  },
+
+  removeAllListeners: (): void => {
+    ipcRenderer.removeAllListeners("watcher:change");
+  },
+};
+
 // Claude Chat API (uses Agent SDK in main process)
 const claudeChatAPI = {
   sendMessage: (
     prompt: string,
-    options?: { systemPrompt?: string; allowedTools?: string[] },
+    options?: { systemPrompt?: string; allowedTools?: string[]; cwd?: string },
   ): Promise<void> => {
     return ipcRenderer.invoke("claude:chat", prompt, options);
   },
@@ -242,6 +284,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   claudeAgent: claudeAgentAPI,
   claudeChat: claudeChatAPI,
   shell: shellAPI,
+  watcher: watcherAPI,
   isElectron: true,
 });
 
@@ -252,3 +295,4 @@ contextBridge.exposeInMainWorld("dialogAPI", dialogAPI);
 contextBridge.exposeInMainWorld("claudeAgentAPI", claudeAgentAPI);
 contextBridge.exposeInMainWorld("claudeChatAPI", claudeChatAPI);
 contextBridge.exposeInMainWorld("shellAPI", shellAPI);
+contextBridge.exposeInMainWorld("watcherAPI", watcherAPI);

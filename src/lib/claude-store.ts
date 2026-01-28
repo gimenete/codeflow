@@ -8,6 +8,9 @@ export interface Conversation {
   messages: ChatMessage[];
   createdAt: string;
   updatedAt: string;
+  // Task-related fields
+  cwd?: string; // Working directory for Claude operations
+  taskId?: string; // Link to task if created from task view
 }
 
 export interface ClaudeSettings {
@@ -29,10 +32,12 @@ interface ClaudeState {
 
   // Actions - Conversations
   createConversation: () => string;
+  createConversationForTask: (taskId: string, cwd: string) => string;
   deleteConversation: (id: string) => void;
   clearConversation: (id: string) => void;
   setActiveConversation: (id: string | null) => void;
   getActiveConversation: () => Conversation | null;
+  getConversationByTaskId: (taskId: string) => Conversation | null;
 
   // Actions - Messages
   addMessage: (conversationId: string, message: ChatMessage) => void;
@@ -89,6 +94,25 @@ export const useClaudeStore = create<ClaudeState>()(
         return id;
       },
 
+      createConversationForTask: (taskId, cwd) => {
+        const id = generateId();
+        const now = new Date().toISOString();
+        const conversation: Conversation = {
+          id,
+          title: "New Conversation",
+          messages: [],
+          createdAt: now,
+          updatedAt: now,
+          taskId,
+          cwd,
+        };
+        set((state) => ({
+          conversations: [conversation, ...state.conversations],
+          activeConversationId: id,
+        }));
+        return id;
+      },
+
       deleteConversation: (id) => {
         set((state) => {
           const newConversations = state.conversations.filter(
@@ -130,6 +154,10 @@ export const useClaudeStore = create<ClaudeState>()(
             (c) => c.id === state.activeConversationId,
           ) ?? null
         );
+      },
+
+      getConversationByTaskId: (taskId) => {
+        return get().conversations.find((c) => c.taskId === taskId) ?? null;
       },
 
       addMessage: (conversationId, message) => {
@@ -189,7 +217,7 @@ export const useClaudeStore = create<ClaudeState>()(
     }),
     {
       name: "codeflow:claude-chat",
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         conversations: state.conversations,
@@ -213,6 +241,10 @@ export const useClaudeStore = create<ClaudeState>()(
           if (settings) {
             delete settings.apiKey;
           }
+        }
+        if (version < 4) {
+          // Migration from version 3: add cwd and taskId fields to conversations
+          // No changes needed - new fields are optional and will be undefined for existing conversations
         }
         return state as unknown as ClaudeState;
       },
@@ -243,4 +275,10 @@ export function useIsStreaming(): boolean {
 
 export function useStreamingContent(): string {
   return useClaudeStore((state) => state.streamingContent);
+}
+
+export function useConversationByTaskId(taskId: string): Conversation | null {
+  return useClaudeStore(
+    (state) => state.conversations.find((c) => c.taskId === taskId) ?? null,
+  );
 }

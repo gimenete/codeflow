@@ -1,39 +1,13 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { createFileRoute } from "@tanstack/react-router";
-import {
-  Plus,
-  Settings,
-  Trash2,
-  Download,
-  MoreHorizontal,
-  MessageSquare,
-} from "lucide-react";
+import { Settings, MoreHorizontal, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { ChatMessage } from "@/components/claude/chat-message";
 import { ChatInput } from "@/components/claude/chat-input";
 import { ChatSettingsDialog } from "@/components/claude/chat-settings-dialog";
@@ -45,38 +19,37 @@ import {
 } from "@/lib/claude";
 import {
   useClaudeStore,
-  useActiveConversation,
-  useConversations,
   useClaudeSettings,
   useIsStreaming,
   useStreamingContent,
+  useConversationByTaskId,
 } from "@/lib/claude-store";
+import { useTasksStore } from "@/lib/tasks-store";
+import type { Task } from "@/lib/github-types";
 
-export const Route = createFileRoute("/claude")({
-  component: ClaudePage,
-});
+interface TaskChatProps {
+  task: Task;
+  cwd: string;
+}
 
-function ClaudePage() {
+export function TaskChat({ task, cwd }: TaskChatProps) {
   const [inputValue, setInputValue] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const conversationIdRef = useRef<string | null>(null);
   const accumulatedTextRef = useRef<string>("");
 
-  const conversations = useConversations();
-  const activeConversation = useActiveConversation();
+  const conversation = useConversationByTaskId(task.id);
   const settings = useClaudeSettings();
   const isStreaming = useIsStreaming();
   const streamingContent = useStreamingContent();
+  const linkConversation = useTasksStore((state) => state.linkConversation);
 
   const {
-    createConversation,
-    deleteConversation,
+    createConversationForTask,
     clearConversation,
-    setActiveConversation,
     addMessage,
     updateLastAssistantMessage,
     setStreaming,
@@ -107,10 +80,11 @@ function ClaudePage() {
 
     setError(null);
 
-    // Create a conversation if none exists
-    let conversationId = activeConversation?.id;
+    // Create a conversation if none exists for this task
+    let conversationId = conversation?.id;
     if (!conversationId) {
-      conversationId = createConversation();
+      conversationId = createConversationForTask(task.id, cwd);
+      linkConversation(task.id, conversationId);
     }
 
     // Store conversation ID for message handlers
@@ -130,17 +104,21 @@ function ClaudePage() {
     setStreaming(true);
     setStreamingContent("");
 
-    // Send via IPC
+    // Send via IPC with cwd
     const chatAPI = getClaudeChatAPI();
     void chatAPI.sendMessage(userMessage, {
       systemPrompt: settings.systemPrompt || undefined,
+      cwd,
     });
   }, [
     inputValue,
     isStreaming,
-    activeConversation?.id,
+    conversation?.id,
+    task.id,
+    cwd,
     settings.systemPrompt,
-    createConversation,
+    createConversationForTask,
+    linkConversation,
     addMessage,
     setStreaming,
     setStreamingContent,
@@ -154,7 +132,6 @@ function ClaudePage() {
     const chatAPI = getClaudeChatAPI();
 
     const handleMessage = (message: AgentMessage) => {
-      console.log("message:", message);
       const conversationId = conversationIdRef.current;
       if (!conversationId) return;
 
@@ -235,37 +212,8 @@ function ClaudePage() {
     }
   }, []);
 
-  const handleNewChat = useCallback(() => {
-    createConversation();
-    setInputValue("");
-    setError(null);
-  }, [createConversation]);
-
-  const handleExport = useCallback(() => {
-    if (!activeConversation) return;
-
-    const content = activeConversation.messages
-      .map((m) => `## ${m.role === "user" ? "You" : "Claude"}\n\n${m.content}`)
-      .join("\n\n---\n\n");
-
-    const blob = new Blob([content], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${activeConversation.title.slice(0, 30).replace(/[^a-zA-Z0-9]/g, "-")}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [activeConversation]);
-
-  const handleDeleteConfirm = useCallback(() => {
-    if (activeConversation) {
-      deleteConversation(activeConversation.id);
-    }
-    setDeleteDialogOpen(false);
-  }, [activeConversation, deleteConversation]);
-
   // Get messages to display (including streaming content)
-  const displayMessages = activeConversation?.messages ?? [];
+  const displayMessages = conversation?.messages ?? [];
   const lastMessage = displayMessages[displayMessages.length - 1];
   const isLastMessageStreaming =
     isStreaming && lastMessage?.role === "assistant";
@@ -274,84 +222,42 @@ function ClaudePage() {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between gap-2 px-4 py-3 border-b">
-        <div className="flex items-center gap-2 min-w-0">
-          <MessageSquare className="h-5 w-5 shrink-0" />
-          <h1 className="font-semibold truncate">Claude Chat</h1>
+        <div className="min-w-0">
+          <h2 className="font-semibold truncate">Chat</h2>
+          <p className="text-xs text-muted-foreground truncate">{cwd}</p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {conversations.length > 0 && (
-            <Select
-              value={activeConversation?.id ?? ""}
-              onValueChange={setActiveConversation}
-            >
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Select conversation" />
-              </SelectTrigger>
-              <SelectContent>
-                {conversations.map((conv) => (
-                  <SelectItem key={conv.id} value={conv.id}>
-                    <span className="truncate">{conv.title}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-
-          <Button variant="outline" size="icon" onClick={handleNewChat}>
-            <Plus className="h-4 w-4" />
-          </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
-                <Settings className="h-4 w-4" />
-                Settings
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
+              <Settings className="h-4 w-4" />
+              Settings
+            </DropdownMenuItem>
+            {conversation && (
+              <DropdownMenuItem
+                onClick={() => clearConversation(conversation.id)}
+              >
+                <Trash2 className="h-4 w-4" />
+                Clear messages
               </DropdownMenuItem>
-              {activeConversation && (
-                <>
-                  <DropdownMenuItem onClick={handleExport}>
-                    <Download className="h-4 w-4" />
-                    Export
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() =>
-                      activeConversation &&
-                      clearConversation(activeConversation.id)
-                    }
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Clear messages
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onClick={() => setDeleteDialogOpen(true)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Delete conversation
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Messages */}
       <ScrollArea ref={scrollAreaRef} className="flex-1">
         {displayMessages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-8 text-muted-foreground">
-            <MessageSquare className="h-12 w-12 mb-4 opacity-50" />
-            <h2 className="text-lg font-medium mb-2">Start a conversation</h2>
+            <h3 className="text-base font-medium mb-2">Start working</h3>
             <p className="text-sm max-w-md">
-              Send a message to start chatting with Claude. Your conversations
-              are saved locally.
+              Chat with Claude about this task. Claude has access to the files
+              in your project directory.
             </p>
           </div>
         ) : (
@@ -396,28 +302,6 @@ function ClaudePage() {
 
       {/* Settings Dialog */}
       <ChatSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Conversation</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this conversation? This action
-              cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteConfirm}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

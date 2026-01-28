@@ -138,16 +138,42 @@ interface GitAPI {
     branch: string,
     force: boolean,
   ): Promise<{ success: boolean; error?: string }>;
+  parseRemoteUrl(
+    path: string,
+    remoteName?: string,
+  ): Promise<{
+    owner: string | null;
+    repo: string | null;
+    host: string | null;
+  }>;
+  getDiffBase(path: string, baseBranch?: string): Promise<string>;
 }
 
 interface DialogAPI {
   openFolder(): Promise<string | null>;
 }
 
+interface WatcherChangeEvent {
+  id: string;
+  event: string;
+  path: string;
+}
+
+interface WatcherAPI {
+  start(
+    watcherId: string,
+    watchPath: string,
+  ): Promise<{ success: boolean; error?: string }>;
+  stop(watcherId: string): Promise<{ success: boolean; error?: string }>;
+  onChange(callback: (event: WatcherChangeEvent) => void): void;
+  removeAllListeners(): void;
+}
+
 declare global {
   interface Window {
     gitAPI?: GitAPI;
     dialogAPI?: DialogAPI;
+    watcherAPI?: WatcherAPI;
   }
 }
 
@@ -480,4 +506,80 @@ export async function deleteBranch(
       error: error instanceof Error ? error.message : String(error),
     };
   }
+}
+
+export async function parseRemoteUrl(
+  path: string,
+  remoteName: string = "origin",
+): Promise<{ owner: string | null; repo: string | null; host: string | null }> {
+  if (!isElectron() || !window.gitAPI) {
+    return { owner: null, repo: null, host: null };
+  }
+
+  try {
+    return await window.gitAPI.parseRemoteUrl(path, remoteName);
+  } catch {
+    return { owner: null, repo: null, host: null };
+  }
+}
+
+export async function getDiffBase(
+  path: string,
+  baseBranch: string = "main",
+): Promise<string> {
+  if (!isElectron() || !window.gitAPI) {
+    return "";
+  }
+
+  try {
+    return await window.gitAPI.getDiffBase(path, baseBranch);
+  } catch {
+    return "";
+  }
+}
+
+// File watcher utilities
+export function startWatcher(
+  watcherId: string,
+  watchPath: string,
+): Promise<{ success: boolean; error?: string }> {
+  if (!isElectron() || !window.watcherAPI) {
+    return Promise.resolve({
+      success: false,
+      error: "Not available in web mode",
+    });
+  }
+
+  return window.watcherAPI.start(watcherId, watchPath);
+}
+
+export function stopWatcher(
+  watcherId: string,
+): Promise<{ success: boolean; error?: string }> {
+  if (!isElectron() || !window.watcherAPI) {
+    return Promise.resolve({
+      success: false,
+      error: "Not available in web mode",
+    });
+  }
+
+  return window.watcherAPI.stop(watcherId);
+}
+
+export function onWatcherChange(
+  callback: (event: WatcherChangeEvent) => void,
+): void {
+  if (!isElectron() || !window.watcherAPI) {
+    return;
+  }
+
+  window.watcherAPI.onChange(callback);
+}
+
+export function removeWatcherListeners(): void {
+  if (!isElectron() || !window.watcherAPI) {
+    return;
+  }
+
+  window.watcherAPI.removeAllListeners();
 }

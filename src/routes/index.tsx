@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { MoreHorizontal, Pencil, Plus, Trash2, User } from "lucide-react";
+import {
+  FolderKanban,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+  User,
+} from "lucide-react";
 import { RepoIcon } from "@primer/octicons-react";
 import {
   DndContext,
@@ -48,7 +55,8 @@ import type {
   SavedQueryGroup,
 } from "@/lib/github-types";
 import { useLocalRepositories, useAddRepositoryDialog } from "@/lib/git";
-import { isTauri } from "@/lib/platform";
+import { isElectron } from "@/lib/platform";
+import { useProjects } from "@/lib/projects-store";
 import {
   useSavedQueryGroups,
   useSavedQueriesStore,
@@ -57,6 +65,8 @@ import { useSearchResults } from "@/lib/queries";
 import { AddAccountDialog } from "@/components/add-account-dialog";
 import { AddRepositoryDialog } from "@/components/add-repository-dialog";
 import { AddGroupDialog } from "@/components/add-group-dialog";
+import { CreateProjectDialog } from "@/components/projects/create-project-dialog";
+import { ProjectCard } from "@/components/projects/project-card";
 import { SavedQueryListItem } from "@/components/saved-query-list-item";
 import {
   SearchResultItem,
@@ -74,10 +84,12 @@ function HomePage() {
   const { addAccount } = Route.useSearch();
   const { accounts } = useAccounts();
   const { repositories } = useLocalRepositories();
+  const projects = useProjects();
   const { isOpen: isAddAccountOpen, setOpen: setAddAccountOpen } =
     useAddAccountDialog(addAccount);
   const { isOpen: isAddRepoOpen, setOpen: setAddRepoOpen } =
     useAddRepositoryDialog();
+  const [isCreateProjectOpen, setCreateProjectOpen] = useState(false);
 
   return (
     <div className="h-full overflow-auto">
@@ -86,12 +98,43 @@ function HomePage() {
           <h1 className="text-3xl font-bold">Welcome to Codeflow</h1>
         </div>
 
-        {isTauri() && (
+        {isElectron() && (
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <FolderKanban className="h-5 w-5" />
+                Projects
+              </h2>
+              <Button size="sm" onClick={() => setCreateProjectOpen(true)}>
+                <Plus className="h-4 w-4 mr-1" />
+                New Project
+              </Button>
+            </div>
+
+            {projects.length === 0 ? (
+              <Card>
+                <CardContent className="py-8 text-center text-muted-foreground">
+                  No projects yet.
+                  <br />
+                  Click "New Project" to create your first project.
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {projects.map((project) => (
+                  <ProjectCard key={project.id} project={project} />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {isElectron() && repositories.length > 0 && (
           <section className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold flex items-center gap-2">
                 <RepoIcon size={20} />
-                Local Repositories
+                Local Repositories (Legacy)
               </h2>
               <Button size="sm" onClick={() => setAddRepoOpen(true)}>
                 <Plus className="h-4 w-4 mr-1" />
@@ -99,35 +142,25 @@ function HomePage() {
               </Button>
             </div>
 
-            {repositories.length === 0 ? (
-              <Card>
-                <CardContent className="py-8 text-center text-muted-foreground">
-                  No local repositories configured.
-                  <br />
-                  Click "Add Repository" to get started.
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {repositories.map((repo) => (
-                  <Link
-                    key={repo.id}
-                    to="/git/$repo"
-                    params={{ repo: repo.id }}
-                    className="block"
-                  >
-                    <Card className="hover:bg-accent/50 transition-colors cursor-pointer">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-lg">{repo.name}</CardTitle>
-                        <CardDescription className="text-xs truncate">
-                          {repo.path}
-                        </CardDescription>
-                      </CardHeader>
-                    </Card>
-                  </Link>
-                ))}
-              </div>
-            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {repositories.map((repo) => (
+                <Link
+                  key={repo.id}
+                  to="/git/$repo"
+                  params={{ repo: repo.id }}
+                  className="block"
+                >
+                  <Card className="hover:bg-accent/50 transition-colors cursor-pointer">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg">{repo.name}</CardTitle>
+                      <CardDescription className="text-xs truncate">
+                        {repo.path}
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
+                </Link>
+              ))}
+            </div>
           </section>
         )}
 
@@ -164,11 +197,17 @@ function HomePage() {
           open={isAddAccountOpen}
           onOpenChange={setAddAccountOpen}
         />
-        {isTauri() && (
-          <AddRepositoryDialog
-            open={isAddRepoOpen}
-            onOpenChange={setAddRepoOpen}
-          />
+        {isElectron() && (
+          <>
+            <CreateProjectDialog
+              open={isCreateProjectOpen}
+              onOpenChange={setCreateProjectOpen}
+            />
+            <AddRepositoryDialog
+              open={isAddRepoOpen}
+              onOpenChange={setAddRepoOpen}
+            />
+          </>
         )}
       </div>
     </div>
