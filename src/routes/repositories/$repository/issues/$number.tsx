@@ -1,6 +1,5 @@
 import { DetailSkeleton } from "@/components/detail-components";
 import { IssueStateIcon } from "@/components/issue-state-icon";
-import { SearchNavigation } from "@/components/search-navigation";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,78 +9,54 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { copyToClipboard, openInBrowser } from "@/lib/actions";
 import { getAccount } from "@/lib/auth";
-import {
-  useBreadcrumbs,
-  useAccountBreadcrumbDropdown,
-  useSavedSearchBreadcrumbDropdown,
-} from "@/lib/breadcrumbs";
 import { useIssueMetadata } from "@/lib/github";
-import { getQueryById } from "@/lib/queries";
-import {
-  detailSearchSchema,
-  type DetailSearchParams,
-} from "@/lib/search-params";
+import { useRepositoriesStore } from "@/lib/repositories-store";
 import { RepoIcon } from "@primer/octicons-react";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { Copy, ExternalLink, MoreHorizontal } from "lucide-react";
-import { useMemo } from "react";
 
 export const Route = createFileRoute(
-  "/$account/$search/$owner/$repo/issues/$number",
+  "/repositories/$repository/issues/$number",
 )({
-  validateSearch: (search: Record<string, unknown>): DetailSearchParams => {
-    const result = detailSearchSchema.safeParse(search);
-    return result.success ? result.data : {};
-  },
   beforeLoad: ({ params }) => {
-    const account = getAccount(params.account);
+    const repository = useRepositoriesStore
+      .getState()
+      .getRepositoryBySlug(params.repository);
+    if (!repository) {
+      throw redirect({ to: "/", search: { addAccount: false } });
+    }
+    if (
+      !repository.githubAccountId ||
+      !repository.githubOwner ||
+      !repository.githubRepo
+    ) {
+      throw redirect({
+        to: "/repositories/$repository/branches",
+        params: { repository: params.repository },
+      });
+    }
+    const account = getAccount(repository.githubAccountId);
     if (!account) {
       throw redirect({ to: "/", search: { addAccount: false } });
     }
-    return { account };
+    return { repository, account };
   },
   component: IssueDetail,
 });
 
 function IssueDetail() {
-  const { account, search, owner, repo, number } = Route.useParams();
-  const searchParams = Route.useSearch();
-  const { account: accountData } = Route.useRouteContext();
-  const query = getQueryById(account, search);
-  const accountDropdownItems = useAccountBreadcrumbDropdown();
-  const savedSearchDropdownItems = useSavedSearchBreadcrumbDropdown(account);
+  const { number } = Route.useParams();
+  const { repository, account } = Route.useRouteContext();
+
+  const owner = repository.githubOwner!;
+  const repo = repository.githubRepo!;
 
   const { data, isLoading, error } = useIssueMetadata(
-    account,
+    account.id,
     owner,
     repo,
     parseInt(number),
   );
-
-  const breadcrumbs = useMemo(
-    () => [
-      {
-        label: `@${accountData.login}`,
-        href: `/${account}`,
-        dropdown: { items: accountDropdownItems },
-      },
-      {
-        label: query?.name ?? search,
-        href: `/${account}/${search}`,
-        dropdown: { items: savedSearchDropdownItems },
-      },
-    ],
-    [
-      accountData.login,
-      account,
-      accountDropdownItems,
-      query?.name,
-      search,
-      savedSearchDropdownItems,
-    ],
-  );
-
-  useBreadcrumbs(breadcrumbs);
 
   return (
     <>
@@ -115,12 +90,6 @@ function IssueDetail() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 self-start ml-auto">
-                  <SearchNavigation
-                    accountId={account}
-                    searchId={search}
-                    isPR={false}
-                    searchParams={searchParams}
-                  />
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon-sm">
@@ -131,7 +100,7 @@ function IssueDetail() {
                       <DropdownMenuItem
                         onClick={() =>
                           copyToClipboard(
-                            `https://${accountData.host}/${owner}/${repo}/issues/${number}`,
+                            `https://${account.host}/${owner}/${repo}/issues/${number}`,
                           )
                         }
                       >
@@ -141,7 +110,7 @@ function IssueDetail() {
                       <DropdownMenuItem
                         onClick={() =>
                           openInBrowser(
-                            `https://${accountData.host}/${owner}/${repo}/issues/${number}`,
+                            `https://${account.host}/${owner}/${repo}/issues/${number}`,
                           )
                         }
                       >

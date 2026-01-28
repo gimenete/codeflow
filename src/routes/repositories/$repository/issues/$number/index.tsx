@@ -17,15 +17,19 @@ import { Scrollable } from "@/components/flex-layout";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const Route = createFileRoute(
-  "/$account/$search/$owner/$repo/issues/$number/",
+  "/repositories/$repository/issues/$number/",
 )({
   component: IssueConversationTab,
 });
 
 function IssueConversationTab() {
-  const { account, owner, repo, number } = Route.useParams();
+  const { number } = Route.useParams();
+  const { repository, account } = Route.useRouteContext();
+  const owner = repository.githubOwner!;
+  const repo = repository.githubRepo!;
+
   const { data, isLoading: isMetadataLoading } = useIssueMetadata(
-    account,
+    account.id,
     owner,
     repo,
     parseInt(number),
@@ -39,7 +43,7 @@ function IssueConversationTab() {
     hasNextPage,
     isFetchingNextPage,
     isLoading: isTimelineLoading,
-  } = useIssueTimeline(account, owner, repo, parseInt(number));
+  } = useIssueTimeline(account.id, owner, repo, parseInt(number));
 
   const timelineItems = useMemo(() => {
     if (!timelineData?.pages) return [];

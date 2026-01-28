@@ -1,7 +1,6 @@
 import { Branch } from "@/components/branch";
 import { DetailSkeleton } from "@/components/detail-components";
 import { PullStateIcon } from "@/components/pull-state-icon";
-import { SearchNavigation } from "@/components/search-navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,17 +12,8 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { copyToClipboard, openInBrowser } from "@/lib/actions";
 import { getAccount } from "@/lib/auth";
-import {
-  useBreadcrumbs,
-  useAccountBreadcrumbDropdown,
-  useSavedSearchBreadcrumbDropdown,
-} from "@/lib/breadcrumbs";
 import { usePullMetadata } from "@/lib/github";
-import { getQueryById } from "@/lib/queries";
-import {
-  detailSearchSchema,
-  type DetailSearchParams,
-} from "@/lib/search-params";
+import { useRepositoriesStore } from "@/lib/repositories-store";
 import { GitCommitIcon, RepoIcon } from "@primer/octicons-react";
 import {
   createFileRoute,
@@ -39,36 +29,46 @@ import {
   MessageSquare,
   MoreHorizontal,
 } from "lucide-react";
-import { useMemo } from "react";
 
-export const Route = createFileRoute(
-  "/$account/$search/$owner/$repo/pull/$number",
-)({
-  validateSearch: (search: Record<string, unknown>): DetailSearchParams => {
-    const result = detailSearchSchema.safeParse(search);
-    return result.success ? result.data : {};
+export const Route = createFileRoute("/repositories/$repository/pulls/$number")(
+  {
+    beforeLoad: ({ params }) => {
+      const repository = useRepositoriesStore
+        .getState()
+        .getRepositoryBySlug(params.repository);
+      if (!repository) {
+        throw redirect({ to: "/", search: { addAccount: false } });
+      }
+      if (
+        !repository.githubAccountId ||
+        !repository.githubOwner ||
+        !repository.githubRepo
+      ) {
+        throw redirect({
+          to: "/repositories/$repository/branches",
+          params: { repository: params.repository },
+        });
+      }
+      const account = getAccount(repository.githubAccountId);
+      if (!account) {
+        throw redirect({ to: "/", search: { addAccount: false } });
+      }
+      return { repository, account };
+    },
+    component: PullRequestDetail,
   },
-  beforeLoad: ({ params }) => {
-    const account = getAccount(params.account);
-    if (!account) {
-      throw redirect({ to: "/", search: { addAccount: false } });
-    }
-    return { account };
-  },
-  component: PullRequestDetail,
-});
+);
 
 function PullRequestDetail() {
-  const { account, search, owner, repo, number } = Route.useParams();
-  const searchParams = Route.useSearch();
-  const { account: accountData } = Route.useRouteContext();
+  const { repository: repositorySlug, number } = Route.useParams();
+  const { repository, account } = Route.useRouteContext();
   const location = useLocation();
-  const query = getQueryById(account, search);
-  const accountDropdownItems = useAccountBreadcrumbDropdown();
-  const savedSearchDropdownItems = useSavedSearchBreadcrumbDropdown(account);
+
+  const owner = repository.githubOwner!;
+  const repo = repository.githubRepo!;
 
   const { data, isLoading, error } = usePullMetadata(
-    account,
+    account.id,
     owner,
     repo,
     parseInt(number),
@@ -79,31 +79,6 @@ function PullRequestDetail() {
     : location.pathname.endsWith("/files")
       ? "files"
       : "conversation";
-
-  const breadcrumbs = useMemo(
-    () => [
-      {
-        label: `@${accountData.login}`,
-        href: `/${account}`,
-        dropdown: { items: accountDropdownItems },
-      },
-      {
-        label: query?.name ?? search,
-        href: `/${account}/${search}`,
-        dropdown: { items: savedSearchDropdownItems },
-      },
-    ],
-    [
-      accountData.login,
-      account,
-      accountDropdownItems,
-      query?.name,
-      search,
-      savedSearchDropdownItems,
-    ],
-  );
-
-  useBreadcrumbs(breadcrumbs);
 
   return (
     <>
@@ -155,12 +130,6 @@ function PullRequestDetail() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 self-start ml-auto">
-                  <SearchNavigation
-                    accountId={account}
-                    searchId={search}
-                    isPR={true}
-                    searchParams={searchParams}
-                  />
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon-sm">
@@ -171,7 +140,7 @@ function PullRequestDetail() {
                       <DropdownMenuItem
                         onClick={() =>
                           copyToClipboard(
-                            `https://${accountData.host}/${owner}/${repo}/pull/${number}`,
+                            `https://${account.host}/${owner}/${repo}/pull/${number}`,
                           )
                         }
                       >
@@ -181,7 +150,7 @@ function PullRequestDetail() {
                       <DropdownMenuItem
                         onClick={() =>
                           openInBrowser(
-                            `https://${accountData.host}/${owner}/${repo}/pull/${number}`,
+                            `https://${account.host}/${owner}/${repo}/pull/${number}`,
                           )
                         }
                       >
@@ -197,8 +166,8 @@ function PullRequestDetail() {
             <Tabs value={activeTab}>
               <TabsList className="w-full rounded-none border-b justify-start">
                 <Link
-                  to="/$account/$search/$owner/$repo/pull/$number"
-                  params={{ account, search, owner, repo, number }}
+                  to="/repositories/$repository/pulls/$number"
+                  params={{ repository: repositorySlug, number }}
                 >
                   <TabsTrigger value="conversation" className="gap-1">
                     <MessageSquare className="h-4 w-4" />
@@ -206,8 +175,8 @@ function PullRequestDetail() {
                   </TabsTrigger>
                 </Link>
                 <Link
-                  to="/$account/$search/$owner/$repo/pull/$number/commits"
-                  params={{ account, search, owner, repo, number }}
+                  to="/repositories/$repository/pulls/$number/commits"
+                  params={{ repository: repositorySlug, number }}
                 >
                   <TabsTrigger value="commits" className="gap-1">
                     <GitCommitIcon size={16} />
@@ -218,8 +187,8 @@ function PullRequestDetail() {
                   </TabsTrigger>
                 </Link>
                 <Link
-                  to="/$account/$search/$owner/$repo/pull/$number/files"
-                  params={{ account, search, owner, repo, number }}
+                  to="/repositories/$repository/pulls/$number/files"
+                  params={{ repository: repositorySlug, number }}
                 >
                   <TabsTrigger value="files" className="gap-1">
                     <FileText className="h-4 w-4" />

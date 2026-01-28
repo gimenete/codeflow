@@ -7,30 +7,40 @@ import {
   ListTodo,
   Plus,
   ChevronRight,
+  Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { Repository } from "@/lib/github-types";
 import { useBranchesByRepositoryId } from "@/lib/branches-store";
+import { useSavedQueries } from "@/lib/saved-queries-store";
 import { TrackBranchDialog } from "./track-branch-dialog";
+import { getIconById } from "@/lib/query-icons";
 
 interface RepositorySidebarProps {
   repository: Repository;
 }
 
 export function RepositorySidebar({ repository }: RepositorySidebarProps) {
-  const { repository: repositorySlug, branch } = useParams({ strict: false });
+  const {
+    repository: repositorySlug,
+    branch,
+    query,
+  } = useParams({ strict: false });
   const location = useLocation();
   const trackedBranches = useBranchesByRepositoryId(repository.id);
+  const savedQueries = useSavedQueries(repository.id);
   const [trackBranchOpen, setTrackBranchOpen] = useState(false);
+
+  const hasGitHub = repository.githubOwner && repository.githubRepo;
 
   return (
     <div className="w-64 border-r bg-muted/10 flex flex-col h-full">
       {/* Repository Header */}
       <div className="p-4 border-b">
         <h2 className="font-semibold truncate">{repository.name}</h2>
-        {repository.githubOwner && repository.githubRepo && (
+        {hasGitHub && (
           <p className="text-xs text-muted-foreground truncate">
             {repository.githubOwner}/{repository.githubRepo}
           </p>
@@ -55,14 +65,14 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
               Branches
             </Link>
 
-            {repository.githubOwner && repository.githubRepo && (
+            {hasGitHub && (
               <>
                 <Link
                   to="/repositories/$repository/issues"
                   params={{ repository: repositorySlug! }}
                   className={cn(
                     "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
-                    location.pathname.includes("/issues")
+                    location.pathname.endsWith("/issues")
                       ? "bg-accent text-accent-foreground"
                       : "hover:bg-accent/50 text-muted-foreground hover:text-foreground",
                   )}
@@ -76,7 +86,7 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
                   params={{ repository: repositorySlug! }}
                   className={cn(
                     "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
-                    location.pathname.includes("/pulls")
+                    location.pathname.endsWith("/pulls")
                       ? "bg-accent text-accent-foreground"
                       : "hover:bg-accent/50 text-muted-foreground hover:text-foreground",
                   )}
@@ -88,6 +98,44 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
             )}
           </div>
         </div>
+
+        {/* Saved Queries Section */}
+        {hasGitHub && savedQueries.length > 0 && (
+          <div className="p-2 border-t">
+            <div className="flex items-center justify-between px-3 py-2">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Saved Queries
+              </span>
+            </div>
+            <div className="space-y-1">
+              {savedQueries.map((q) => {
+                const Icon = getIconById(q.icon);
+                const isActive =
+                  location.pathname.includes("/queries/") && query === q.id;
+                return (
+                  <Link
+                    key={q.id}
+                    to="/repositories/$repository/queries/$query"
+                    params={{ repository: repositorySlug!, query: q.id }}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
+                      isActive
+                        ? "bg-accent text-accent-foreground"
+                        : "hover:bg-accent/50 text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {Icon ? (
+                      <Icon className="h-3.5 w-3.5 shrink-0" />
+                    ) : (
+                      <Search className="h-3.5 w-3.5 shrink-0" />
+                    )}
+                    <span className="truncate">{q.name}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Tracked Branches Section */}
         <div className="p-2 border-t">
@@ -130,80 +178,6 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
             )}
           </div>
         </div>
-
-        {/* Pull Requests Section - Quick links */}
-        {repository.githubOwner && repository.githubRepo && (
-          <div className="p-2 border-t">
-            <div className="px-3 py-2">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Pull Requests
-              </span>
-            </div>
-            <div className="space-y-1">
-              <Link
-                to="/repositories/$repository/pulls"
-                params={{ repository: repositorySlug! }}
-                search={{ filter: "open" }}
-                className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
-              >
-                Open
-              </Link>
-              <Link
-                to="/repositories/$repository/pulls"
-                params={{ repository: repositorySlug! }}
-                search={{ filter: "created" }}
-                className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
-              >
-                Created by me
-              </Link>
-              <Link
-                to="/repositories/$repository/pulls"
-                params={{ repository: repositorySlug! }}
-                search={{ filter: "review" }}
-                className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
-              >
-                Review requested
-              </Link>
-            </div>
-          </div>
-        )}
-
-        {/* Issues Section - Quick links */}
-        {repository.githubOwner && repository.githubRepo && (
-          <div className="p-2 border-t">
-            <div className="px-3 py-2">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Issues
-              </span>
-            </div>
-            <div className="space-y-1">
-              <Link
-                to="/repositories/$repository/issues"
-                params={{ repository: repositorySlug! }}
-                search={{ filter: "open" }}
-                className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
-              >
-                Open
-              </Link>
-              <Link
-                to="/repositories/$repository/issues"
-                params={{ repository: repositorySlug! }}
-                search={{ filter: "created" }}
-                className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
-              >
-                Created by me
-              </Link>
-              <Link
-                to="/repositories/$repository/issues"
-                params={{ repository: repositorySlug! }}
-                search={{ filter: "assigned" }}
-                className="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
-              >
-                Assigned to me
-              </Link>
-            </div>
-          </div>
-        )}
       </ScrollArea>
 
       <TrackBranchDialog

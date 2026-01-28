@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { GitPullRequest } from "lucide-react";
 import { z } from "zod";
@@ -11,14 +11,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  SearchResultItem,
-  SearchResultItemSkeleton,
-} from "@/components/search-result-item";
+import { SearchResultItemSkeleton } from "@/components/search-result-item";
 import { useRepositoriesStore } from "@/lib/repositories-store";
 import { getAccount } from "@/lib/auth";
 import { searchIssuesAndPulls } from "@/lib/github";
-import type { QueryFilters } from "@/lib/github-types";
+import type { QueryFilters, PullRequest } from "@/lib/github-types";
+import { GitHubLabel } from "@/components/github-label";
+import { PullStateIcon } from "@/components/pull-state-icon";
+import { RelativeTime } from "@/components/relative-time";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const searchSchema = z.object({
   filter: z
@@ -35,6 +36,7 @@ export const Route = createFileRoute("/repositories/$repository/pulls")({
 function RepositoryPullsPage() {
   const { repository: repositorySlug } = Route.useParams();
   const { filter } = Route.useSearch();
+  const navigate = useNavigate();
   const repository = useRepositoriesStore((state) =>
     state.getRepositoryBySlug(repositorySlug),
   );
@@ -65,6 +67,7 @@ function RepositoryPullsPage() {
       owner={repository.githubOwner}
       repo={repository.githubRepo}
       filter={filter}
+      navigate={navigate}
     />
   );
 }
@@ -75,12 +78,14 @@ function RepositoryPullsList({
   owner,
   repo,
   filter,
+  navigate,
 }: {
   repositorySlug: string;
   accountId: string;
   owner: string;
   repo: string;
   filter: string;
+  navigate: ReturnType<typeof useNavigate>;
 }) {
   const account = getAccount(accountId);
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -148,13 +153,14 @@ function RepositoryPullsList({
         <Select
           value={filter}
           onValueChange={(value) => {
-            // Navigate with new filter
-            window.history.replaceState(
-              {},
-              "",
-              `/repositories/${repositorySlug}/pulls?filter=${value}`,
-            );
-            window.location.reload();
+            void navigate({
+              to: "/repositories/$repository/pulls",
+              params: { repository: repositorySlug },
+              search: {
+                filter: value as "open" | "created" | "review" | "all",
+              },
+              replace: true,
+            });
           }}
         >
           <SelectTrigger className="w-44">
@@ -200,23 +206,14 @@ function RepositoryPullsList({
               {results.map((item) => (
                 <Link
                   key={item.id}
-                  to="/$account/$search/$owner/$repo/pull/$number"
+                  to="/repositories/$repository/pulls/$number"
                   params={{
-                    account: accountId,
-                    search: "pulls",
-                    owner: owner,
-                    repo: repo,
+                    repository: repositorySlug,
                     number: String(item.number),
                   }}
                   className="block"
                 >
-                  <SearchResultItem
-                    item={item}
-                    accountId={accountId}
-                    searchId="pulls"
-                    isPR={true}
-                    urlFilters={{}}
-                  />
+                  <PullRequestListItem item={item as PullRequest} />
                 </Link>
               ))}
             </div>
@@ -231,6 +228,68 @@ function RepositoryPullsList({
           </>
         )}
       </ScrollArea>
+    </div>
+  );
+}
+
+function PullRequestListItem({ item }: { item: PullRequest }) {
+  return (
+    <div className="px-4 py-2 hover:bg-accent/50 transition-colors">
+      <div className="flex flex-wrap lg:flex-nowrap items-center gap-x-3 gap-y-0.5">
+        {/* Icon */}
+        <div className="shrink-0">
+          <PullStateIcon
+            state={item.state}
+            merged={item.state === "merged"}
+            isDraft={item.isDraft}
+            size="sm"
+          />
+        </div>
+
+        {/* Title */}
+        <div className="min-w-0 flex-1">
+          <span className="font-medium" title={item.title}>
+            {item.title}
+          </span>
+          <span className="text-muted-foreground ml-1">#{item.number}</span>
+        </div>
+
+        {/* Timestamp */}
+        <span className="text-xs lg:text-sm text-muted-foreground shrink-0 lg:order-last lg:w-24 lg:text-right">
+          <RelativeTime date={item.updatedAt} />
+        </span>
+
+        {/* Line break for small screens */}
+        <div className="basis-full h-0 lg:hidden" />
+
+        {/* Author */}
+        <div className="flex items-center gap-1 ml-6 lg:ml-0 lg:order-2 flex-1 lg:flex-none lg:w-32 text-xs lg:text-sm text-muted-foreground">
+          <Avatar className="h-4 w-4 lg:h-5 lg:w-5 shrink-0">
+            <AvatarImage src={item.author.avatarUrl} />
+            <AvatarFallback>
+              {item.author.login.charAt(0).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <span className="truncate">{item.author.login}</span>
+        </div>
+      </div>
+
+      {item.labels.length > 0 && (
+        <div className="flex items-center gap-1 mt-1 ml-6">
+          {item.labels.slice(0, 4).map((label) => (
+            <GitHubLabel
+              key={label.name}
+              name={label.name}
+              color={label.color}
+            />
+          ))}
+          {item.labels.length > 4 && (
+            <span className="text-xs text-muted-foreground">
+              +{item.labels.length - 4}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

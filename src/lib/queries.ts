@@ -1,11 +1,6 @@
 import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import type {
-  SavedQuery,
-  QueryFilters,
-  PullRequest,
-  Issue,
-} from "./github-types";
+import type { QueryFilters, PullRequest, Issue } from "./github-types";
 import {
   getQueryCount,
   searchIssuesAndPulls,
@@ -16,14 +11,9 @@ import {
   searchAdjacentItems,
 } from "./github";
 import { getAccount } from "./auth";
-import { useSavedQueriesStore, useQueryById } from "./saved-queries-store";
+import { useQueryById, getQueryById } from "./saved-queries-store";
 
-export function getQueryById(
-  accountId: string,
-  queryId: string,
-): SavedQuery | null {
-  return useSavedQueriesStore.getState().getQueryById(accountId, queryId);
-}
+export { getQueryById };
 
 /**
  * Combines filters from a saved search with URL query string filters.

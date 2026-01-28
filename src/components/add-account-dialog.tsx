@@ -44,7 +44,7 @@ export function AddAccountDialog({
         return;
       }
 
-      const account = await addAccount({
+      await addAccount({
         login: validation.user.login,
         host,
         avatarUrl: validation.user.avatarUrl,
@@ -54,7 +54,7 @@ export function AddAccountDialog({
       setToken("");
       setHost("github.com");
       onOpenChange(false);
-      void navigate({ to: "/$account", params: { account: account.id } });
+      void navigate({ to: "/", search: { addAccount: false } });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {

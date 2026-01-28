@@ -5,14 +5,17 @@ import { CommitsList } from "@/components/detail-components";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const Route = createFileRoute(
-  "/$account/$search/$owner/$repo/pull/$number/commits",
+  "/repositories/$repository/pulls/$number/commits",
 )({
   component: PullCommitsTab,
 });
 
 function PullCommitsTab() {
-  const { account, search, owner, repo, number } = Route.useParams();
+  const { repository: repositorySlug, number } = Route.useParams();
+  const { repository, account } = Route.useRouteContext();
   const navigate = useNavigate();
+  const owner = repository.githubOwner!;
+  const repo = repository.githubRepo!;
 
   const {
     data: commitsData,
@@ -20,7 +23,7 @@ function PullCommitsTab() {
     hasNextPage,
     isFetchingNextPage,
     isLoading: isCommitsLoading,
-  } = usePRCommits(account, owner, repo, parseInt(number));
+  } = usePRCommits(account.id, owner, repo, parseInt(number));
 
   const commits = useMemo(() => {
     if (!commitsData?.pages) return [];
@@ -29,8 +32,8 @@ function PullCommitsTab() {
 
   const handleCommitClick = (sha: string) => {
     void navigate({
-      to: "/$account/$search/$owner/$repo/pull/$number/files",
-      params: { account, search, owner, repo, number },
+      to: "/repositories/$repository/pulls/$number/files",
+      params: { repository: repositorySlug, number },
       search: { commit: sha },
     });
   };

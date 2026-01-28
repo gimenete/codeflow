@@ -26,7 +26,7 @@ interface FilesSearch {
 }
 
 export const Route = createFileRoute(
-  "/$account/$search/$owner/$repo/pull/$number/files",
+  "/repositories/$repository/pulls/$number/files",
 )({
   validateSearch: (search: Record<string, unknown>): FilesSearch => ({
     commit: typeof search.commit === "string" ? search.commit : undefined,
@@ -35,12 +35,15 @@ export const Route = createFileRoute(
 });
 
 function PullFilesTab() {
-  const { account, owner, repo, number } = Route.useParams();
+  const { number } = Route.useParams();
   const { commit } = Route.useSearch();
+  const { repository, account } = Route.useRouteContext();
   const navigate = useNavigate();
+  const owner = repository.githubOwner!;
+  const repo = repository.githubRepo!;
   const prNumber = parseInt(number);
 
-  const { data } = usePullMetadata(account, owner, repo, prNumber);
+  const { data } = usePullMetadata(account.id, owner, repo, prNumber);
 
   // Fetch commits for the selector
   const {
@@ -48,7 +51,7 @@ function PullFilesTab() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = usePRCommits(account, owner, repo, prNumber);
+  } = usePRCommits(account.id, owner, repo, prNumber);
 
   const commits = useMemo(() => {
     if (!commitsData?.pages) return [];
@@ -58,7 +61,7 @@ function PullFilesTab() {
   const totalCommits = commitsData?.pages[0]?.totalCount ?? 0;
 
   // Also fetch files list from REST API (for progressive loading in the future)
-  const { data: filesData } = usePRFilesREST(account, owner, repo, prNumber);
+  const { data: filesData } = usePRFilesREST(account.id, owner, repo, prNumber);
   const restFiles = useMemo(() => {
     if (!filesData?.pages) return [];
     return filesData.pages.flatMap((page) => page.files);
@@ -95,7 +98,7 @@ function PullFilesTab() {
   }, [commit, data]);
 
   const { data: diffText, isLoading: isDiffLoading } = useDiff(
-    account,
+    account.id,
     owner,
     repo,
     diffSource,

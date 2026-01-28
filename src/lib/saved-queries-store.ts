@@ -45,11 +45,11 @@ function generateUniqueId(name: string, existingIds: string[]): string {
   return `${baseSlug}-${counter}`;
 }
 
-// Default queries
+// Default queries for a new repository
 export const defaultQueries: Omit<SavedQuery, "accountId">[] = [
   {
-    id: "pulls-created",
-    name: "Pulls created",
+    id: "my-pulls",
+    name: "My Pull Requests",
     icon: "git-pull-request",
     filters: {
       type: "pulls",
@@ -58,28 +58,8 @@ export const defaultQueries: Omit<SavedQuery, "accountId">[] = [
     },
   },
   {
-    id: "pulls-assigned",
-    name: "Pulls assigned",
-    icon: "git-pull-request",
-    filters: {
-      type: "pulls",
-      assignee: "@me",
-      state: "open",
-    },
-  },
-  {
-    id: "pulls-mentioned",
-    name: "Pulls mentioned",
-    icon: "mention",
-    filters: {
-      type: "pulls",
-      mentioned: "@me",
-      state: "open",
-    },
-  },
-  {
     id: "review-requests",
-    name: "Review requests",
+    name: "Review Requests",
     icon: "eye",
     filters: {
       type: "pulls",
@@ -88,8 +68,8 @@ export const defaultQueries: Omit<SavedQuery, "accountId">[] = [
     },
   },
   {
-    id: "issues-created",
-    name: "Issues created",
+    id: "my-issues",
+    name: "My Issues",
     icon: "issue-opened",
     filters: {
       type: "issues",
@@ -98,8 +78,8 @@ export const defaultQueries: Omit<SavedQuery, "accountId">[] = [
     },
   },
   {
-    id: "issues-assigned",
-    name: "Issues assigned",
+    id: "assigned-issues",
+    name: "Assigned Issues",
     icon: "issue-opened",
     filters: {
       type: "issues",
@@ -107,104 +87,107 @@ export const defaultQueries: Omit<SavedQuery, "accountId">[] = [
       state: "open",
     },
   },
-  {
-    id: "issues-mentioned",
-    name: "Issues mentioned",
-    icon: "mention",
-    filters: {
-      type: "issues",
-      mentioned: "@me",
-      state: "open",
-    },
-  },
 ];
 
 // Default group
 const DEFAULT_GROUP_ID = "default";
-const DEFAULT_GROUP_TITLE = "High priority";
+const DEFAULT_GROUP_TITLE = "Saved Queries";
 
-function createDefaultGroups(accountId: string): SavedQueryGroup[] {
-  return [
+// Cache for default groups to avoid creating new objects on every render
+const defaultGroupsCache = new Map<string, SavedQueryGroup[]>();
+// Cache for flattened queries to avoid creating new arrays on every render
+const defaultQueriesCache = new Map<string, SavedQuery[]>();
+
+function createDefaultGroups(repositoryId: string): SavedQueryGroup[] {
+  const cached = defaultGroupsCache.get(repositoryId);
+  if (cached) return cached;
+
+  const queries = defaultQueries.map((q) => ({
+    ...q,
+    accountId: repositoryId, // Keep field name for backwards compatibility in type
+  })) as SavedQuery[];
+
+  // Cache the flattened queries for this repository
+  defaultQueriesCache.set(repositoryId, queries);
+
+  const groups: SavedQueryGroup[] = [
     {
       id: DEFAULT_GROUP_ID,
       title: DEFAULT_GROUP_TITLE,
-      queries: defaultQueries.map((q) => ({
-        ...q,
-        accountId,
-      })) as SavedQuery[],
+      queries,
     },
   ];
+
+  defaultGroupsCache.set(repositoryId, groups);
+  return groups;
+}
+
+function getDefaultQueries(repositoryId: string): SavedQuery[] {
+  const cached = defaultQueriesCache.get(repositoryId);
+  if (cached) return cached;
+
+  // This will also populate the defaultQueriesCache
+  createDefaultGroups(repositoryId);
+  return defaultQueriesCache.get(repositoryId)!;
 }
 
 interface SavedQueriesState {
-  // Map of accountId -> query groups
-  queriesByAccount: Record<string, SavedQueryGroup[]>;
+  // Map of repositoryId -> query groups
+  queriesByRepository: Record<string, SavedQueryGroup[]>;
 
-  // Actions
-  getQueryGroups: (accountId: string) => SavedQueryGroup[];
-  getQueries: (accountId: string) => SavedQuery[];
-  getQueryById: (accountId: string, queryId: string) => SavedQuery | null;
+  // Actions (these can mutate state)
+  initializeRepository: (repositoryId: string) => void;
   addQuery: (
-    accountId: string,
+    repositoryId: string,
     query: Omit<SavedQuery, "id" | "accountId">,
     groupId?: string,
   ) => SavedQuery;
-  addGroup: (accountId: string, group: SavedQueryGroup) => void;
+  addGroup: (repositoryId: string, group: SavedQueryGroup) => void;
   updateQuery: (
-    accountId: string,
+    repositoryId: string,
     queryId: string,
     updates: Partial<Omit<SavedQuery, "id" | "accountId">>,
   ) => void;
-  deleteQuery: (accountId: string, queryId: string) => void;
+  deleteQuery: (repositoryId: string, queryId: string) => void;
   reorderQueries: (
-    accountId: string,
+    repositoryId: string,
     groupId: string,
     queryIds: string[],
   ) => void;
-  reorderGroups: (accountId: string, groupIds: string[]) => void;
+  reorderGroups: (repositoryId: string, groupIds: string[]) => void;
   updateGroup: (
-    accountId: string,
+    repositoryId: string,
     groupId: string,
     updates: Partial<Pick<SavedQueryGroup, "title">>,
   ) => void;
-  deleteGroup: (accountId: string, groupId: string) => void;
-  clearQueriesForAccount: (accountId: string) => void;
+  deleteGroup: (repositoryId: string, groupId: string) => void;
+  clearQueriesForRepository: (repositoryId: string) => void;
 }
 
 export const useSavedQueriesStore = create<SavedQueriesState>()(
   persist(
     (set, get) => ({
-      queriesByAccount: {},
+      queriesByRepository: {},
 
-      getQueryGroups: (accountId) => {
-        const existing = get().queriesByAccount[accountId];
-        if (existing) return existing;
+      initializeRepository: (repositoryId) => {
+        const existing = get().queriesByRepository[repositoryId];
+        if (existing) return;
 
         // Initialize with defaults
-        const initial = createDefaultGroups(accountId);
+        const initial = createDefaultGroups(repositoryId);
         set((state) => ({
-          queriesByAccount: { ...state.queriesByAccount, [accountId]: initial },
+          queriesByRepository: {
+            ...state.queriesByRepository,
+            [repositoryId]: initial,
+          },
         }));
-        return initial;
       },
 
-      getQueries: (accountId) => {
-        const groups = get().getQueryGroups(accountId);
-        return groups.flatMap((g) => g.queries);
-      },
+      addQuery: (repositoryId, query, groupId) => {
+        // Ensure repository is initialized
+        get().initializeRepository(repositoryId);
 
-      getQueryById: (accountId, queryId) => {
-        // Check system queries first
-        const systemQuery = systemQueries.find((q) => q.id === queryId);
-        if (systemQuery) {
-          return { ...systemQuery, accountId } as SavedQuery;
-        }
-        const queries = get().getQueries(accountId);
-        return queries.find((q) => q.id === queryId) ?? null;
-      },
-
-      addQuery: (accountId, query, groupId) => {
-        const groups = get().getQueryGroups(accountId);
+        const groups = get().queriesByRepository[repositoryId] ?? [];
         const allQueries = groups.flatMap((g) => g.queries);
         const existingIds = allQueries.map((q) => q.id);
         const systemIds = systemQueries.map((q) => q.id);
@@ -215,7 +198,7 @@ export const useSavedQueriesStore = create<SavedQueriesState>()(
         const newQuery: SavedQuery = {
           ...query,
           id,
-          accountId,
+          accountId: repositoryId,
         };
 
         // Find target group (default to first group)
@@ -223,38 +206,40 @@ export const useSavedQueriesStore = create<SavedQueriesState>()(
 
         set((state) => {
           const currentGroups =
-            state.queriesByAccount[accountId] ?? createDefaultGroups(accountId);
+            state.queriesByRepository[repositoryId] ??
+            createDefaultGroups(repositoryId);
           const updatedGroups = currentGroups.map((g) =>
             g.id === targetGroupId
               ? { ...g, queries: [...g.queries, newQuery] }
               : g,
           );
           return {
-            queriesByAccount: {
-              ...state.queriesByAccount,
-              [accountId]: updatedGroups,
+            queriesByRepository: {
+              ...state.queriesByRepository,
+              [repositoryId]: updatedGroups,
             },
           };
         });
         return newQuery;
       },
 
-      addGroup: (accountId, group) => {
+      addGroup: (repositoryId, group) => {
         set((state) => {
           const currentGroups =
-            state.queriesByAccount[accountId] ?? createDefaultGroups(accountId);
+            state.queriesByRepository[repositoryId] ??
+            createDefaultGroups(repositoryId);
           return {
-            queriesByAccount: {
-              ...state.queriesByAccount,
-              [accountId]: [...currentGroups, group],
+            queriesByRepository: {
+              ...state.queriesByRepository,
+              [repositoryId]: [...currentGroups, group],
             },
           };
         });
       },
 
-      updateQuery: (accountId, queryId, updates) => {
+      updateQuery: (repositoryId, queryId, updates) => {
         set((state) => {
-          const groups = state.queriesByAccount[accountId] ?? [];
+          const groups = state.queriesByRepository[repositoryId] ?? [];
           const updatedGroups = groups.map((g) => ({
             ...g,
             queries: g.queries.map((q) =>
@@ -262,33 +247,33 @@ export const useSavedQueriesStore = create<SavedQueriesState>()(
             ),
           }));
           return {
-            queriesByAccount: {
-              ...state.queriesByAccount,
-              [accountId]: updatedGroups,
+            queriesByRepository: {
+              ...state.queriesByRepository,
+              [repositoryId]: updatedGroups,
             },
           };
         });
       },
 
-      deleteQuery: (accountId, queryId) => {
+      deleteQuery: (repositoryId, queryId) => {
         set((state) => {
-          const groups = state.queriesByAccount[accountId] ?? [];
+          const groups = state.queriesByRepository[repositoryId] ?? [];
           const updatedGroups = groups.map((g) => ({
             ...g,
             queries: g.queries.filter((q) => q.id !== queryId),
           }));
           return {
-            queriesByAccount: {
-              ...state.queriesByAccount,
-              [accountId]: updatedGroups,
+            queriesByRepository: {
+              ...state.queriesByRepository,
+              [repositoryId]: updatedGroups,
             },
           };
         });
       },
 
-      reorderQueries: (accountId, groupId, queryIds) => {
+      reorderQueries: (repositoryId, groupId, queryIds) => {
         set((state) => {
-          const groups = state.queriesByAccount[accountId] ?? [];
+          const groups = state.queriesByRepository[repositoryId] ?? [];
           const updatedGroups = groups.map((g) => {
             if (g.id !== groupId) return g;
             const queryMap = new Map(g.queries.map((q) => [q.id, q]));
@@ -298,145 +283,155 @@ export const useSavedQueriesStore = create<SavedQueriesState>()(
             return { ...g, queries: reordered };
           });
           return {
-            queriesByAccount: {
-              ...state.queriesByAccount,
-              [accountId]: updatedGroups,
+            queriesByRepository: {
+              ...state.queriesByRepository,
+              [repositoryId]: updatedGroups,
             },
           };
         });
       },
 
-      reorderGroups: (accountId, groupIds) => {
+      reorderGroups: (repositoryId, groupIds) => {
         set((state) => {
-          const groups = state.queriesByAccount[accountId] ?? [];
+          const groups = state.queriesByRepository[repositoryId] ?? [];
           const groupMap = new Map(groups.map((g) => [g.id, g]));
           const reordered = groupIds
             .map((id) => groupMap.get(id))
             .filter((g): g is SavedQueryGroup => g !== undefined);
           return {
-            queriesByAccount: {
-              ...state.queriesByAccount,
-              [accountId]: reordered,
+            queriesByRepository: {
+              ...state.queriesByRepository,
+              [repositoryId]: reordered,
             },
           };
         });
       },
 
-      updateGroup: (accountId, groupId, updates) => {
+      updateGroup: (repositoryId, groupId, updates) => {
         set((state) => {
-          const groups = state.queriesByAccount[accountId] ?? [];
+          const groups = state.queriesByRepository[repositoryId] ?? [];
           const updatedGroups = groups.map((g) =>
             g.id === groupId ? { ...g, ...updates } : g,
           );
           return {
-            queriesByAccount: {
-              ...state.queriesByAccount,
-              [accountId]: updatedGroups,
+            queriesByRepository: {
+              ...state.queriesByRepository,
+              [repositoryId]: updatedGroups,
             },
           };
         });
       },
 
-      deleteGroup: (accountId, groupId) => {
+      deleteGroup: (repositoryId, groupId) => {
         if (groupId === "default") return; // Prevent deleting default group
         set((state) => {
-          const groups = state.queriesByAccount[accountId] ?? [];
+          const groups = state.queriesByRepository[repositoryId] ?? [];
           return {
-            queriesByAccount: {
-              ...state.queriesByAccount,
-              [accountId]: groups.filter((g) => g.id !== groupId),
+            queriesByRepository: {
+              ...state.queriesByRepository,
+              [repositoryId]: groups.filter((g) => g.id !== groupId),
             },
           };
         });
       },
 
-      clearQueriesForAccount: (accountId) => {
+      clearQueriesForRepository: (repositoryId) => {
         set((state) => {
           const rest = Object.fromEntries(
-            Object.entries(state.queriesByAccount).filter(
-              ([key]) => key !== accountId,
+            Object.entries(state.queriesByRepository).filter(
+              ([key]) => key !== repositoryId,
             ),
           );
-          return { queriesByAccount: rest };
+          return { queriesByRepository: rest };
         });
       },
     }),
     {
-      name: "codeflow:saved-queries",
-      version: 3,
+      name: "codeflow:saved-queries-v2", // New key, no migration needed
+      version: 1,
       storage: createJSONStorage(() => localStorage),
-      migrate: (persistedState, version) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let state = persistedState as any;
-
-        if (version < 2) {
-          // Migrate: move type from query to filters, remove builtin
-          const queriesByAccount: Record<string, SavedQuery[]> = {};
-          for (const [accountId, queries] of Object.entries(
-            state.queriesByAccount as Record<string, unknown[]>,
-          )) {
-            queriesByAccount[accountId] = queries.map((q) => {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const oldQuery = q as any;
-              const { type, filters, ...rest } = oldQuery;
-              return {
-                ...rest,
-                filters: {
-                  type: type ?? filters?.type,
-                  ...filters,
-                },
-              } as SavedQuery;
-            });
-          }
-          state = { ...state, queriesByAccount };
-        }
-
-        if (version < 3) {
-          // Migrate: wrap flat array in a default group
-          const newQueriesByAccount: Record<string, SavedQueryGroup[]> = {};
-          for (const [accountId, queries] of Object.entries(
-            state.queriesByAccount as Record<string, SavedQuery[]>,
-          )) {
-            newQueriesByAccount[accountId] = [
-              {
-                id: DEFAULT_GROUP_ID,
-                title: DEFAULT_GROUP_TITLE,
-                queries: queries,
-              },
-            ];
-          }
-          state = { ...state, queriesByAccount: newQueriesByAccount };
-        }
-
-        return state as SavedQueriesState;
-      },
     },
   ),
 );
 
-// React hooks for components
-export function useSavedQueryGroups(accountId: string): SavedQueryGroup[] {
-  return useSavedQueriesStore((state) => state.getQueryGroups(accountId));
+// Pure selector functions (no side effects)
+function getQueryGroupsFromState(
+  state: SavedQueriesState,
+  repositoryId: string,
+): SavedQueryGroup[] {
+  return (
+    state.queriesByRepository[repositoryId] ?? createDefaultGroups(repositoryId)
+  );
 }
 
-export function useSavedQueries(accountId: string): SavedQuery[] {
-  return useSavedQueriesStore((state) => state.getQueries(accountId));
+// Cache for flattened queries derived from store state (keyed by repositoryId + groups reference)
+const flattenedQueriesCache = new WeakMap<SavedQueryGroup[], SavedQuery[]>();
+
+function getQueriesFromState(
+  state: SavedQueriesState,
+  repositoryId: string,
+): SavedQuery[] {
+  const groups = state.queriesByRepository[repositoryId];
+
+  // If no persisted groups, use the cached default queries
+  if (!groups) {
+    return getDefaultQueries(repositoryId);
+  }
+
+  // Check if we already computed the flattened queries for these groups
+  const cached = flattenedQueriesCache.get(groups);
+  if (cached) return cached;
+
+  // Compute and cache
+  const queries = groups.flatMap((g) => g.queries);
+  flattenedQueriesCache.set(groups, queries);
+  return queries;
+}
+
+function getQueryByIdFromState(
+  state: SavedQueriesState,
+  repositoryId: string,
+  queryId: string,
+): SavedQuery | null {
+  // Check system queries first
+  const systemQuery = systemQueries.find((q) => q.id === queryId);
+  if (systemQuery) {
+    return { ...systemQuery, accountId: repositoryId } as SavedQuery;
+  }
+  const queries = getQueriesFromState(state, repositoryId);
+  return queries.find((q) => q.id === queryId) ?? null;
+}
+
+// Non-hook helper for synchronous access (e.g., from event handlers)
+export function getQueryById(
+  repositoryId: string,
+  queryId: string,
+): SavedQuery | null {
+  return getQueryByIdFromState(
+    useSavedQueriesStore.getState(),
+    repositoryId,
+    queryId,
+  );
+}
+
+// React hooks for components - use pure selectors
+export function useSavedQueryGroups(repositoryId: string): SavedQueryGroup[] {
+  return useSavedQueriesStore((state) =>
+    getQueryGroupsFromState(state, repositoryId),
+  );
+}
+
+export function useSavedQueries(repositoryId: string): SavedQuery[] {
+  return useSavedQueriesStore((state) =>
+    getQueriesFromState(state, repositoryId),
+  );
 }
 
 export function useQueryById(
-  accountId: string,
+  repositoryId: string,
   queryId: string,
 ): SavedQuery | null {
-  // Always call the hook unconditionally to satisfy React's rules of hooks
-  const storeQuery = useSavedQueriesStore((state) =>
-    state.getQueryById(accountId, queryId),
+  return useSavedQueriesStore((state) =>
+    getQueryByIdFromState(state, repositoryId, queryId),
   );
-
-  // Check system queries first (not stored in state)
-  const systemQuery = systemQueries.find((q) => q.id === queryId);
-  if (systemQuery) {
-    return { ...systemQuery, accountId } as SavedQuery;
-  }
-
-  return storeQuery;
 }

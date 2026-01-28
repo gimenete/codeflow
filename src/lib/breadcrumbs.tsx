@@ -4,22 +4,8 @@ import {
   useState,
   useCallback,
   useEffect,
-  useMemo,
   type ReactNode,
 } from "react";
-import { useNavigate } from "@tanstack/react-router";
-import {
-  BookmarkIcon,
-  EyeIcon,
-  FilterIcon,
-  GitPullRequestIcon,
-  IssueOpenedIcon,
-  MentionIcon,
-  SearchIcon,
-  StarIcon,
-} from "@primer/octicons-react";
-import { useAccounts } from "./auth";
-import { useSavedQueryGroups } from "./saved-queries-store";
 
 export interface BreadcrumbDropdownItem {
   label: string;
@@ -102,74 +88,3 @@ export function useBreadcrumbContext() {
   }
   return context;
 }
-
-export function useAccountBreadcrumbDropdown(): BreadcrumbDropdownElement[] {
-  const { accounts } = useAccounts();
-  const navigate = useNavigate();
-
-  return useMemo(
-    () => [
-      ...accounts.map((a) => ({
-        label: `@${a.login}`,
-        avatarUrl: a.avatarUrl,
-        onClick: () => navigate({ to: "/$account", params: { account: a.id } }),
-      })),
-      { type: "separator" as const },
-      {
-        label: "Add Account",
-        onClick: () => navigate({ to: "/", search: { addAccount: true } }),
-      },
-    ],
-    [accounts, navigate],
-  );
-}
-
-const savedSearchIconMap: Record<string, ReactNode> = {
-  "git-pull-request": <GitPullRequestIcon size={16} />,
-  "issue-opened": <IssueOpenedIcon size={16} />,
-  eye: <EyeIcon size={16} />,
-  mention: <MentionIcon size={16} />,
-  search: <SearchIcon size={16} />,
-  bookmark: <BookmarkIcon size={16} />,
-  star: <StarIcon size={16} />,
-  filter: <FilterIcon size={16} />,
-};
-
-export function useSavedSearchBreadcrumbDropdown(
-  account: string,
-): BreadcrumbDropdownElement[] {
-  const navigate = useNavigate();
-  const groups = useSavedQueryGroups(account);
-
-  return useMemo(() => {
-    const elements: BreadcrumbDropdownElement[] = [];
-
-    groups.forEach((group, groupIndex) => {
-      // Add separator between groups (not before first group)
-      if (groupIndex > 0) {
-        elements.push({ type: "separator" });
-      }
-
-      // Add label for the group
-      elements.push({ type: "label", text: group.title });
-
-      // Add queries in the group
-      group.queries.forEach((q) => {
-        elements.push({
-          label: q.name,
-          icon: q.icon ? savedSearchIconMap[q.icon] : undefined,
-          onClick: () =>
-            navigate({
-              to: "/$account/$search",
-              params: { account, search: q.id },
-              search: {},
-            }),
-        });
-      });
-    });
-
-    return elements;
-  }, [account, navigate, groups]);
-}
-
-export { savedSearchIconMap };

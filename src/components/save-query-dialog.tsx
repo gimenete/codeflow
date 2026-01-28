@@ -19,14 +19,16 @@ import type { QueryFilters } from "@/lib/github-types";
 interface SaveQueryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  accountId: string;
+  repositoryId: string;
+  repositorySlug?: string;
   currentFilters: QueryFilters;
 }
 
 export function SaveQueryDialog({
   open,
   onOpenChange,
-  accountId,
+  repositoryId,
+  repositorySlug,
   currentFilters,
 }: SaveQueryDialogProps) {
   const navigate = useNavigate();
@@ -49,7 +51,7 @@ export function SaveQueryDialog({
       }
     }
 
-    const newQuery = addQuery(accountId, {
+    const newQuery = addQuery(repositoryId, {
       name: name.trim(),
       icon,
       filters: cleanFilters,
@@ -62,12 +64,14 @@ export function SaveQueryDialog({
     // Close dialog
     onOpenChange(false);
 
-    // Navigate to the new query
-    void navigate({
-      to: "/$account/$search",
-      params: { account: accountId, search: newQuery.id },
-      search: {},
-    });
+    // Navigate to the new query if we have the slug
+    if (repositorySlug) {
+      void navigate({
+        to: "/repositories/$repository/queries/$query",
+        params: { repository: repositorySlug, query: newQuery.id },
+        search: {},
+      });
+    }
   };
 
   const handleOpenChange = (open: boolean) => {

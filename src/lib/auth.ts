@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { getCredentialStore } from "./credentials";
 import type { GitHubAccount } from "./github-types";
-import { useSavedQueriesStore } from "./saved-queries-store";
 
 const ACCOUNTS_KEY = "accounts";
 
@@ -89,9 +88,6 @@ export function useRemoveAccount() {
     const accounts = await loadAccounts();
     const filtered = accounts.filter((a) => a.id !== id);
     await saveAccounts(filtered);
-
-    // Clear saved queries for this account
-    useSavedQueriesStore.getState().clearQueriesForAccount(id);
   }, []);
 
   return { removeAccount };
