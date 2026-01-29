@@ -1,9 +1,24 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useRepositoriesStore } from "@/lib/repositories-store";
 import { useBranchesStore, useBranchById } from "@/lib/branches-store";
 import { BranchChat } from "@/components/repositories/branch-chat";
 import { BranchDiffPanel } from "@/components/repositories/branch-diff-panel";
+import { TerminalPanel } from "@/components/terminal/terminal-panel";
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+  usePanelRef,
+} from "@/components/ui/resizable";
+import { Button } from "@/components/ui/button";
+import {
+  ChevronDown,
+  ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  TerminalSquare,
+} from "lucide-react";
 
 export const Route = createFileRoute(
   "/repositories/$repository/branches/$branch",
@@ -26,6 +41,16 @@ function BranchDetailPage() {
   const { branch: branchId } = Route.useParams();
   const branch = useBranchById(branchId);
   const navigate = useNavigate();
+
+  // Panel refs for programmatic collapse/expand
+  const chatPanelRef = usePanelRef();
+  const diffPanelRef = usePanelRef();
+  const terminalPanelRef = usePanelRef();
+
+  // Collapse state for panels
+  const [chatCollapsed, setChatCollapsed] = useState(false);
+  const [diffCollapsed, setDiffCollapsed] = useState(false);
+  const [terminalCollapsed, setTerminalCollapsed] = useState(true);
 
   // Redirect if branch not found (after hydration)
   useEffect(() => {
@@ -70,17 +95,151 @@ function BranchDetailPage() {
     );
   }
 
-  return (
-    <div className="flex h-full">
-      {/* Chat Panel */}
-      <div className="flex-1 min-w-0">
-        <BranchChat branch={branch} cwd={cwd} />
-      </div>
+  const toggleChat = () => {
+    if (chatCollapsed) {
+      chatPanelRef.current?.expand();
+    } else {
+      chatPanelRef.current?.collapse();
+    }
+  };
 
-      {/* Diff Panel */}
-      <div className="w-80 shrink-0">
-        <BranchDiffPanel branch={branch} repositoryPath={cwd} />
-      </div>
-    </div>
+  const toggleDiff = () => {
+    if (diffCollapsed) {
+      diffPanelRef.current?.expand();
+    } else {
+      diffPanelRef.current?.collapse();
+    }
+  };
+
+  const toggleTerminal = () => {
+    if (terminalCollapsed) {
+      terminalPanelRef.current?.expand();
+    } else {
+      terminalPanelRef.current?.collapse();
+    }
+  };
+
+  return (
+    <ResizablePanelGroup direction="vertical" className="h-full">
+      {/* Top section: Chat + Diff */}
+      <ResizablePanel defaultSize={70} minSize={20}>
+        <ResizablePanelGroup direction="horizontal" className="h-full">
+          {/* Chat Panel */}
+          <ResizablePanel
+            panelRef={chatPanelRef}
+            defaultSize={60}
+            minSize={20}
+            collapsible
+            collapsedSize={0}
+            onResize={(size) => {
+              if (size.asPercentage === 0) setChatCollapsed(true);
+              else if (chatCollapsed) setChatCollapsed(false);
+            }}
+          >
+            <div className="h-full flex flex-col">
+              <div className="border-b px-3 py-1.5 flex items-center justify-between shrink-0">
+                <span className="text-sm font-medium">Chat</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={toggleChat}
+                >
+                  {chatCollapsed ? (
+                    <ChevronRight className="h-4 w-4" />
+                  ) : (
+                    <ChevronLeft className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <BranchChat branch={branch} cwd={cwd} />
+              </div>
+            </div>
+          </ResizablePanel>
+
+          <ResizableHandle withHandle />
+
+          {/* Diff Panel */}
+          <ResizablePanel
+            panelRef={diffPanelRef}
+            defaultSize={40}
+            minSize={15}
+            collapsible
+            collapsedSize={0}
+            onResize={(size) => {
+              if (size.asPercentage === 0) setDiffCollapsed(true);
+              else if (diffCollapsed) setDiffCollapsed(false);
+            }}
+          >
+            <div className="h-full flex flex-col">
+              <div className="border-b px-3 py-1.5 flex items-center justify-between shrink-0">
+                <span className="text-sm font-medium">Changes</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={toggleDiff}
+                >
+                  {diffCollapsed ? (
+                    <ChevronLeft className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              <div className="flex-1 min-h-0 overflow-auto">
+                <BranchDiffPanel branch={branch} repositoryPath={cwd} />
+              </div>
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </ResizablePanel>
+
+      <ResizableHandle withHandle />
+
+      {/* Terminal Panel */}
+      <ResizablePanel
+        panelRef={terminalPanelRef}
+        defaultSize={30}
+        minSize={10}
+        collapsible
+        collapsedSize={0}
+        onResize={(size) => {
+          if (size.asPercentage === 0) setTerminalCollapsed(true);
+          else if (terminalCollapsed) setTerminalCollapsed(false);
+        }}
+      >
+        <div className="h-full flex flex-col">
+          <div className="border-b px-3 py-1.5 flex items-center justify-between shrink-0 bg-[#1a1a1a]">
+            <div className="flex items-center gap-2">
+              <TerminalSquare className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-muted-foreground">
+                Terminal
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={toggleTerminal}
+            >
+              {terminalCollapsed ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+          <div className="flex-1 min-h-0">
+            <TerminalPanel
+              cwd={cwd}
+              className="h-full w-full"
+              active={!terminalCollapsed}
+            />
+          </div>
+        </div>
+      </ResizablePanel>
+    </ResizablePanelGroup>
   );
 }

@@ -26,3 +26,6 @@ npm-debug.log*
 # Generated files
 src/routeTree.gen.ts
 src/generated/
+
+# Copied assets from node_modules
+public/ghostty-vt.wasm

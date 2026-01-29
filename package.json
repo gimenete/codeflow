@@ -6,6 +6,7 @@
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
+    "postinstall": "electron-rebuild",
     "dev": "concurrently -k \"npm run dev:vite\" \"npm run dev:electron\"",
     "dev:vite": "vite",
     "dev:electron": "npm run build:electron && electron .",
@@ -60,6 +61,8 @@
     "@tanstack/react-query": "^5.90.19",
     "@tanstack/react-router": "^1.151.3",
     "@tanstack/router-devtools": "^1.151.3",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
     "chokidar": "^3.6.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -68,10 +71,12 @@
     "graphql-request": "^7.4.0",
     "keytar": "^7.9.0",
     "lucide-react": "^0.562.0",
+    "node-pty": "^1.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-hotkeys-hook": "^5.2.3",
     "react-markdown": "^10.1.0",
+    "react-resizable-panels": "^4.5.4",
     "rehype-highlight": "^7.0.2",
     "remark-gfm": "^4.0.1",
     "simple-git": "^3.27.0",
@@ -81,6 +86,7 @@
     "zustand": "^5.0.10"
   },
   "devDependencies": {
+    "@electron/rebuild": "^3.7.1",
     "@eslint/js": "^9.39.2",
     "@graphql-codegen/add": "^6.0.0",
     "@graphql-codegen/cli": "^6.1.1",

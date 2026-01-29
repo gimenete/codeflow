@@ -4,9 +4,11 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
 import os from "os";
+import crypto from "crypto";
 import { simpleGit, SimpleGit, StatusResult } from "simple-git";
 import keytar from "keytar";
 import chokidar from "chokidar";
+import pty from "node-pty";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,6 +24,9 @@ let chatQuery: ReturnType<typeof query> | null = null;
 
 // File watchers map (watcherId -> watcher instance)
 const fileWatchers = new Map<string, chokidar.FSWatcher>();
+
+// PTY sessions map (sessionId -> pty instance)
+const ptySessions = new Map<string, pty.IPty>();
 
 // Git types
 interface GitFileStatus {
@@ -831,8 +836,71 @@ ipcMain.handle("watcher:stop", async (_event, watcherId: string) => {
   }
 });
 
-// Cleanup watchers on window close
+// ==================== PTY IPC Handlers ====================
+
+ipcMain.handle("pty:create", async (_event, cwd: string) => {
+  const sessionId = crypto.randomUUID();
+  const shell =
+    process.platform === "win32"
+      ? "powershell.exe"
+      : process.env.SHELL || "/bin/bash";
+
+  try {
+    const ptyProcess = pty.spawn(shell, [], {
+      name: "xterm-256color",
+      cols: 80,
+      rows: 24,
+      cwd: cwd,
+      env: process.env as Record<string, string>,
+    });
+
+    ptySessions.set(sessionId, ptyProcess);
+
+    // Forward PTY output to renderer
+    ptyProcess.onData((data) => {
+      mainWindow?.webContents.send("pty:output", { sessionId, data });
+    });
+
+    ptyProcess.onExit(({ exitCode }) => {
+      mainWindow?.webContents.send("pty:exit", { sessionId, exitCode });
+      ptySessions.delete(sessionId);
+    });
+
+    return { sessionId, pid: ptyProcess.pid };
+  } catch (error) {
+    console.error("pty:create error:", error);
+    throw error;
+  }
+});
+
+ipcMain.handle("pty:write", async (_event, sessionId: string, data: string) => {
+  const ptyProcess = ptySessions.get(sessionId);
+  if (ptyProcess) {
+    ptyProcess.write(data);
+  }
+});
+
+ipcMain.handle(
+  "pty:resize",
+  async (_event, sessionId: string, cols: number, rows: number) => {
+    const ptyProcess = ptySessions.get(sessionId);
+    if (ptyProcess) {
+      ptyProcess.resize(cols, rows);
+    }
+  },
+);
+
+ipcMain.handle("pty:kill", async (_event, sessionId: string) => {
+  const ptyProcess = ptySessions.get(sessionId);
+  if (ptyProcess) {
+    ptyProcess.kill();
+    ptySessions.delete(sessionId);
+  }
+});
+
+// Cleanup watchers and PTY sessions on window close
 app.on("before-quit", async () => {
+  // Clean up file watchers
   for (const [id, watcher] of fileWatchers) {
     try {
       await watcher.close();
@@ -841,4 +909,14 @@ app.on("before-quit", async () => {
     }
   }
   fileWatchers.clear();
+
+  // Clean up PTY sessions
+  for (const [sessionId, ptyProcess] of ptySessions) {
+    try {
+      ptyProcess.kill();
+    } catch (error) {
+      console.error(`Error killing PTY ${sessionId}:`, error);
+    }
+  }
+  ptySessions.clear();
 });

@@ -237,6 +237,53 @@ const watcherAPI = {
   },
 };
 
+// PTY API
+interface PtyCreateResult {
+  sessionId: string;
+  pid: number;
+}
+
+interface PtyOutputEvent {
+  sessionId: string;
+  data: string;
+}
+
+interface PtyExitEvent {
+  sessionId: string;
+  exitCode: number;
+}
+
+const ptyAPI = {
+  create: (cwd: string): Promise<PtyCreateResult> => {
+    return ipcRenderer.invoke("pty:create", cwd);
+  },
+
+  write: (sessionId: string, data: string): Promise<void> => {
+    return ipcRenderer.invoke("pty:write", sessionId, data);
+  },
+
+  resize: (sessionId: string, cols: number, rows: number): Promise<void> => {
+    return ipcRenderer.invoke("pty:resize", sessionId, cols, rows);
+  },
+
+  kill: (sessionId: string): Promise<void> => {
+    return ipcRenderer.invoke("pty:kill", sessionId);
+  },
+
+  onOutput: (callback: (event: PtyOutputEvent) => void): void => {
+    ipcRenderer.on("pty:output", (_event, data) => callback(data));
+  },
+
+  onExit: (callback: (event: PtyExitEvent) => void): void => {
+    ipcRenderer.on("pty:exit", (_event, data) => callback(data));
+  },
+
+  removeAllListeners: (): void => {
+    ipcRenderer.removeAllListeners("pty:output");
+    ipcRenderer.removeAllListeners("pty:exit");
+  },
+};
+
 // Claude Chat API (uses Agent SDK in main process)
 const claudeChatAPI = {
   sendMessage: (
@@ -285,6 +332,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   claudeChat: claudeChatAPI,
   shell: shellAPI,
   watcher: watcherAPI,
+  pty: ptyAPI,
   isElectron: true,
 });
 
@@ -296,3 +344,4 @@ contextBridge.exposeInMainWorld("claudeAgentAPI", claudeAgentAPI);
 contextBridge.exposeInMainWorld("claudeChatAPI", claudeChatAPI);
 contextBridge.exposeInMainWorld("shellAPI", shellAPI);
 contextBridge.exposeInMainWorld("watcherAPI", watcherAPI);
+contextBridge.exposeInMainWorld("ptyAPI", ptyAPI);
