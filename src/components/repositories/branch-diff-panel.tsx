@@ -1,3 +1,4 @@
+import { DiffViewer } from "@/components/diff-viewer";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,
@@ -170,26 +171,7 @@ export function BranchDiffPanel({
                 <CollapsibleContent>
                   <div className="ml-6 mt-1 mb-2 rounded border bg-muted/30 overflow-auto">
                     {fileDiffs[file.path] ? (
-                      <pre className="p-2 text-xs font-mono whitespace-pre overflow-x-auto">
-                        {fileDiffs[file.path].split("\n").map((line, i) => (
-                          <div
-                            key={i}
-                            className={cn(
-                              "px-1",
-                              line.startsWith("+") &&
-                                !line.startsWith("+++") &&
-                                "bg-green-500/20 text-green-700 dark:text-green-400",
-                              line.startsWith("-") &&
-                                !line.startsWith("---") &&
-                                "bg-red-500/20 text-red-700 dark:text-red-400",
-                              line.startsWith("@@") &&
-                                "text-blue-600 dark:text-blue-400",
-                            )}
-                          >
-                            {line || " "}
-                          </div>
-                        ))}
-                      </pre>
+                      <DiffViewer diff={fileDiffs[file.path]} />
                     ) : (
                       <div className="p-2 text-xs text-muted-foreground">
                         Loading diff...
