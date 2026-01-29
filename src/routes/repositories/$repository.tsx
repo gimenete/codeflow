@@ -1,6 +1,7 @@
 import { createFileRoute, redirect, Outlet } from "@tanstack/react-router";
 import { useRepositoriesStore } from "@/lib/repositories-store";
 import { RepositorySidebar } from "@/components/repositories/repository-sidebar";
+import { Scrollable } from "@/components/flex-layout";
 
 export const Route = createFileRoute("/repositories/$repository")({
   beforeLoad: ({ params, location }) => {
@@ -30,11 +31,11 @@ function RepositoryLayout() {
   const { repository } = Route.useRouteContext();
 
   return (
-    <div className="flex h-full">
+    <Scrollable.Layout direction="horizontal">
       <RepositorySidebar repository={repository} />
       <div className="flex-1 overflow-hidden">
         <Outlet />
       </div>
-    </div>
+    </Scrollable.Layout>
   );
 }

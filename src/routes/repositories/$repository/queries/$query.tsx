@@ -1,13 +1,5 @@
-import { useEffect, useRef, useCallback, useMemo, useState } from "react";
-import {
-  createFileRoute,
-  Link,
-  redirect,
-  useNavigate,
-} from "@tanstack/react-router";
-import { useInfiniteQuery } from "@tanstack/react-query";
-import { Filter } from "lucide-react";
-import { z } from "zod";
+import { SaveQueryDialog } from "@/components/save-query-dialog";
+import { SearchResultItemSkeleton } from "@/components/search-result-item";
 import {
   Select,
   SelectContent,
@@ -15,24 +7,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { SearchResultItemSkeleton } from "@/components/search-result-item";
 import { UserCombobox } from "@/components/user-combobox";
-import { SaveQueryDialog } from "@/components/save-query-dialog";
-import { useRepositoriesStore } from "@/lib/repositories-store";
 import { getAccount } from "@/lib/auth";
 import {
-  searchIssuesAndPulls,
   buildSearchQuery,
+  searchIssuesAndPulls,
   searchWithCursors,
 } from "@/lib/github";
-import type { QueryFilters, PullRequest, Issue } from "@/lib/github-types";
-import {
-  useSavedQueriesStore,
-  useQueryById,
-  isSystemQuery,
-} from "@/lib/saved-queries-store";
+import type { Issue, PullRequest, QueryFilters } from "@/lib/github-types";
 import { parseRemoteUrl } from "@/lib/remote-url";
+import { useRepositoriesStore } from "@/lib/repositories-store";
+import {
+  isSystemQuery,
+  useQueryById,
+  useSavedQueriesStore,
+} from "@/lib/saved-queries-store";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import {
+  createFileRoute,
+  Link,
+  redirect,
+  useNavigate,
+} from "@tanstack/react-router";
+import { Filter } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { z } from "zod";
 
 const searchSchema = z.object({
   type: z.enum(["pulls", "issues"]).optional(),
@@ -403,7 +402,7 @@ function SavedQueryResults() {
       />
 
       {/* Results */}
-      <ScrollArea className="flex-1">
+      <Scrollable.Vertical>
         {isLoading ? (
           <div className="divide-y">
             {Array.from({ length: 8 }).map((_, i) => (
@@ -440,7 +439,7 @@ function SavedQueryResults() {
             )}
           </>
         )}
-      </ScrollArea>
+      </Scrollable.Vertical>
     </div>
   );
 }
@@ -474,6 +473,7 @@ function RepositorySearchResultItem({
 }
 
 // Simplified search result content (no Link wrapper since parent provides it)
+import { Scrollable } from "@/components/flex-layout";
 import { GitHubLabel } from "@/components/github-label";
 import { IssueStateIcon } from "@/components/issue-state-icon";
 import { PullStateIcon } from "@/components/pull-state-icon";

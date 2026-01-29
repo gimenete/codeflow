@@ -1,23 +1,23 @@
-import { Link, useParams, useLocation } from "@tanstack/react-router";
-import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { useBranchesByRepositoryId } from "@/lib/branches-store";
+import type { Repository } from "@/lib/github-types";
+import { getIconById } from "@/lib/query-icons";
+import { getOwnerRepo, parseRemoteUrl } from "@/lib/remote-url";
+import { useSavedQueries } from "@/lib/saved-queries-store";
+import { cn } from "@/lib/utils";
+import { Link, useLocation, useParams } from "@tanstack/react-router";
 import {
+  ChevronRight,
+  CircleDot,
   GitBranch,
   GitPullRequest,
-  CircleDot,
   ListTodo,
   Plus,
-  ChevronRight,
   Search,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import type { Repository } from "@/lib/github-types";
-import { useBranchesByRepositoryId } from "@/lib/branches-store";
-import { useSavedQueries } from "@/lib/saved-queries-store";
+import { useState } from "react";
+import { Scrollable } from "../flex-layout";
 import { TrackBranchDialog } from "./track-branch-dialog";
-import { getIconById } from "@/lib/query-icons";
-import { parseRemoteUrl, getOwnerRepo } from "@/lib/remote-url";
 
 interface RepositorySidebarProps {
   repository: Repository;
@@ -48,7 +48,7 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
         )}
       </div>
 
-      <ScrollArea className="flex-1">
+      <Scrollable.Vertical>
         {/* Navigation */}
         <div className="p-2">
           <div className="space-y-1">
@@ -180,7 +180,7 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
             )}
           </div>
         </div>
-      </ScrollArea>
+      </Scrollable.Vertical>
 
       <TrackBranchDialog
         repositoryId={repository.id}

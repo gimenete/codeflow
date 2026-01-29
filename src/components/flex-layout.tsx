@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { ReactNode, forwardRef } from "react";
 import { ScrollArea } from "./ui/scroll-area";
+import { Scrollbar } from "@radix-ui/react-scroll-area";
 
 interface FlexLayoutProps {
   direction: "horizontal" | "vertical";
@@ -21,7 +22,7 @@ const Layout = forwardRef<HTMLDivElement, FlexLayoutProps>(function Layout(
   return (
     <div
       ref={ref}
-      className={cn(className, "flex overflow-hidden", flexDirection)}
+      className={cn(className, "flex flex-1 overflow-hidden", flexDirection)}
     >
       {children}
     </div>
@@ -49,8 +50,22 @@ const Horizontal = forwardRef<HTMLDivElement, ScrollableProps>(
   },
 );
 
+const Both = forwardRef<HTMLDivElement, ScrollableProps>(function Both(
+  { children, className },
+  ref,
+) {
+  return (
+    <ScrollArea ref={ref} className={cn(className, "flex-1 min-h-0 min-w-0")}>
+      {children}
+      <Scrollbar orientation="horizontal" />
+      <Scrollbar orientation="vertical" />
+    </ScrollArea>
+  );
+});
+
 export const Scrollable = {
   Layout,
   Vertical,
   Horizontal,
+  Both,
 };

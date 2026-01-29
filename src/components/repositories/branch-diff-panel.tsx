@@ -1,22 +1,22 @@
-import { useState, useEffect, useCallback } from "react";
-import { RefreshCw, FileCode, Plus, Minus, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { cn } from "@/lib/utils";
 import {
-  useGitStatus,
-  startWatcher,
-  stopWatcher,
   onWatcherChange,
   removeWatcherListeners,
+  startWatcher,
+  stopWatcher,
+  useGitStatus,
 } from "@/lib/git";
-import { isElectron } from "@/lib/platform";
 import type { TrackedBranch } from "@/lib/github-types";
+import { isElectron } from "@/lib/platform";
+import { cn } from "@/lib/utils";
+import { Edit, FileCode, Minus, Plus, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Scrollable } from "../flex-layout";
 
 interface BranchDiffPanelProps {
   branch: TrackedBranch;
@@ -135,7 +135,7 @@ export function BranchDiffPanel({
       </div>
 
       {/* File list */}
-      <ScrollArea className="flex-1 min-h-0">
+      <Scrollable.Both>
         {isLoading && files.length === 0 ? (
           <div className="p-4 text-center text-muted-foreground">
             Loading changes...
@@ -201,7 +201,7 @@ export function BranchDiffPanel({
             ))}
           </div>
         )}
-      </ScrollArea>
+      </Scrollable.Both>
 
       {/* Summary footer */}
       {hasChanges && status && (
