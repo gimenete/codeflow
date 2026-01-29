@@ -1,18 +1,16 @@
-import { BranchChat } from "@/components/repositories/branch-chat";
-import { BranchDiffPanel } from "@/components/repositories/branch-diff-panel";
-import { TerminalPanel } from "@/components/terminal/terminal-panel";
-import { Button } from "@/components/ui/button";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-  usePanelRef,
-} from "@/components/ui/resizable";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBranchById, useBranchesStore } from "@/lib/branches-store";
 import { useRepositoriesStore } from "@/lib/repositories-store";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { ChevronDown, ChevronUp, TerminalSquare } from "lucide-react";
-import { useEffect, useState } from "react";
+import {
+  createFileRoute,
+  Link,
+  Outlet,
+  redirect,
+  useLocation,
+  useNavigate,
+} from "@tanstack/react-router";
+import { Bot, FileText, TerminalSquare } from "lucide-react";
+import { useEffect } from "react";
 
 export const Route = createFileRoute(
   "/repositories/$repository/branches/$branch",
@@ -33,18 +31,17 @@ export const Route = createFileRoute(
 function BranchDetailPage() {
   const { repository } = Route.useRouteContext();
   const { branch: branchId } = Route.useParams();
+  const repositorySlug = Route.useParams().repository;
   const branch = useBranchById(branchId);
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Panel refs for programmatic collapse/expand
-  const chatPanelRef = usePanelRef();
-  const diffPanelRef = usePanelRef();
-  const terminalPanelRef = usePanelRef();
-
-  // Collapse state for panels
-  const [chatCollapsed, setChatCollapsed] = useState(false);
-  const [diffCollapsed, setDiffCollapsed] = useState(false);
-  const [terminalCollapsed, setTerminalCollapsed] = useState(true);
+  // Derive active tab from pathname
+  const activeTab = location.pathname.endsWith("/terminal")
+    ? "terminal"
+    : location.pathname.endsWith("/diff")
+      ? "diff"
+      : "agent";
 
   // Redirect if branch not found (after hydration)
   useEffect(() => {
@@ -89,97 +86,47 @@ function BranchDetailPage() {
     );
   }
 
-  const toggleTerminal = () => {
-    if (terminalCollapsed) {
-      terminalPanelRef.current?.expand();
-    } else {
-      terminalPanelRef.current?.collapse();
-    }
-  };
-
   return (
-    <ResizablePanelGroup direction="vertical" className="h-full">
-      {/* Top section: Chat + Diff */}
-      <ResizablePanel defaultSize={70} minSize={20}>
-        <ResizablePanelGroup direction="horizontal" className="h-full">
-          {/* Chat Panel */}
-          <ResizablePanel
-            panelRef={chatPanelRef}
-            defaultSize={60}
-            minSize={20}
-            collapsible
-            collapsedSize={0}
-            onResize={(size) => {
-              if (size.asPercentage === 0) setChatCollapsed(true);
-              else if (chatCollapsed) setChatCollapsed(false);
-            }}
-          >
-            <BranchChat branch={branch} cwd={cwd} />
-          </ResizablePanel>
-
-          <ResizableHandle withHandle />
-
-          {/* Diff Panel */}
-          <ResizablePanel
-            panelRef={diffPanelRef}
-            defaultSize={40}
-            minSize={15}
-            collapsible
-            collapsedSize={0}
-            onResize={(size) => {
-              if (size.asPercentage === 0) setDiffCollapsed(true);
-              else if (diffCollapsed) setDiffCollapsed(false);
-            }}
-          >
-            <BranchDiffPanel branch={branch} repositoryPath={cwd} />
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      </ResizablePanel>
-
-      <ResizableHandle withHandle />
-
-      {/* Terminal Panel */}
-      <ResizablePanel
-        panelRef={terminalPanelRef}
-        defaultSize={30}
-        minSize={10}
-        collapsible
-        collapsedSize={0}
-        onResize={(size) => {
-          if (size.asPercentage === 0) setTerminalCollapsed(true);
-          else if (terminalCollapsed) setTerminalCollapsed(false);
-        }}
-      >
-        <div className="h-full flex flex-col">
-          <div className="border-b px-3 py-1.5 flex items-center justify-between shrink-0 bg-[#1a1a1a]">
-            <div className="flex items-center gap-2">
-              <TerminalSquare className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-muted-foreground">
-                Terminal
-              </span>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={toggleTerminal}
+    <div className="flex flex-col h-full">
+      {/* Tab navigation */}
+      <div className="bg-background shrink-0">
+        <Tabs value={activeTab}>
+          <TabsList className="w-full rounded-none border-b justify-start">
+            <Link
+              to="/repositories/$repository/branches/$branch/agent"
+              params={{ repository: repositorySlug, branch: branchId }}
             >
-              {terminalCollapsed ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
-          <div className="flex-1 min-h-0">
-            <TerminalPanel
-              cwd={cwd}
-              className="h-full w-full"
-              active={!terminalCollapsed}
-            />
-          </div>
-        </div>
-      </ResizablePanel>
-    </ResizablePanelGroup>
+              <TabsTrigger value="agent" className="gap-1">
+                <Bot className="h-4 w-4" />
+                Agent
+              </TabsTrigger>
+            </Link>
+            <Link
+              to="/repositories/$repository/branches/$branch/diff"
+              params={{ repository: repositorySlug, branch: branchId }}
+            >
+              <TabsTrigger value="diff" className="gap-1">
+                <FileText className="h-4 w-4" />
+                Changes
+              </TabsTrigger>
+            </Link>
+            <Link
+              to="/repositories/$repository/branches/$branch/terminal"
+              params={{ repository: repositorySlug, branch: branchId }}
+            >
+              <TabsTrigger value="terminal" className="gap-1">
+                <TerminalSquare className="h-4 w-4" />
+                Terminal
+              </TabsTrigger>
+            </Link>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {/* Child route content */}
+      <div className="flex-1 min-h-0">
+        <Outlet />
+      </div>
+    </div>
   );
 }
