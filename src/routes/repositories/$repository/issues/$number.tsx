@@ -11,6 +11,7 @@ import { copyToClipboard, openInBrowser } from "@/lib/actions";
 import { getAccount } from "@/lib/auth";
 import { useIssueMetadata } from "@/lib/github";
 import { useRepositoriesStore } from "@/lib/repositories-store";
+import { parseRemoteUrl } from "@/lib/remote-url";
 import { RepoIcon } from "@primer/octicons-react";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { Copy, ExternalLink, MoreHorizontal } from "lucide-react";
@@ -25,31 +26,28 @@ export const Route = createFileRoute(
     if (!repository) {
       throw redirect({ to: "/", search: { addAccount: false } });
     }
-    if (
-      !repository.githubAccountId ||
-      !repository.githubOwner ||
-      !repository.githubRepo
-    ) {
+    const remoteInfo = parseRemoteUrl(repository.remoteUrl);
+    if (!repository.accountId || !remoteInfo) {
       throw redirect({
         to: "/repositories/$repository/branches",
         params: { repository: params.repository },
       });
     }
-    const account = getAccount(repository.githubAccountId);
+    const account = getAccount(repository.accountId);
     if (!account) {
       throw redirect({ to: "/", search: { addAccount: false } });
     }
-    return { repository, account };
+    return { repository, account, remoteInfo };
   },
   component: IssueDetail,
 });
 
 function IssueDetail() {
   const { number } = Route.useParams();
-  const { repository, account } = Route.useRouteContext();
+  const { account, remoteInfo } = Route.useRouteContext();
 
-  const owner = repository.githubOwner!;
-  const repo = repository.githubRepo!;
+  const owner = remoteInfo.owner;
+  const repo = remoteInfo.repo;
 
   const { data, isLoading, error } = useIssueMetadata(
     account.id,

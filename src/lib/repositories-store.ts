@@ -1,6 +1,21 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { Repository } from "./github-types";
+import type { Repository, AgentType, IssueTracker } from "./github-types";
+import { getAccount } from "./auth";
+import { isGitHubUrl } from "./remote-url";
+
+// Types for migration from v2
+interface RepositoryV2 {
+  id: string;
+  slug: string;
+  name: string;
+  path: string;
+  githubAccountId: string | null;
+  githubOwner: string | null;
+  githubRepo: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 // Slugify helper
 export function slugify(text: string): string {
@@ -105,7 +120,7 @@ export const useRepositoriesStore = create<RepositoriesState>()(
     }),
     {
       name: "codeflow:repositories",
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
       migrate: (persistedState, version) => {
         // Migration from version 1 (old "codeflow:projects" format)
@@ -125,6 +140,45 @@ export const useRepositoriesStore = create<RepositoriesState>()(
           }
           return { repositories: [] };
         }
+
+        // Migration from version 2: convert GitHub fields to new format
+        if (version < 3) {
+          const state = persistedState as { repositories: RepositoryV2[] };
+          const migratedRepositories: Repository[] = state.repositories.map(
+            (repo) => {
+              // Build remote URL from old GitHub fields
+              let remoteUrl: string | null = null;
+              if (repo.githubOwner && repo.githubRepo) {
+                const account = repo.githubAccountId
+                  ? getAccount(repo.githubAccountId)
+                  : null;
+                const host = account?.host ?? "github.com";
+                remoteUrl = `https://${host}/${repo.githubOwner}/${repo.githubRepo}`;
+              }
+
+              // Determine issue tracker based on remote URL
+              const issueTracker: IssueTracker | null = isGitHubUrl(remoteUrl)
+                ? "github"
+                : null;
+
+              return {
+                id: repo.id,
+                slug: repo.slug,
+                name: repo.name,
+                path: repo.path || null, // Convert empty string to null
+                accountId: repo.githubAccountId,
+                remoteUrl,
+                agent: "claude" as AgentType,
+                issueTracker,
+                createdAt: repo.createdAt,
+                updatedAt: repo.updatedAt,
+              };
+            },
+          );
+
+          return { repositories: migratedRepositories };
+        }
+
         return persistedState as RepositoriesState;
       },
     },

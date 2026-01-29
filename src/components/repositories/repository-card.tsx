@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { GitBranch, MoreHorizontal, Trash2 } from "lucide-react";
+import { GitBranch, MoreHorizontal, Trash2, FolderOpen } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -17,6 +17,7 @@ import {
 import type { Repository } from "@/lib/github-types";
 import { useRepositoriesStore } from "@/lib/repositories-store";
 import { useBranchesByRepositoryId } from "@/lib/branches-store";
+import { getOwnerRepo } from "@/lib/remote-url";
 
 interface RepositoryCardProps {
   repository: Repository;
@@ -27,6 +28,7 @@ export function RepositoryCard({ repository }: RepositoryCardProps) {
     (state) => state.deleteRepository,
   );
   const branches = useBranchesByRepositoryId(repository.id);
+  const ownerRepo = getOwnerRepo(repository.remoteUrl);
 
   const handleDelete = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -64,16 +66,19 @@ export function RepositoryCard({ repository }: RepositoryCardProps) {
             </DropdownMenu>
           </div>
           <CardDescription className="text-xs truncate">
-            {repository.path}
+            {repository.path ? (
+              repository.path
+            ) : (
+              <span className="flex items-center gap-1 text-muted-foreground/60">
+                <FolderOpen className="h-3 w-3" />
+                No local path
+              </span>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent className="pb-4">
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            {repository.githubOwner && repository.githubRepo && (
-              <span>
-                {repository.githubOwner}/{repository.githubRepo}
-              </span>
-            )}
+            {ownerRepo && <span>{ownerRepo}</span>}
             {branches.length > 0 && (
               <span className="flex items-center gap-1">
                 <GitBranch className="h-3.5 w-3.5" />

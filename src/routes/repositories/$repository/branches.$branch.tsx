@@ -56,6 +56,20 @@ function BranchDetailPage() {
 
   const cwd = branch.worktreePath || repository.path;
 
+  // Show message if no local path is configured
+  if (!cwd) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="text-center text-muted-foreground">
+          <p className="text-lg font-medium mb-2">Local path not configured</p>
+          <p className="text-sm">
+            Please configure a local repository path to work with branches.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full">
       {/* Chat Panel */}

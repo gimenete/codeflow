@@ -37,10 +37,10 @@ export const Route = createFileRoute(
 function PullFilesTab() {
   const { number } = Route.useParams();
   const { commit } = Route.useSearch();
-  const { repository, account } = Route.useRouteContext();
+  const { account, remoteInfo } = Route.useRouteContext();
   const navigate = useNavigate();
-  const owner = repository.githubOwner!;
-  const repo = repository.githubRepo!;
+  const owner = remoteInfo.owner;
+  const repo = remoteInfo.repo;
   const prNumber = parseInt(number);
 
   const { data } = usePullMetadata(account.id, owner, repo, prNumber);

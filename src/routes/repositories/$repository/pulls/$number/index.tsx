@@ -24,9 +24,9 @@ export const Route = createFileRoute(
 
 function PullConversationTab() {
   const { number } = Route.useParams();
-  const { repository, account } = Route.useRouteContext();
-  const owner = repository.githubOwner!;
-  const repo = repository.githubRepo!;
+  const { account, remoteInfo } = Route.useRouteContext();
+  const owner = remoteInfo.owner;
+  const repo = remoteInfo.repo;
 
   const { data, isLoading: isMetadataLoading } = usePullMetadata(
     account.id,

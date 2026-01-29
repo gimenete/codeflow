@@ -16,7 +16,7 @@ import {
   type SearchNavigationResponse,
 } from "@/queries/search-navigation";
 import type {
-  GitHubAccount,
+  Account,
   PullRequest,
   Issue,
   PullRequestDetail,
@@ -42,7 +42,7 @@ import type {
 import type { TimelineNode } from "@/components/timeline-events";
 import { getAccount } from "./auth";
 
-function getGraphQLClient(account: GitHubAccount): GraphQLClient {
+function getGraphQLClient(account: Account): GraphQLClient {
   const endpoint =
     account.host === "github.com"
       ? "https://api.github.com/graphql"
@@ -55,7 +55,7 @@ function getGraphQLClient(account: GitHubAccount): GraphQLClient {
   });
 }
 
-function getOctokit(account: GitHubAccount): Octokit {
+function getOctokit(account: Account): Octokit {
   const baseUrl =
     account.host === "github.com"
       ? "https://api.github.com"
@@ -78,7 +78,7 @@ function resolveFilterValue(
 }
 
 export function buildSearchQuery(
-  account: GitHubAccount,
+  account: Account,
   filters: QueryFilters,
   isPR: boolean,
 ): string {
@@ -145,7 +145,7 @@ export function buildSearchQuery(
 const SEARCH_PER_PAGE = 50;
 
 export async function searchIssuesAndPulls(
-  account: GitHubAccount,
+  account: Account,
   filters: QueryFilters,
   isPR: boolean,
   page: number = 1,
@@ -210,7 +210,7 @@ export async function searchIssuesAndPulls(
 }
 
 export async function getQueryCount(
-  account: GitHubAccount,
+  account: Account,
   query: SavedQuery,
 ): Promise<number> {
   const octokit = getOctokit(account);
@@ -233,7 +233,7 @@ export async function getQueryCount(
 }
 
 export async function fetchIssueOrPRDetail(
-  account: GitHubAccount,
+  account: Account,
   owner: string,
   repo: string,
   number: number,
@@ -452,7 +452,7 @@ export function useIssueOrPRDetail(
 }
 
 export async function fetchIssueOrPullMetadata(
-  account: GitHubAccount,
+  account: Account,
   owner: string,
   repo: string,
   number: number,
@@ -610,7 +610,7 @@ export function useIssueOrPullMetadata(
 }
 
 export async function fetchIssueTimeline(
-  account: GitHubAccount,
+  account: Account,
   owner: string,
   repo: string,
   number: number,
@@ -642,7 +642,7 @@ export async function fetchIssueTimeline(
 }
 
 export async function fetchPullTimeline(
-  account: GitHubAccount,
+  account: Account,
   owner: string,
   repo: string,
   number: number,
@@ -750,7 +750,7 @@ export function useIssueTimeline(
 }
 
 export async function fetchPRCommits(
-  account: GitHubAccount,
+  account: Account,
   owner: string,
   repo: string,
   number: number,
@@ -889,7 +889,7 @@ export interface GitHubUser {
 }
 
 export async function searchGitHubUsers(
-  account: GitHubAccount,
+  account: Account,
   query: string,
 ): Promise<GitHubUser[]> {
   if (!query || query.length < 2) return [];
@@ -912,7 +912,7 @@ export interface GitHubRepo {
 }
 
 export async function searchGitHubRepos(
-  account: GitHubAccount,
+  account: Account,
   query: string,
 ): Promise<GitHubRepo[]> {
   if (!query || query.length < 2) return [];
@@ -932,7 +932,7 @@ export async function searchGitHubRepos(
 // REST API hooks for PR files and diffs
 
 export async function fetchPRFilesREST(
-  account: GitHubAccount,
+  account: Account,
   owner: string,
   repo: string,
   number: number,
@@ -990,7 +990,7 @@ export function usePRFilesREST(
 }
 
 export async function fetchCommitDiff(
-  account: GitHubAccount,
+  account: Account,
   owner: string,
   repo: string,
   sha: string,
@@ -1033,7 +1033,7 @@ export interface ComparisonResult {
 }
 
 export async function fetchBranchComparison(
-  account: GitHubAccount,
+  account: Account,
   owner: string,
   repo: string,
   base: string,
@@ -1209,7 +1209,7 @@ export interface AdjacentItems {
 }
 
 export async function searchAdjacentItems(
-  account: GitHubAccount,
+  account: Account,
   queryString: string,
   cursor: string,
 ): Promise<AdjacentItems> {
@@ -1245,7 +1245,7 @@ export interface SearchCursorsPage {
 }
 
 export async function searchWithCursors(
-  account: GitHubAccount,
+  account: Account,
   queryString: string,
   first: number,
   after?: string,

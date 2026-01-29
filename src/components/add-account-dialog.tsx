@@ -49,6 +49,7 @@ export function AddAccountDialog({
         host,
         avatarUrl: validation.user.avatarUrl,
         token,
+        provider: "github", // Default to GitHub for now
       });
 
       setToken("");

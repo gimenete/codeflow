@@ -17,6 +17,7 @@ import { useBranchesByRepositoryId } from "@/lib/branches-store";
 import { useSavedQueries } from "@/lib/saved-queries-store";
 import { TrackBranchDialog } from "./track-branch-dialog";
 import { getIconById } from "@/lib/query-icons";
+import { parseRemoteUrl, getOwnerRepo } from "@/lib/remote-url";
 
 interface RepositorySidebarProps {
   repository: Repository;
@@ -33,17 +34,17 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
   const savedQueries = useSavedQueries(repository.id);
   const [trackBranchOpen, setTrackBranchOpen] = useState(false);
 
-  const hasGitHub = repository.githubOwner && repository.githubRepo;
+  const remoteInfo = parseRemoteUrl(repository.remoteUrl);
+  const hasRemote = repository.accountId && remoteInfo;
+  const ownerRepo = getOwnerRepo(repository.remoteUrl);
 
   return (
     <div className="w-64 border-r bg-muted/10 flex flex-col h-full">
       {/* Repository Header */}
       <div className="p-4 border-b">
         <h2 className="font-semibold truncate">{repository.name}</h2>
-        {hasGitHub && (
-          <p className="text-xs text-muted-foreground truncate">
-            {repository.githubOwner}/{repository.githubRepo}
-          </p>
+        {ownerRepo && (
+          <p className="text-xs text-muted-foreground truncate">{ownerRepo}</p>
         )}
       </div>
 
@@ -65,7 +66,7 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
               Branches
             </Link>
 
-            {hasGitHub && (
+            {hasRemote && (
               <>
                 <Link
                   to="/repositories/$repository/issues"
@@ -100,7 +101,7 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
         </div>
 
         {/* Saved Queries Section */}
-        {hasGitHub && savedQueries.length > 0 && (
+        {hasRemote && savedQueries.length > 0 && (
           <div className="p-2 border-t">
             <div className="flex items-center justify-between px-3 py-2">
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">

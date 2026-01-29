@@ -1,12 +1,21 @@
 import type { TimelineNode } from "@/components/timeline-events";
 
-export interface GitHubAccount {
+// Provider types for multi-provider support
+export type AccountProvider = "github" | "gitlab" | "bitbucket";
+export type AgentType = "claude" | "codex";
+export type IssueTracker = "github" | "linear" | "jira";
+
+export interface Account {
   id: string;
   login: string;
   host: string;
   avatarUrl: string;
   token: string;
+  provider: AccountProvider;
 }
+
+// Backward compatibility alias
+export type GitHubAccount = Account;
 
 export interface Label {
   name: string;
@@ -291,10 +300,11 @@ export interface Repository {
   id: string;
   slug: string; // URL-friendly (e.g., "my-repo")
   name: string;
-  path: string; // Local git repo path
-  githubAccountId: string | null;
-  githubOwner: string | null;
-  githubRepo: string | null;
+  path: string | null; // Local git repo path (now nullable)
+  accountId: string | null; // Renamed from githubAccountId
+  remoteUrl: string | null; // Replaces githubOwner/githubRepo
+  agent: AgentType; // AI agent selection
+  issueTracker: IssueTracker | null; // Issue tracker integration
   createdAt: string;
   updatedAt: string;
 }

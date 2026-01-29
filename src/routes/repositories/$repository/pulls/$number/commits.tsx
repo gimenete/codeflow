@@ -12,10 +12,10 @@ export const Route = createFileRoute(
 
 function PullCommitsTab() {
   const { repository: repositorySlug, number } = Route.useParams();
-  const { repository, account } = Route.useRouteContext();
+  const { account, remoteInfo } = Route.useRouteContext();
   const navigate = useNavigate();
-  const owner = repository.githubOwner!;
-  const repo = repository.githubRepo!;
+  const owner = remoteInfo.owner;
+  const repo = remoteInfo.repo;
 
   const {
     data: commitsData,

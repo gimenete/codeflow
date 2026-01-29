@@ -20,6 +20,7 @@ import { GitHubLabel } from "@/components/github-label";
 import { PullStateIcon } from "@/components/pull-state-icon";
 import { RelativeTime } from "@/components/relative-time";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { parseRemoteUrl } from "@/lib/remote-url";
 
 const searchSchema = z.object({
   filter: z
@@ -41,19 +42,16 @@ function RepositoryPullsPage() {
     state.getRepositoryBySlug(repositorySlug),
   );
 
-  if (
-    !repository ||
-    !repository.githubAccountId ||
-    !repository.githubOwner ||
-    !repository.githubRepo
-  ) {
+  const remoteInfo = parseRemoteUrl(repository?.remoteUrl);
+
+  if (!repository || !repository.accountId || !remoteInfo) {
     return (
       <div className="h-full flex items-center justify-center text-muted-foreground">
         <div className="text-center">
           <GitPullRequest className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <h3 className="text-lg font-medium mb-2">GitHub not configured</h3>
+          <h3 className="text-lg font-medium mb-2">Remote not configured</h3>
           <p className="text-sm">
-            This repository is not linked to a GitHub repository.
+            This repository is not linked to a remote repository.
           </p>
         </div>
       </div>
@@ -63,9 +61,9 @@ function RepositoryPullsPage() {
   return (
     <RepositoryPullsList
       repositorySlug={repositorySlug}
-      accountId={repository.githubAccountId}
-      owner={repository.githubOwner}
-      repo={repository.githubRepo}
+      accountId={repository.accountId}
+      owner={remoteInfo.owner}
+      repo={remoteInfo.repo}
       filter={filter}
       navigate={navigate}
     />

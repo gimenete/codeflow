@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { getCredentialStore } from "./credentials";
-import type { GitHubAccount } from "./github-types";
+import type { Account } from "./github-types";
 
 const ACCOUNTS_KEY = "accounts";
 
@@ -11,9 +11,9 @@ function notifyListeners() {
   listeners.forEach((listener) => listener());
 }
 
-let accountsCache: GitHubAccount[] | null = null;
+let accountsCache: Account[] | null = null;
 
-export async function loadAccounts(): Promise<GitHubAccount[]> {
+export async function loadAccounts(): Promise<Account[]> {
   if (accountsCache !== null) {
     return accountsCache;
   }
@@ -21,7 +21,14 @@ export async function loadAccounts(): Promise<GitHubAccount[]> {
   const store = getCredentialStore();
   try {
     const data = await store.get(ACCOUNTS_KEY);
-    accountsCache = data ? JSON.parse(data) : [];
+    const parsed = data ? JSON.parse(data) : [];
+    // Migrate accounts to include provider field if missing
+    accountsCache = parsed.map(
+      (account: Omit<Account, "provider"> & { provider?: string }) => ({
+        ...account,
+        provider: account.provider || "github",
+      }),
+    );
   } catch (error) {
     console.error("Failed to load accounts from credential store:", error);
     accountsCache = [];
@@ -29,19 +36,19 @@ export async function loadAccounts(): Promise<GitHubAccount[]> {
   return accountsCache ?? [];
 }
 
-async function saveAccounts(accounts: GitHubAccount[]): Promise<void> {
+async function saveAccounts(accounts: Account[]): Promise<void> {
   const store = getCredentialStore();
   await store.set(ACCOUNTS_KEY, JSON.stringify(accounts));
   accountsCache = accounts;
   notifyListeners();
 }
 
-export function getAccount(id: string): GitHubAccount | null {
+export function getAccount(id: string): Account | null {
   return accountsCache?.find((a) => a.id === id) ?? null;
 }
 
 export function useAccounts() {
-  const [accounts, setAccounts] = useState<GitHubAccount[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -63,12 +70,12 @@ export function useAccounts() {
 }
 
 export function useAddAccount() {
-  const addAccount = useCallback(async (account: Omit<GitHubAccount, "id">) => {
+  const addAccount = useCallback(async (account: Omit<Account, "id">) => {
     const accounts = await loadAccounts();
     const id = `${account.login}~${account.host}`;
 
     const existingIndex = accounts.findIndex((a) => a.id === id);
-    const newAccount: GitHubAccount = { ...account, id };
+    const newAccount: Account = { ...account, id };
 
     if (existingIndex >= 0) {
       accounts[existingIndex] = newAccount;

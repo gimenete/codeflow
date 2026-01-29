@@ -19,10 +19,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { openFolderPicker, parseRemoteUrl } from "@/lib/git";
+import { openFolderPicker, parseRemoteUrl as parseGitRemote } from "@/lib/git";
 import { isElectron } from "@/lib/platform";
 import { useRepositoriesStore } from "@/lib/repositories-store";
 import { useAccounts } from "@/lib/auth";
+import { buildRemoteUrl, isGitHubUrl } from "@/lib/remote-url";
 
 interface AddRepositoryDialogProps {
   open: boolean;
@@ -35,8 +36,8 @@ export function AddRepositoryDialog({
 }: AddRepositoryDialogProps) {
   const [path, setPath] = useState("");
   const [name, setName] = useState("");
-  const [githubAccountId, setGithubAccountId] = useState<string | null>(null);
-  const [detectedGithub, setDetectedGithub] = useState<{
+  const [accountId, setAccountId] = useState<string | null>(null);
+  const [detectedRemote, setDetectedRemote] = useState<{
     owner: string | null;
     repo: string | null;
     host: string | null;
@@ -49,30 +50,30 @@ export function AddRepositoryDialog({
   const { accounts } = useAccounts();
   const navigate = useNavigate();
 
-  // Detect GitHub remote when path changes
+  // Detect remote URL when path changes
   useEffect(() => {
     if (!path) {
-      setDetectedGithub({ owner: null, repo: null, host: null });
+      setDetectedRemote({ owner: null, repo: null, host: null });
       return;
     }
 
     async function detectRemote() {
       setIsDetecting(true);
       try {
-        const result = await parseRemoteUrl(path);
-        setDetectedGithub(result);
+        const result = await parseGitRemote(path);
+        setDetectedRemote(result);
 
-        // Auto-select matching GitHub account
+        // Auto-select matching account
         if (result.host && result.owner) {
           const matchingAccount = accounts.find(
             (a) => a.host === result.host || a.host === `${result.host}`,
           );
           if (matchingAccount) {
-            setGithubAccountId(matchingAccount.id);
+            setAccountId(matchingAccount.id);
           }
         }
       } catch {
-        setDetectedGithub({ owner: null, repo: null, host: null });
+        setDetectedRemote({ owner: null, repo: null, host: null });
       } finally {
         setIsDetecting(false);
       }
@@ -108,18 +109,32 @@ export function AddRepositoryDialog({
     setIsLoading(true);
 
     try {
+      // Build remote URL from detected remote info
+      let remoteUrl: string | null = null;
+      if (detectedRemote.host && detectedRemote.owner && detectedRemote.repo) {
+        remoteUrl = buildRemoteUrl(
+          detectedRemote.host,
+          detectedRemote.owner,
+          detectedRemote.repo,
+        );
+      }
+
+      // Determine issue tracker based on remote URL
+      const issueTracker = isGitHubUrl(remoteUrl) ? "github" : null;
+
       const repository = addRepository({
         name: name.trim(),
-        path: path.trim(),
-        githubAccountId,
-        githubOwner: detectedGithub.owner,
-        githubRepo: detectedGithub.repo,
+        path: path.trim() || null,
+        accountId,
+        remoteUrl,
+        agent: "claude",
+        issueTracker,
       });
 
       setPath("");
       setName("");
-      setGithubAccountId(null);
-      setDetectedGithub({ owner: null, repo: null, host: null });
+      setAccountId(null);
+      setDetectedRemote({ owner: null, repo: null, host: null });
       onOpenChange(false);
 
       void navigate({
@@ -137,8 +152,8 @@ export function AddRepositoryDialog({
     if (!newOpen) {
       setPath("");
       setName("");
-      setGithubAccountId(null);
-      setDetectedGithub({ owner: null, repo: null, host: null });
+      setAccountId(null);
+      setDetectedRemote({ owner: null, repo: null, host: null });
       setError(null);
     }
     onOpenChange(newOpen);
@@ -176,12 +191,12 @@ export function AddRepositoryDialog({
               </div>
               {isDetecting && (
                 <p className="text-xs text-muted-foreground">
-                  Detecting GitHub remote...
+                  Detecting remote...
                 </p>
               )}
-              {detectedGithub.owner && detectedGithub.repo && (
+              {detectedRemote.owner && detectedRemote.repo && (
                 <p className="text-xs text-muted-foreground">
-                  Detected: {detectedGithub.owner}/{detectedGithub.repo}
+                  Detected: {detectedRemote.owner}/{detectedRemote.repo}
                 </p>
               )}
             </div>
@@ -197,15 +212,15 @@ export function AddRepositoryDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="account">GitHub Account (optional)</Label>
+              <Label htmlFor="account">Account (optional)</Label>
               <Select
-                value={githubAccountId ?? "none"}
+                value={accountId ?? "none"}
                 onValueChange={(value) =>
-                  setGithubAccountId(value === "none" ? null : value)
+                  setAccountId(value === "none" ? null : value)
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a GitHub account" />
+                  <SelectValue placeholder="Select an account" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No account</SelectItem>
@@ -217,7 +232,7 @@ export function AddRepositoryDialog({
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Link a GitHub account to view issues and pull requests.
+                Link an account to view issues and pull requests.
               </p>
             </div>
 

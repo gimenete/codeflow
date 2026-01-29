@@ -14,6 +14,7 @@ import { copyToClipboard, openInBrowser } from "@/lib/actions";
 import { getAccount } from "@/lib/auth";
 import { usePullMetadata } from "@/lib/github";
 import { useRepositoriesStore } from "@/lib/repositories-store";
+import { parseRemoteUrl } from "@/lib/remote-url";
 import { GitCommitIcon, RepoIcon } from "@primer/octicons-react";
 import {
   createFileRoute,
@@ -39,21 +40,18 @@ export const Route = createFileRoute("/repositories/$repository/pulls/$number")(
       if (!repository) {
         throw redirect({ to: "/", search: { addAccount: false } });
       }
-      if (
-        !repository.githubAccountId ||
-        !repository.githubOwner ||
-        !repository.githubRepo
-      ) {
+      const remoteInfo = parseRemoteUrl(repository.remoteUrl);
+      if (!repository.accountId || !remoteInfo) {
         throw redirect({
           to: "/repositories/$repository/branches",
           params: { repository: params.repository },
         });
       }
-      const account = getAccount(repository.githubAccountId);
+      const account = getAccount(repository.accountId);
       if (!account) {
         throw redirect({ to: "/", search: { addAccount: false } });
       }
-      return { repository, account };
+      return { repository, account, remoteInfo };
     },
     component: PullRequestDetail,
   },
@@ -61,11 +59,11 @@ export const Route = createFileRoute("/repositories/$repository/pulls/$number")(
 
 function PullRequestDetail() {
   const { repository: repositorySlug, number } = Route.useParams();
-  const { repository, account } = Route.useRouteContext();
+  const { account, remoteInfo } = Route.useRouteContext();
   const location = useLocation();
 
-  const owner = repository.githubOwner!;
-  const repo = repository.githubRepo!;
+  const owner = remoteInfo.owner;
+  const repo = remoteInfo.repo;
 
   const { data, isLoading, error } = usePullMetadata(
     account.id,

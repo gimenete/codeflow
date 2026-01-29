@@ -32,6 +32,7 @@ import {
   useQueryById,
   isSystemQuery,
 } from "@/lib/saved-queries-store";
+import { parseRemoteUrl } from "@/lib/remote-url";
 
 const searchSchema = z.object({
   type: z.enum(["pulls", "issues"]).optional(),
@@ -62,21 +63,18 @@ export const Route = createFileRoute(
     if (!repository) {
       throw redirect({ to: "/", search: { addAccount: false } });
     }
-    if (
-      !repository.githubAccountId ||
-      !repository.githubOwner ||
-      !repository.githubRepo
-    ) {
+    const remoteInfo = parseRemoteUrl(repository.remoteUrl);
+    if (!repository.accountId || !remoteInfo) {
       throw redirect({
         to: "/repositories/$repository/branches",
         params: { repository: params.repository },
       });
     }
-    const account = getAccount(repository.githubAccountId);
+    const account = getAccount(repository.accountId);
     if (!account) {
       throw redirect({ to: "/", search: { addAccount: false } });
     }
-    return { repository, account };
+    return { repository, account, remoteInfo };
   },
   component: SavedQueryResults,
 });
@@ -84,13 +82,13 @@ export const Route = createFileRoute(
 function SavedQueryResults() {
   const { repository: repositorySlug, query: queryId } = Route.useParams();
   const urlFilters = Route.useSearch();
-  const { repository, account } = Route.useRouteContext();
+  const { repository, account, remoteInfo } = Route.useRouteContext();
   const navigate = useNavigate();
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const updateQuery = useSavedQueriesStore((state) => state.updateQuery);
 
-  const owner = repository.githubOwner!;
-  const repo = repository.githubRepo!;
+  const owner = remoteInfo.owner;
+  const repo = remoteInfo.repo;
 
   // Get saved query by repository ID
   const savedQuery = useQueryById(repository.id, queryId);

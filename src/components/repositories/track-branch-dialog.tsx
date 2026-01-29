@@ -25,7 +25,7 @@ import { useBranchesStore, useBranchByName } from "@/lib/branches-store";
 
 interface TrackBranchDialogProps {
   repositoryId: string;
-  repositoryPath: string;
+  repositoryPath: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -42,7 +42,8 @@ export function TrackBranchDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { branches, currentBranch } = useBranches(repositoryPath);
+  // All hooks must be called unconditionally
+  const { branches, currentBranch } = useBranches(repositoryPath ?? undefined);
   const addBranch = useBranchesStore((state) => state.addBranch);
   const navigate = useNavigate();
   const { repository: repositorySlug } = useParams({ strict: false });
@@ -63,6 +64,30 @@ export function TrackBranchDialog({
       setSelectedBranch(nonMainBranch ?? branches[0]);
     }
   }, [open, branches, currentBranch]);
+
+  // If no local path is configured, show a message
+  if (!repositoryPath) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Track Branch</DialogTitle>
+            <DialogDescription>
+              A local repository path is required to track branches.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 text-center text-muted-foreground">
+            <p>Please configure a local path for this repository first.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
