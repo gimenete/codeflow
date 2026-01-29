@@ -1,24 +1,18 @@
-import { useEffect, useState } from "react";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { useRepositoriesStore } from "@/lib/repositories-store";
-import { useBranchesStore, useBranchById } from "@/lib/branches-store";
 import { BranchChat } from "@/components/repositories/branch-chat";
 import { BranchDiffPanel } from "@/components/repositories/branch-diff-panel";
 import { TerminalPanel } from "@/components/terminal/terminal-panel";
-import {
-  ResizablePanelGroup,
-  ResizablePanel,
-  ResizableHandle,
-  usePanelRef,
-} from "@/components/ui/resizable";
 import { Button } from "@/components/ui/button";
 import {
-  ChevronDown,
-  ChevronUp,
-  ChevronLeft,
-  ChevronRight,
-  TerminalSquare,
-} from "lucide-react";
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+  usePanelRef,
+} from "@/components/ui/resizable";
+import { useBranchById, useBranchesStore } from "@/lib/branches-store";
+import { useRepositoriesStore } from "@/lib/repositories-store";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { ChevronDown, ChevronUp, TerminalSquare } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export const Route = createFileRoute(
   "/repositories/$repository/branches/$branch",
@@ -95,22 +89,6 @@ function BranchDetailPage() {
     );
   }
 
-  const toggleChat = () => {
-    if (chatCollapsed) {
-      chatPanelRef.current?.expand();
-    } else {
-      chatPanelRef.current?.collapse();
-    }
-  };
-
-  const toggleDiff = () => {
-    if (diffCollapsed) {
-      diffPanelRef.current?.expand();
-    } else {
-      diffPanelRef.current?.collapse();
-    }
-  };
-
   const toggleTerminal = () => {
     if (terminalCollapsed) {
       terminalPanelRef.current?.expand();
@@ -136,26 +114,7 @@ function BranchDetailPage() {
               else if (chatCollapsed) setChatCollapsed(false);
             }}
           >
-            <div className="h-full flex flex-col">
-              <div className="border-b px-3 py-1.5 flex items-center justify-between shrink-0">
-                <span className="text-sm font-medium">Chat</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={toggleChat}
-                >
-                  {chatCollapsed ? (
-                    <ChevronRight className="h-4 w-4" />
-                  ) : (
-                    <ChevronLeft className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-              <div className="flex-1 min-h-0 overflow-hidden">
-                <BranchChat branch={branch} cwd={cwd} />
-              </div>
-            </div>
+            <BranchChat branch={branch} cwd={cwd} />
           </ResizablePanel>
 
           <ResizableHandle withHandle />
@@ -172,26 +131,7 @@ function BranchDetailPage() {
               else if (diffCollapsed) setDiffCollapsed(false);
             }}
           >
-            <div className="h-full flex flex-col">
-              <div className="border-b px-3 py-1.5 flex items-center justify-between shrink-0">
-                <span className="text-sm font-medium">Changes</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={toggleDiff}
-                >
-                  {diffCollapsed ? (
-                    <ChevronLeft className="h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-              <div className="flex-1 min-h-0 overflow-auto">
-                <BranchDiffPanel branch={branch} repositoryPath={cwd} />
-              </div>
-            </div>
+            <BranchDiffPanel branch={branch} repositoryPath={cwd} />
           </ResizablePanel>
         </ResizablePanelGroup>
       </ResizablePanel>
