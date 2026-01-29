@@ -97,6 +97,8 @@ const DEFAULT_GROUP_TITLE = "Saved Queries";
 const defaultGroupsCache = new Map<string, SavedQueryGroup[]>();
 // Cache for flattened queries to avoid creating new arrays on every render
 const defaultQueriesCache = new Map<string, SavedQuery[]>();
+// Cache for system queries with accountId to ensure stable references
+const systemQueryCache = new Map<string, SavedQuery>();
 
 function createDefaultGroups(repositoryId: string): SavedQueryGroup[] {
   const cached = defaultGroupsCache.get(repositoryId);
@@ -396,7 +398,13 @@ function getQueryByIdFromState(
   // Check system queries first
   const systemQuery = systemQueries.find((q) => q.id === queryId);
   if (systemQuery) {
-    return { ...systemQuery, accountId: repositoryId } as SavedQuery;
+    const cacheKey = `${repositoryId}:${queryId}`;
+    let cached = systemQueryCache.get(cacheKey);
+    if (!cached) {
+      cached = { ...systemQuery, accountId: repositoryId } as SavedQuery;
+      systemQueryCache.set(cacheKey, cached);
+    }
+    return cached;
   }
   const queries = getQueriesFromState(state, repositoryId);
   return queries.find((q) => q.id === queryId) ?? null;

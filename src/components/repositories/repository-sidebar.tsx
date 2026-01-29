@@ -69,11 +69,12 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
             {hasRemote && (
               <>
                 <Link
-                  to="/repositories/$repository/issues"
-                  params={{ repository: repositorySlug! }}
+                  to="/repositories/$repository/queries/$query"
+                  params={{ repository: repositorySlug!, query: "issues" }}
                   className={cn(
                     "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
-                    location.pathname.endsWith("/issues")
+                    location.pathname.includes("/queries/") &&
+                      query === "issues"
                       ? "bg-accent text-accent-foreground"
                       : "hover:bg-accent/50 text-muted-foreground hover:text-foreground",
                   )}
@@ -83,11 +84,11 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
                 </Link>
 
                 <Link
-                  to="/repositories/$repository/pulls"
-                  params={{ repository: repositorySlug! }}
+                  to="/repositories/$repository/queries/$query"
+                  params={{ repository: repositorySlug!, query: "pulls" }}
                   className={cn(
                     "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
-                    location.pathname.endsWith("/pulls")
+                    location.pathname.includes("/queries/") && query === "pulls"
                       ? "bg-accent text-accent-foreground"
                       : "hover:bg-accent/50 text-muted-foreground hover:text-foreground",
                   )}
