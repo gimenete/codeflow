@@ -243,6 +243,19 @@ interface PtyCreateResult {
   pid: number;
 }
 
+interface PtyCreateOrGetResult {
+  sessionId: string;
+  pid: number;
+  isExisting: boolean;
+}
+
+interface PtyAttachResult {
+  success: boolean;
+  bufferedOutput?: string[];
+  pid?: number;
+  error?: string;
+}
+
 interface PtyOutputEvent {
   sessionId: string;
   data: string;
@@ -256,6 +269,27 @@ interface PtyExitEvent {
 const ptyAPI = {
   create: (cwd: string): Promise<PtyCreateResult> => {
     return ipcRenderer.invoke("pty:create", cwd);
+  },
+
+  createOrGet: (
+    branchId: string,
+    cwd: string,
+  ): Promise<PtyCreateOrGetResult> => {
+    return ipcRenderer.invoke("pty:create-or-get", branchId, cwd);
+  },
+
+  attach: (sessionId: string): Promise<PtyAttachResult> => {
+    return ipcRenderer.invoke("pty:attach", sessionId);
+  },
+
+  detach: (sessionId: string): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke("pty:detach", sessionId);
+  },
+
+  getSessionForBranch: (
+    branchId: string,
+  ): Promise<{ sessionId: string | null }> => {
+    return ipcRenderer.invoke("pty:get-session-for-branch", branchId);
   },
 
   write: (sessionId: string, data: string): Promise<void> => {

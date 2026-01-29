@@ -4,15 +4,18 @@ import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { isElectron } from "@/lib/platform";
 import "@/lib/terminal"; // Import for type augmentation
+import { usePtySessionStore } from "@/lib/pty-session-store";
 
 interface TerminalPanelProps {
   cwd: string;
+  branchId?: string; // Optional branch ID for session persistence
   className?: string;
   active?: boolean; // Only initialize terminal when true (lazy initialization)
 }
 
 export function TerminalPanel({
   cwd,
+  branchId,
   className,
   active = true,
 }: TerminalPanelProps) {
@@ -23,6 +26,13 @@ export function TerminalPanel({
   const sessionIdRef = useRef<string | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const initializedRef = useRef(false);
+
+  const {
+    setSession,
+    removeSession,
+    setActive: setSessionActive,
+  } = usePtySessionStore();
 
   // Handle terminal input - send to PTY
   const handleInput = useCallback((data: string) => {
@@ -52,6 +62,10 @@ export function TerminalPanel({
       return;
     }
 
+    // Prevent double initialization in strict mode
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
     const container = containerRef.current;
     let terminal: Terminal | null = null;
     let fitAddon: FitAddon | null = null;
@@ -59,6 +73,9 @@ export function TerminalPanel({
     let cleanup = false;
 
     async function initTerminal() {
+      const ptyAPI = window.ptyAPI;
+      if (!ptyAPI) return;
+
       try {
         if (cleanup) return;
 
@@ -122,19 +139,54 @@ export function TerminalPanel({
           return;
         }
 
-        // Create PTY session
-        const { sessionId } = await window.ptyAPI!.create(cwd);
+        // Create or get existing PTY session
+        let sessionId: string;
+        let isExisting = false;
+
+        if (branchId && ptyAPI.createOrGet) {
+          // Use persistent session API
+          const result = await ptyAPI.createOrGet(branchId, cwd);
+          sessionId = result.sessionId;
+          isExisting = result.isExisting;
+
+          // Store session in Zustand
+          setSession(branchId, {
+            sessionId,
+            branchId,
+            cwd,
+            isActive: true,
+          });
+
+          // If reconnecting to existing session, replay buffered output
+          if (isExisting) {
+            const attachResult = await ptyAPI.attach(sessionId);
+            if (attachResult.success && attachResult.bufferedOutput) {
+              for (const data of attachResult.bufferedOutput) {
+                terminal.write(data);
+              }
+            }
+          }
+        } else {
+          // Fallback to simple create (for non-branch contexts)
+          const result = await ptyAPI.create(cwd);
+          sessionId = result.sessionId;
+        }
+
         sessionIdRef.current = sessionId;
 
         if (cleanup) {
-          void window.ptyAPI!.kill(sessionId);
+          if (branchId) {
+            void ptyAPI.detach?.(sessionId);
+          } else {
+            void ptyAPI.kill(sessionId);
+          }
           terminal.dispose();
           resizeObserver.disconnect();
           return;
         }
 
         // Resize PTY to match terminal dimensions
-        void window.ptyAPI!.resize(sessionId, terminal.cols, terminal.rows);
+        void ptyAPI.resize(sessionId, terminal.cols, terminal.rows);
 
         // Set up terminal input handler
         terminal.onData(handleInput);
@@ -143,18 +195,22 @@ export function TerminalPanel({
         terminal.onResize(handleResize);
 
         // Set up PTY output listener
-        window.ptyAPI!.onOutput(({ sessionId: sid, data }) => {
+        ptyAPI.onOutput(({ sessionId: sid, data }) => {
           if (sid === sessionIdRef.current && terminalRef.current) {
             terminalRef.current.write(data);
           }
         });
 
         // Set up PTY exit listener
-        window.ptyAPI!.onExit(({ sessionId: sid, exitCode }) => {
+        ptyAPI.onExit(({ sessionId: sid, exitCode }) => {
           if (sid === sessionIdRef.current && terminalRef.current) {
             terminalRef.current.writeln(
               `\r\n[Process exited with code ${exitCode}]`,
             );
+            // Remove session from store when process exits
+            if (branchId) {
+              removeSession(branchId);
+            }
           }
         });
 
@@ -172,9 +228,16 @@ export function TerminalPanel({
     return () => {
       cleanup = true;
 
-      // Kill PTY session
+      // Detach from session (don't kill if using persistent sessions)
       if (sessionIdRef.current && window.ptyAPI) {
-        void window.ptyAPI.kill(sessionIdRef.current);
+        if (branchId && window.ptyAPI.detach) {
+          // Mark session as inactive but keep it alive
+          void window.ptyAPI.detach(sessionIdRef.current);
+          setSessionActive(branchId, false);
+        } else {
+          // Kill session if not using persistence
+          void window.ptyAPI.kill(sessionIdRef.current);
+        }
         sessionIdRef.current = null;
       }
 
@@ -194,8 +257,18 @@ export function TerminalPanel({
       }
 
       fitAddonRef.current = null;
+      initializedRef.current = false;
     };
-  }, [cwd, handleInput, handleResize, active]);
+  }, [
+    cwd,
+    branchId,
+    handleInput,
+    handleResize,
+    active,
+    setSession,
+    removeSession,
+    setSessionActive,
+  ]);
 
   // Return placeholder when not active (lazy initialization)
   if (!active) {

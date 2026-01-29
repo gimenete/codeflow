@@ -28,6 +28,23 @@ const fileWatchers = new Map<string, chokidar.FSWatcher>();
 // PTY sessions map (sessionId -> pty instance)
 const ptySessions = new Map<string, pty.IPty>();
 
+// PTY session metadata for persistence
+interface PtySessionMetadata {
+  branchId: string;
+  cwd: string;
+  createdAt: number;
+  lastActivityAt: number;
+  outputBuffer: string[]; // Last N lines for replay
+  idleTimeoutId?: NodeJS.Timeout;
+}
+
+const ptySessionMetadata = new Map<string, PtySessionMetadata>();
+const branchToSessionId = new Map<string, string>();
+
+// Idle timeout for sessions (1 hour)
+const PTY_IDLE_TIMEOUT_MS = 60 * 60 * 1000;
+const PTY_OUTPUT_BUFFER_SIZE = 1000;
+
 // Git types
 interface GitFileStatus {
   path: string;
@@ -838,6 +855,49 @@ ipcMain.handle("watcher:stop", async (_event, watcherId: string) => {
 
 // ==================== PTY IPC Handlers ====================
 
+// Helper to reset idle timeout for a session
+function resetPtyIdleTimeout(sessionId: string) {
+  const meta = ptySessionMetadata.get(sessionId);
+  if (!meta) return;
+
+  // Clear existing timeout
+  if (meta.idleTimeoutId) {
+    clearTimeout(meta.idleTimeoutId);
+  }
+
+  // Set new timeout
+  meta.idleTimeoutId = setTimeout(() => {
+    console.log(`PTY session ${sessionId} idle timeout - killing`);
+    const ptyProcess = ptySessions.get(sessionId);
+    if (ptyProcess) {
+      ptyProcess.kill();
+      ptySessions.delete(sessionId);
+    }
+    // Clean up metadata
+    if (meta.branchId) {
+      branchToSessionId.delete(meta.branchId);
+    }
+    ptySessionMetadata.delete(sessionId);
+  }, PTY_IDLE_TIMEOUT_MS);
+
+  meta.lastActivityAt = Date.now();
+}
+
+// Helper to clean up a PTY session completely
+function cleanupPtySession(sessionId: string) {
+  const meta = ptySessionMetadata.get(sessionId);
+  if (meta) {
+    if (meta.idleTimeoutId) {
+      clearTimeout(meta.idleTimeoutId);
+    }
+    if (meta.branchId) {
+      branchToSessionId.delete(meta.branchId);
+    }
+    ptySessionMetadata.delete(sessionId);
+  }
+  ptySessions.delete(sessionId);
+}
+
 ipcMain.handle("pty:create", async (_event, cwd: string) => {
   const sessionId = crypto.randomUUID();
   const shell =
@@ -873,10 +933,134 @@ ipcMain.handle("pty:create", async (_event, cwd: string) => {
   }
 });
 
+// Create or get existing session for a branch
+ipcMain.handle(
+  "pty:create-or-get",
+  async (_event, branchId: string, cwd: string) => {
+    // Check if session already exists for this branch
+    const existingSessionId = branchToSessionId.get(branchId);
+    if (existingSessionId) {
+      const existingProcess = ptySessions.get(existingSessionId);
+      const existingMeta = ptySessionMetadata.get(existingSessionId);
+      if (existingProcess && existingMeta) {
+        // Session exists and is alive - reset idle timeout and return it
+        resetPtyIdleTimeout(existingSessionId);
+        return {
+          sessionId: existingSessionId,
+          pid: existingProcess.pid,
+          isExisting: true,
+        };
+      }
+      // Session was orphaned, clean up the mapping
+      branchToSessionId.delete(branchId);
+    }
+
+    // Create new session
+    const sessionId = crypto.randomUUID();
+    const shell =
+      process.platform === "win32"
+        ? "powershell.exe"
+        : process.env.SHELL || "/bin/bash";
+
+    try {
+      const ptyProcess = pty.spawn(shell, [], {
+        name: "xterm-256color",
+        cols: 80,
+        rows: 24,
+        cwd: cwd,
+        env: process.env as Record<string, string>,
+      });
+
+      ptySessions.set(sessionId, ptyProcess);
+
+      // Create metadata
+      const meta: PtySessionMetadata = {
+        branchId,
+        cwd,
+        createdAt: Date.now(),
+        lastActivityAt: Date.now(),
+        outputBuffer: [],
+      };
+      ptySessionMetadata.set(sessionId, meta);
+      branchToSessionId.set(branchId, sessionId);
+
+      // Set up idle timeout
+      resetPtyIdleTimeout(sessionId);
+
+      // Forward PTY output to renderer and buffer it
+      ptyProcess.onData((data) => {
+        mainWindow?.webContents.send("pty:output", { sessionId, data });
+        // Buffer for replay
+        const currentMeta = ptySessionMetadata.get(sessionId);
+        if (currentMeta) {
+          currentMeta.outputBuffer.push(data);
+          if (currentMeta.outputBuffer.length > PTY_OUTPUT_BUFFER_SIZE) {
+            currentMeta.outputBuffer.shift();
+          }
+          currentMeta.lastActivityAt = Date.now();
+        }
+      });
+
+      ptyProcess.onExit(({ exitCode }) => {
+        mainWindow?.webContents.send("pty:exit", { sessionId, exitCode });
+        cleanupPtySession(sessionId);
+      });
+
+      return { sessionId, pid: ptyProcess.pid, isExisting: false };
+    } catch (error) {
+      console.error("pty:create-or-get error:", error);
+      throw error;
+    }
+  },
+);
+
+// Attach to an existing session - returns buffered output for replay
+ipcMain.handle("pty:attach", async (_event, sessionId: string) => {
+  const meta = ptySessionMetadata.get(sessionId);
+  const ptyProcess = ptySessions.get(sessionId);
+
+  if (!meta || !ptyProcess) {
+    return { success: false, error: "Session not found" };
+  }
+
+  // Reset idle timeout on attach
+  resetPtyIdleTimeout(sessionId);
+
+  return {
+    success: true,
+    bufferedOutput: meta.outputBuffer,
+    pid: ptyProcess.pid,
+  };
+});
+
+// Detach from a session - mark inactive but don't kill
+ipcMain.handle("pty:detach", async (_event, sessionId: string) => {
+  const meta = ptySessionMetadata.get(sessionId);
+  if (meta) {
+    // Reset idle timeout - session stays alive but will timeout if not reattached
+    resetPtyIdleTimeout(sessionId);
+  }
+  return { success: true };
+});
+
+// Get session ID for a branch (if exists)
+ipcMain.handle(
+  "pty:get-session-for-branch",
+  async (_event, branchId: string) => {
+    const sessionId = branchToSessionId.get(branchId);
+    if (sessionId && ptySessions.has(sessionId)) {
+      return { sessionId };
+    }
+    return { sessionId: null };
+  },
+);
+
 ipcMain.handle("pty:write", async (_event, sessionId: string, data: string) => {
   const ptyProcess = ptySessions.get(sessionId);
   if (ptyProcess) {
     ptyProcess.write(data);
+    // Reset idle timeout on activity
+    resetPtyIdleTimeout(sessionId);
   }
 });
 
@@ -894,7 +1078,7 @@ ipcMain.handle("pty:kill", async (_event, sessionId: string) => {
   const ptyProcess = ptySessions.get(sessionId);
   if (ptyProcess) {
     ptyProcess.kill();
-    ptySessions.delete(sessionId);
+    cleanupPtySession(sessionId);
   }
 });
 
@@ -910,13 +1094,20 @@ app.on("before-quit", async () => {
   }
   fileWatchers.clear();
 
-  // Clean up PTY sessions
+  // Clean up PTY sessions and their metadata
   for (const [sessionId, ptyProcess] of ptySessions) {
     try {
+      // Clear idle timeout
+      const meta = ptySessionMetadata.get(sessionId);
+      if (meta?.idleTimeoutId) {
+        clearTimeout(meta.idleTimeoutId);
+      }
       ptyProcess.kill();
     } catch (error) {
       console.error(`Error killing PTY ${sessionId}:`, error);
     }
   }
   ptySessions.clear();
+  ptySessionMetadata.clear();
+  branchToSessionId.clear();
 });

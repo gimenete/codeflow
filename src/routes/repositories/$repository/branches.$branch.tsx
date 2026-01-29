@@ -1,4 +1,5 @@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TerminalPanel } from "@/components/terminal/terminal-panel";
 import { useBranchById, useBranchesStore } from "@/lib/branches-store";
 import { useRepositoriesStore } from "@/lib/repositories-store";
 import {
@@ -123,9 +124,23 @@ function BranchDetailPage() {
         </Tabs>
       </div>
 
-      {/* Child route content */}
-      <div className="flex-1 min-h-0">
+      {/* Child route content - hide when terminal tab is active */}
+      <div
+        className={`flex-1 min-h-0 ${activeTab === "terminal" ? "hidden" : ""}`}
+      >
         <Outlet />
+      </div>
+
+      {/* Terminal panel - always mounted, hidden when not active */}
+      <div
+        className={`flex-1 min-h-0 ${activeTab === "terminal" ? "" : "hidden"}`}
+      >
+        <TerminalPanel
+          branchId={branchId}
+          cwd={cwd}
+          className="h-full w-full"
+          active={activeTab === "terminal"}
+        />
       </div>
     </div>
   );
