@@ -319,7 +319,7 @@ function SavedQueryResults() {
               });
             }}
           >
-            <SelectTrigger className="w-36 h-8">
+            <SelectTrigger size="sm" className="w-36">
               <SelectValue>
                 {filters.type === "issues" ? "Issues" : "Pull Requests"}
               </SelectValue>
@@ -337,7 +337,7 @@ function SavedQueryResults() {
               updateFilter("state", v as QuerySearchFilters["state"])
             }
           >
-            <SelectTrigger className="w-32 h-8">
+            <SelectTrigger size="sm" className="w-40">
               <SelectValue>
                 {filters.state &&
                   `State: ${filters.state.charAt(0).toUpperCase() + filters.state.slice(1)}`}

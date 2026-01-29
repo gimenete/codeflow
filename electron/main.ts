@@ -97,7 +97,25 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  if (isDev) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const devtools = (await import("electron-devtools-installer")) as any;
+      const installExtension = devtools.installExtension || devtools.default;
+      console.log(
+        "devtools.REACT_DEVELOPER_TOOLS:",
+        devtools.REACT_DEVELOPER_TOOLS,
+      );
+      await installExtension(devtools.REACT_DEVELOPER_TOOLS, {
+        loadExtensionOptions: { allowFileAccess: true },
+      });
+      console.log("React DevTools installed");
+    } catch (err) {
+      console.error("Failed to install React DevTools:", err);
+    }
+  }
+
   createWindow();
 
   app.on("activate", () => {
