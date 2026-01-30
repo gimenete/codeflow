@@ -11,7 +11,8 @@ interface GitStatus {
   branch: string;
   ahead: number;
   behind: number;
-  files: GitFileStatus[];
+  stagedFiles: GitFileStatus[];
+  unstagedFiles: GitFileStatus[];
 }
 
 interface GitCommit {
@@ -72,6 +73,26 @@ const gitAPI = {
 
   getDiffFile: (path: string, file: string): Promise<string> => {
     return ipcRenderer.invoke("git:diff-file", path, file);
+  },
+
+  getDiffStaged: (path: string, file: string): Promise<string> => {
+    return ipcRenderer.invoke("git:diff-staged", path, file);
+  },
+
+  getDiffHead: (path: string, file: string): Promise<string> => {
+    return ipcRenderer.invoke("git:diff-head", path, file);
+  },
+
+  stage: (path: string, file: string): Promise<OperationResult> => {
+    return ipcRenderer.invoke("git:stage", path, file);
+  },
+
+  unstage: (path: string, file: string): Promise<OperationResult> => {
+    return ipcRenderer.invoke("git:unstage", path, file);
+  },
+
+  discard: (path: string, file: string): Promise<OperationResult> => {
+    return ipcRenderer.invoke("git:discard", path, file);
   },
 
   getCommitDetail: (path: string, sha: string): Promise<CommitDetail> => {
@@ -271,11 +292,8 @@ const ptyAPI = {
     return ipcRenderer.invoke("pty:create", cwd);
   },
 
-  createOrGet: (
-    branchId: string,
-    cwd: string,
-  ): Promise<PtyCreateOrGetResult> => {
-    return ipcRenderer.invoke("pty:create-or-get", branchId, cwd);
+  createOrGet: (paneId: string, cwd: string): Promise<PtyCreateOrGetResult> => {
+    return ipcRenderer.invoke("pty:create-or-get", paneId, cwd);
   },
 
   attach: (sessionId: string): Promise<PtyAttachResult> => {
@@ -286,10 +304,10 @@ const ptyAPI = {
     return ipcRenderer.invoke("pty:detach", sessionId);
   },
 
-  getSessionForBranch: (
-    branchId: string,
+  getSessionForPane: (
+    paneId: string,
   ): Promise<{ sessionId: string | null }> => {
-    return ipcRenderer.invoke("pty:get-session-for-branch", branchId);
+    return ipcRenderer.invoke("pty:get-session-for-pane", paneId);
   },
 
   write: (sessionId: string, data: string): Promise<void> => {

@@ -3,22 +3,41 @@ import { LazyDiffViewer } from "@/components/lazy-diff-viewer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import { Textarea } from "@/components/ui/textarea";
+import {
   onWatcherChange,
   removeWatcherListeners,
   startWatcher,
   stopWatcher,
   useGitStatus,
 } from "@/lib/git";
-import type { TrackedBranch } from "@/lib/github-types";
+import type { GitFileStatus, TrackedBranch } from "@/lib/github-types";
 import { isElectron } from "@/lib/platform";
 import { cn, fuzzyFilter } from "@/lib/utils";
-import { Edit, FileCode, Minus, Plus, RefreshCw } from "lucide-react";
+import {
+  Edit as EditIcon,
+  FileCode,
+  Minus,
+  Plus,
+  RefreshCw,
+  Undo2,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 interface BranchFilesViewProps {
   branch: TrackedBranch;
   repositoryPath: string;
 }
+
+// Type for tracking which section a file belongs to when selected
+type FileSelection = {
+  path: string;
+  section: "staged" | "unstaged";
+} | null;
 
 export function BranchFilesView({
   branch,
@@ -27,7 +46,7 @@ export function BranchFilesView({
   const { status, isLoading, refresh } = useGitStatus(repositoryPath);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [fileDiffs, setFileDiffs] = useState<Record<string, string>>({});
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<FileSelection>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [focusedIndex, setFocusedIndex] = useState(-1);
 
@@ -35,14 +54,48 @@ export function BranchFilesView({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const files = useMemo(() => status?.files ?? [], [status?.files]);
-  const hasChanges = files.length > 0;
+  const stagedFiles = useMemo(
+    () => status?.stagedFiles ?? [],
+    [status?.stagedFiles],
+  );
+  const unstagedFiles = useMemo(
+    () => status?.unstagedFiles ?? [],
+    [status?.unstagedFiles],
+  );
+  const hasChanges = stagedFiles.length > 0 || unstagedFiles.length > 0;
+
+  // Get all unique file paths for the diff view
+  const allFilePaths = useMemo(() => {
+    const paths = new Set<string>();
+    stagedFiles.forEach((f) => paths.add(f.path));
+    unstagedFiles.forEach((f) => paths.add(f.path));
+    return Array.from(paths).sort();
+  }, [stagedFiles, unstagedFiles]);
 
   // Filter files based on search query
-  const filteredFiles = useMemo(
-    () => fuzzyFilter(files, searchQuery, (f) => f.path),
-    [files, searchQuery],
+  const filteredStagedFiles = useMemo(
+    () => fuzzyFilter(stagedFiles, searchQuery, (f) => f.path),
+    [stagedFiles, searchQuery],
   );
+  const filteredUnstagedFiles = useMemo(
+    () => fuzzyFilter(unstagedFiles, searchQuery, (f) => f.path),
+    [unstagedFiles, searchQuery],
+  );
+
+  // Combined list for keyboard navigation
+  const allFilteredFiles = useMemo(() => {
+    const items: Array<{
+      file: GitFileStatus;
+      section: "staged" | "unstaged";
+    }> = [];
+    filteredStagedFiles.forEach((file) =>
+      items.push({ file, section: "staged" }),
+    );
+    filteredUnstagedFiles.forEach((file) =>
+      items.push({ file, section: "unstaged" }),
+    );
+    return items;
+  }, [filteredStagedFiles, filteredUnstagedFiles]);
 
   // Setup file watcher
   useEffect(() => {
@@ -65,30 +118,33 @@ export function BranchFilesView({
     };
   }, [branch.id, branch.worktreePath, repositoryPath, refresh]);
 
-  // Fetch diffs for all files when status changes
+  // Fetch combined diffs for all files
   useEffect(() => {
-    if (!isElectron() || !window.gitAPI || files.length === 0) return;
+    if (!isElectron() || !window.gitAPI || allFilePaths.length === 0) {
+      setFileDiffs({});
+      return;
+    }
 
-    async function fetchAllDiffs() {
+    async function fetchDiffs() {
       const newDiffs: Record<string, string> = {};
 
-      for (const file of files) {
+      for (const filePath of allFilePaths) {
         try {
-          const diff = await window.gitAPI!.getDiffFile(
+          const diff = await window.gitAPI!.getDiffHead(
             repositoryPath,
-            file.path,
+            filePath,
           );
-          newDiffs[file.path] = diff;
+          newDiffs[filePath] = diff;
         } catch {
-          newDiffs[file.path] = "Error loading diff";
+          newDiffs[filePath] = "Error loading diff";
         }
       }
 
       setFileDiffs(newDiffs);
     }
 
-    void fetchAllDiffs();
-  }, [files, repositoryPath]);
+    void fetchDiffs();
+  }, [allFilePaths, repositoryPath]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -104,21 +160,64 @@ export function BranchFilesView({
       case "deleted":
         return <Minus className="h-4 w-4 text-red-500 shrink-0" />;
       case "modified":
-        return <Edit className="h-4 w-4 text-yellow-500 shrink-0" />;
+        return <EditIcon className="h-4 w-4 text-yellow-500 shrink-0" />;
       default:
         return <FileCode className="h-4 w-4 text-muted-foreground shrink-0" />;
     }
   };
 
-  const scrollToFile = useCallback((path: string) => {
-    setSelectedFile(path);
-    const element = document.getElementById(
-      `branch-file-${path.replace(/[^a-zA-Z0-9]/g, "-")}`,
-    );
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "start" });
+  const getFilenameParts = (filePath: string) => {
+    const lastSlash = filePath.lastIndexOf("/");
+    if (lastSlash === -1) {
+      return { filename: filePath, directory: "" };
     }
-  }, []);
+    return {
+      filename: filePath.slice(lastSlash + 1),
+      directory: filePath.slice(0, lastSlash),
+    };
+  };
+
+  const handleStage = useCallback(
+    async (filePath: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!window.gitAPI) return;
+      await window.gitAPI.stage(repositoryPath, filePath);
+      await refresh();
+    },
+    [repositoryPath, refresh],
+  );
+
+  const handleUnstage = useCallback(
+    async (filePath: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!window.gitAPI) return;
+      await window.gitAPI.unstage(repositoryPath, filePath);
+      await refresh();
+    },
+    [repositoryPath, refresh],
+  );
+
+  const handleDiscard = useCallback(
+    async (filePath: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!window.gitAPI) return;
+      await window.gitAPI.discard(repositoryPath, filePath);
+      await refresh();
+    },
+    [repositoryPath, refresh],
+  );
+
+  const scrollToFile = useCallback(
+    (path: string, section: "staged" | "unstaged") => {
+      setSelectedFile({ path, section });
+      const elementId = `branch-file-${path.replace(/[^a-zA-Z0-9]/g, "-")}`;
+      const element = document.getElementById(elementId);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    },
+    [],
+  );
 
   // Scroll focused item into view and focus list for keyboard navigation
   useEffect(() => {
@@ -135,25 +234,28 @@ export function BranchFilesView({
 
   const handleInputKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "ArrowDown" && filteredFiles.length > 0) {
+      if (e.key === "ArrowDown" && allFilteredFiles.length > 0) {
         e.preventDefault();
         setFocusedIndex(0);
-      } else if (e.key === "Enter" && filteredFiles.length > 0) {
+      } else if (e.key === "Enter" && allFilteredFiles.length > 0) {
         e.preventDefault();
-        scrollToFile(filteredFiles[0].path);
+        const { file, section } = allFilteredFiles[0];
+        scrollToFile(file.path, section);
       } else if (e.key === "Escape") {
         setSearchQuery("");
         setFocusedIndex(-1);
       }
     },
-    [filteredFiles, scrollToFile],
+    [allFilteredFiles, scrollToFile],
   );
 
   const handleListKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setFocusedIndex((prev) => Math.min(prev + 1, filteredFiles.length - 1));
+        setFocusedIndex((prev) =>
+          Math.min(prev + 1, allFilteredFiles.length - 1),
+        );
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         if (focusedIndex === 0) {
@@ -164,18 +266,30 @@ export function BranchFilesView({
         }
       } else if (e.key === "Enter" && focusedIndex >= 0) {
         e.preventDefault();
-        scrollToFile(filteredFiles[focusedIndex].path);
+        const { file, section } = allFilteredFiles[focusedIndex];
+        scrollToFile(file.path, section);
       } else if (e.key === "Escape") {
         e.preventDefault();
         setFocusedIndex(-1);
         inputRef.current?.focus();
       }
     },
-    [focusedIndex, filteredFiles, scrollToFile],
+    [focusedIndex, allFilteredFiles, scrollToFile],
   );
 
+  // Calculate the global index for a file in the combined list
+  const getGlobalIndex = (
+    section: "staged" | "unstaged",
+    localIndex: number,
+  ) => {
+    if (section === "staged") {
+      return localIndex;
+    }
+    return filteredStagedFiles.length + localIndex;
+  };
+
   // Loading state
-  if (isLoading && files.length === 0) {
+  if (isLoading && !hasChanges) {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-muted-foreground">Loading changes...</div>
@@ -209,116 +323,233 @@ export function BranchFilesView({
   }
 
   return (
-    <div className="flex h-full min-h-0 overflow-hidden">
-      {/* File sidebar */}
-      <div className="w-80 border-r shrink-0 flex flex-col min-h-0 h-full">
-        {/* Header with refresh button */}
-        <div className="p-2 border-b shrink-0 flex items-center gap-2">
-          <Input
-            ref={inputRef}
-            placeholder="Filter files..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setFocusedIndex(-1);
-            }}
-            onKeyDown={handleInputKeyDown}
-            className="h-8 flex-1"
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 shrink-0"
-            onClick={handleRefresh}
-            disabled={isLoading || isRefreshing}
-          >
-            <RefreshCw
-              className={cn(
-                "h-4 w-4",
-                (isLoading || isRefreshing) && "animate-spin",
-              )}
+    <ResizablePanelGroup direction="horizontal" className="h-full min-h-0">
+      <ResizablePanel defaultSize={100} minSize={150} maxSize={500}>
+        {/* File sidebar */}
+        <div className="flex flex-col min-h-0 h-full">
+          {/* Header with refresh button */}
+          <div className="p-2 border-b shrink-0 flex items-center gap-2">
+            <Input
+              ref={inputRef}
+              placeholder="Filter files..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setFocusedIndex(-1);
+              }}
+              onKeyDown={handleInputKeyDown}
+              className="h-8 flex-1"
             />
-          </Button>
-        </div>
-
-        {/* File count */}
-        <div className="px-3 py-1.5 text-xs text-muted-foreground border-b shrink-0">
-          {filteredFiles.length} file{filteredFiles.length !== 1 ? "s" : ""}{" "}
-          {searchQuery && `matching "${searchQuery}"`}
-        </div>
-
-        {/* File list */}
-        <Scrollable.Vertical>
-          <div
-            ref={listRef}
-            className="p-2 space-y-1 outline-none"
-            tabIndex={0}
-            onKeyDown={handleListKeyDown}
-          >
-            {filteredFiles.map((file, index) => (
-              <div
-                key={file.path}
-                data-index={index}
-                className={cn(
-                  "flex items-center gap-2 p-2 rounded text-sm cursor-pointer hover:bg-accent transition-colors",
-                  selectedFile === file.path && "bg-accent",
-                  focusedIndex === index && "ring-2 ring-ring ring-offset-1",
-                )}
-                onClick={() => scrollToFile(file.path)}
-              >
-                {getStatusIcon(file.status)}
-                <div className="flex-1 min-w-0 overflow-x-auto scrollbar-thin">
-                  <span className="whitespace-nowrap font-mono text-xs">
-                    {file.path}
-                  </span>
-                </div>
-              </div>
-            ))}
-            {filteredFiles.length === 0 && searchQuery && (
-              <div className="p-2 text-sm text-muted-foreground text-center">
-                No files match "{searchQuery}"
-              </div>
-            )}
-          </div>
-        </Scrollable.Vertical>
-
-        {/* Summary footer */}
-        {status && (
-          <div className="px-3 py-2 border-t text-xs text-muted-foreground shrink-0">
-            {(status.ahead ?? 0) > 0 && <span>{status.ahead} ahead</span>}
-            {(status.ahead ?? 0) > 0 && (status.behind ?? 0) > 0 && " · "}
-            {(status.behind ?? 0) > 0 && <span>{status.behind} behind</span>}
-            {(status.ahead ?? 0) === 0 && (status.behind ?? 0) === 0 && (
-              <span>Up to date with remote</span>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Diff content */}
-      <Scrollable.Vertical ref={contentRef} className="flex-1 min-w-0">
-        <div className="space-y-2">
-          {files.map((file) => (
-            <div
-              key={file.path}
-              id={`branch-file-${file.path.replace(/[^a-zA-Z0-9]/g, "-")}`}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={handleRefresh}
+              disabled={isLoading || isRefreshing}
             >
-              {fileDiffs[file.path] ? (
-                <div className="p-4 overflow-x-auto max-w-full">
-                  <LazyDiffViewer
-                    diff={fileDiffs[file.path]}
-                    filePath={file.path}
-                  />
+              <RefreshCw
+                className={cn(
+                  "h-4 w-4",
+                  (isLoading || isRefreshing) && "animate-spin",
+                )}
+              />
+            </Button>
+          </div>
+
+          {/* File list with sections */}
+          <Scrollable.Vertical className="flex-1">
+            <div
+              ref={listRef}
+              className="p-2 outline-none"
+              tabIndex={0}
+              onKeyDown={handleListKeyDown}
+            >
+              {/* Staged Changes Section */}
+              {filteredStagedFiles.length > 0 && (
+                <div>
+                  <div className="py-2 text-sm font-medium">
+                    Staged Changes ({filteredStagedFiles.length})
+                  </div>
+                  <div className="space-y-1">
+                    {filteredStagedFiles.map((file, index) => {
+                      const globalIndex = getGlobalIndex("staged", index);
+                      const { filename, directory } = getFilenameParts(
+                        file.path,
+                      );
+                      return (
+                        <div
+                          key={`staged-${file.path}`}
+                          data-index={globalIndex}
+                          className={cn(
+                            "flex items-center gap-2 text-sm cursor-pointer hover:bg-accent transition-colors group",
+                            selectedFile?.path === file.path &&
+                              selectedFile?.section === "staged" &&
+                              "bg-accent",
+                            focusedIndex === globalIndex &&
+                              "ring-2 ring-ring ring-offset-1",
+                          )}
+                          onClick={() => scrollToFile(file.path, "staged")}
+                        >
+                          {getStatusIcon(file.status)}
+                          <div className="flex-1 min-w-0 flex items-baseline gap-1 overflow-hidden">
+                            <span className="font-mono text-xs truncate">
+                              {filename}
+                            </span>
+                            {directory && (
+                              <span className="font-mono text-xs text-muted-foreground truncate">
+                                {directory}
+                              </span>
+                            )}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0"
+                            onClick={(e) => handleUnstage(file.path, e)}
+                            title="Unstage"
+                          >
+                            <Minus className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              ) : (
-                <div className="p-4 text-muted-foreground text-sm">
-                  Loading diff for {file.path}...
+              )}
+
+              {/* Unstaged Changes Section */}
+              {filteredUnstagedFiles.length > 0 && (
+                <div className="mt-2">
+                  <div className="py-2 text-sm font-medium">
+                    Unstaged Changes ({filteredUnstagedFiles.length})
+                  </div>
+                  <div className="space-y-1">
+                    {filteredUnstagedFiles.map((file, index) => {
+                      const globalIndex = getGlobalIndex("unstaged", index);
+                      const { filename, directory } = getFilenameParts(
+                        file.path,
+                      );
+                      return (
+                        <div
+                          key={`unstaged-${file.path}`}
+                          data-index={globalIndex}
+                          className={cn(
+                            "flex items-center gap-2 text-sm cursor-pointer hover:bg-accent transition-colors group",
+                            selectedFile?.path === file.path &&
+                              selectedFile?.section === "unstaged" &&
+                              "bg-accent",
+                            focusedIndex === globalIndex &&
+                              "ring-2 ring-ring ring-offset-1",
+                          )}
+                          onClick={() => scrollToFile(file.path, "unstaged")}
+                        >
+                          {getStatusIcon(file.status)}
+                          <div className="flex-1 min-w-0 flex items-baseline gap-1 overflow-hidden">
+                            <span className="font-mono text-xs truncate">
+                              {filename}
+                            </span>
+                            {directory && (
+                              <span className="font-mono text-xs text-muted-foreground truncate">
+                                {directory}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 shrink-0">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={(e) => handleDiscard(file.path, e)}
+                              title="Discard changes"
+                            >
+                              <Undo2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={(e) => handleStage(file.path, e)}
+                              title="Stage changes"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {allFilteredFiles.length === 0 && searchQuery && (
+                <div className="p-2 text-sm text-muted-foreground text-center">
+                  No files match "{searchQuery}"
                 </div>
               )}
             </div>
-          ))}
+          </Scrollable.Vertical>
+
+          {/* Summary footer */}
+          {status && (
+            <div className="px-3 py-2 border-t text-xs text-muted-foreground shrink-0">
+              {(status.ahead ?? 0) > 0 && <span>{status.ahead} ahead</span>}
+              {(status.ahead ?? 0) > 0 && (status.behind ?? 0) > 0 && " · "}
+              {(status.behind ?? 0) > 0 && <span>{status.behind} behind</span>}
+              {(status.ahead ?? 0) === 0 && (status.behind ?? 0) === 0 && (
+                <span>Up to date with remote</span>
+              )}
+            </div>
+          )}
+
+          {/* Commit UI - in sidebar, only show when there are staged files */}
+          {stagedFiles.length > 0 && (
+            <div className="border-t p-3 shrink-0 bg-background space-y-2">
+              <Input placeholder="Commit summary" className="h-8 text-sm" />
+              <Textarea
+                placeholder="Description (optional)"
+                className="min-h-[60px] resize-none text-sm"
+              />
+              <Button size="sm" className="w-full" disabled>
+                Commit {stagedFiles.length} file
+                {stagedFiles.length !== 1 ? "s" : ""}
+              </Button>
+            </div>
+          )}
         </div>
-      </Scrollable.Vertical>
-    </div>
+      </ResizablePanel>
+      <ResizableHandle />
+      <ResizablePanel defaultSize={70} minSize={30}>
+        {/* Right panel: Diff content */}
+        <div className="flex-1 min-w-0 flex flex-col h-full">
+          <Scrollable.Vertical ref={contentRef} className="flex-1 min-h-0">
+            <div className="space-y-4">
+              {allFilePaths.map((filePath) => (
+                <div
+                  key={filePath}
+                  id={`branch-file-${filePath.replace(/[^a-zA-Z0-9]/g, "-")}`}
+                  className="pb-4"
+                >
+                  {/* Combined diff */}
+                  <div className="p-4">
+                    {fileDiffs[filePath] ? (
+                      <div className="overflow-x-auto max-w-full border rounded">
+                        <LazyDiffViewer
+                          diff={fileDiffs[filePath]}
+                          filePath={filePath}
+                        />
+                      </div>
+                    ) : (
+                      <div className="text-muted-foreground text-sm">
+                        Loading diff...
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Scrollable.Vertical>
+        </div>
+      </ResizablePanel>
+    </ResizablePanelGroup>
   );
 }

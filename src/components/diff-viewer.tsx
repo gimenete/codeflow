@@ -25,8 +25,9 @@ export function DiffViewer({ diff, className }: DiffViewerProps) {
       options={{
         themeType: theme,
         diffStyle: "unified",
+        overflow: "wrap",
       }}
-      className={cn("font-mono text-sm", className)}
+      className={cn("font-mono text-xs", className)}
     />
   );
 }

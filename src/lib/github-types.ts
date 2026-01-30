@@ -161,7 +161,8 @@ export interface GitStatus {
   branch: string;
   ahead: number;
   behind: number;
-  files: GitFileStatus[];
+  stagedFiles: GitFileStatus[];
+  unstagedFiles: GitFileStatus[];
 }
 
 export interface GitCommit {

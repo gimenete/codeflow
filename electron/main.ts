@@ -30,7 +30,7 @@ const ptySessions = new Map<string, pty.IPty>();
 
 // PTY session metadata for persistence
 interface PtySessionMetadata {
-  branchId: string;
+  paneId: string;
   cwd: string;
   createdAt: number;
   lastActivityAt: number;
@@ -39,7 +39,7 @@ interface PtySessionMetadata {
 }
 
 const ptySessionMetadata = new Map<string, PtySessionMetadata>();
-const branchToSessionId = new Map<string, string>();
+const paneToSessionId = new Map<string, string>();
 
 // Idle timeout for sessions (1 hour)
 const PTY_IDLE_TIMEOUT_MS = 60 * 60 * 1000;
@@ -55,7 +55,8 @@ interface GitStatus {
   branch: string;
   ahead: number;
   behind: number;
-  files: GitFileStatus[];
+  stagedFiles: GitFileStatus[];
+  unstagedFiles: GitFileStatus[];
 }
 
 interface GitCommit {
@@ -86,15 +87,6 @@ interface ClaudeCliCredentials {
 // Helper to get git instance for a path
 function getGit(repoPath: string): SimpleGit {
   return simpleGit(repoPath);
-}
-
-// Helper to map simple-git status to our status format
-function mapFileStatus(statusCode: string): string {
-  if (statusCode === "?" || statusCode === "A") return "added";
-  if (statusCode === "M") return "modified";
-  if (statusCode === "D") return "deleted";
-  if (statusCode === "R") return "renamed";
-  return "untracked";
 }
 
 function createWindow(): void {
@@ -182,30 +174,57 @@ ipcMain.handle("git:status", async (_event, repoPath: string) => {
     const git = getGit(repoPath);
     const status: StatusResult = await git.status();
 
-    const files: GitFileStatus[] = [];
+    // Map git status codes to our status types
+    // Status codes: ' ' = unmodified, M = modified, A = added, D = deleted, R = renamed, C = copied, ? = untracked
+    const mapStagedStatusCode = (index: string): GitFileStatus["status"] => {
+      if (index === "D") return "deleted";
+      if (index === "R") return "renamed";
+      if (index === "A") return "added";
+      if (index === "M") return "modified";
+      return "modified"; // fallback
+    };
 
-    // Map all file types
-    for (const file of status.not_added) {
-      files.push({ path: file, status: "untracked" });
-    }
-    for (const file of status.created) {
-      files.push({ path: file, status: "added" });
-    }
-    for (const file of status.modified) {
-      files.push({ path: file, status: "modified" });
-    }
-    for (const file of status.deleted) {
-      files.push({ path: file, status: "deleted" });
-    }
-    for (const file of status.renamed) {
-      files.push({ path: file.to, status: "renamed" });
+    const mapUnstagedStatusCode = (
+      workingDir: string,
+    ): GitFileStatus["status"] => {
+      if (workingDir === "?") return "untracked";
+      if (workingDir === "D") return "deleted";
+      if (workingDir === "M") return "modified";
+      if (workingDir === "A") return "added";
+      return "modified"; // fallback
+    };
+
+    // Process files into staged and unstaged arrays
+    // A file can appear in BOTH arrays if it has both staged and unstaged changes
+    const stagedFiles: GitFileStatus[] = [];
+    const unstagedFiles: GitFileStatus[] = [];
+
+    for (const file of status.files) {
+      const { index, working_dir } = file;
+
+      // Staged: index is not ' ' (unmodified) and not '?' (untracked)
+      if (index !== " " && index !== "?") {
+        stagedFiles.push({
+          path: file.path,
+          status: mapStagedStatusCode(index),
+        });
+      }
+
+      // Unstaged: working_dir is not ' ' (unmodified)
+      if (working_dir !== " ") {
+        unstagedFiles.push({
+          path: file.path,
+          status: mapUnstagedStatusCode(working_dir),
+        });
+      }
     }
 
     const result: GitStatus = {
       branch: status.current || "HEAD",
       ahead: status.ahead,
       behind: status.behind,
-      files,
+      stagedFiles,
+      unstagedFiles,
     };
 
     return result;
@@ -215,7 +234,8 @@ ipcMain.handle("git:status", async (_event, repoPath: string) => {
       branch: "main",
       ahead: 0,
       behind: 0,
-      files: [],
+      stagedFiles: [],
+      unstagedFiles: [],
     };
   }
 });
@@ -257,6 +277,85 @@ ipcMain.handle(
     } catch (error) {
       console.error("git:diff-file error:", error);
       return "";
+    }
+  },
+);
+
+ipcMain.handle(
+  "git:diff-staged",
+  async (_event, repoPath: string, file: string) => {
+    try {
+      const git = getGit(repoPath);
+      const diff = await git.diff(["--cached", "--", file]);
+      return diff;
+    } catch (error) {
+      console.error("git:diff-staged error:", error);
+      return "";
+    }
+  },
+);
+
+ipcMain.handle(
+  "git:diff-head",
+  async (_event, repoPath: string, file: string) => {
+    try {
+      const git = getGit(repoPath);
+      const diff = await git.diff(["HEAD", "--", file]);
+      return diff;
+    } catch (error) {
+      console.error("git:diff-head error:", error);
+      return "";
+    }
+  },
+);
+
+// Stage a file
+ipcMain.handle("git:stage", async (_event, repoPath: string, file: string) => {
+  try {
+    const git = getGit(repoPath);
+    await git.add([file]);
+    return { success: true };
+  } catch (error) {
+    console.error("git:stage error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+});
+
+// Unstage a file
+ipcMain.handle(
+  "git:unstage",
+  async (_event, repoPath: string, file: string) => {
+    try {
+      const git = getGit(repoPath);
+      await git.reset(["HEAD", "--", file]);
+      return { success: true };
+    } catch (error) {
+      console.error("git:unstage error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  },
+);
+
+// Discard changes to a file
+ipcMain.handle(
+  "git:discard",
+  async (_event, repoPath: string, file: string) => {
+    try {
+      const git = getGit(repoPath);
+      await git.checkout(["--", file]);
+      return { success: true };
+    } catch (error) {
+      console.error("git:discard error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   },
 );
@@ -874,8 +973,8 @@ function resetPtyIdleTimeout(sessionId: string) {
       ptySessions.delete(sessionId);
     }
     // Clean up metadata
-    if (meta.branchId) {
-      branchToSessionId.delete(meta.branchId);
+    if (meta.paneId) {
+      paneToSessionId.delete(meta.paneId);
     }
     ptySessionMetadata.delete(sessionId);
   }, PTY_IDLE_TIMEOUT_MS);
@@ -890,8 +989,8 @@ function cleanupPtySession(sessionId: string) {
     if (meta.idleTimeoutId) {
       clearTimeout(meta.idleTimeoutId);
     }
-    if (meta.branchId) {
-      branchToSessionId.delete(meta.branchId);
+    if (meta.paneId) {
+      paneToSessionId.delete(meta.paneId);
     }
     ptySessionMetadata.delete(sessionId);
   }
@@ -933,12 +1032,12 @@ ipcMain.handle("pty:create", async (_event, cwd: string) => {
   }
 });
 
-// Create or get existing session for a branch
+// Create or get existing session for a pane
 ipcMain.handle(
   "pty:create-or-get",
-  async (_event, branchId: string, cwd: string) => {
-    // Check if session already exists for this branch
-    const existingSessionId = branchToSessionId.get(branchId);
+  async (_event, paneId: string, cwd: string) => {
+    // Check if session already exists for this pane
+    const existingSessionId = paneToSessionId.get(paneId);
     if (existingSessionId) {
       const existingProcess = ptySessions.get(existingSessionId);
       const existingMeta = ptySessionMetadata.get(existingSessionId);
@@ -952,7 +1051,7 @@ ipcMain.handle(
         };
       }
       // Session was orphaned, clean up the mapping
-      branchToSessionId.delete(branchId);
+      paneToSessionId.delete(paneId);
     }
 
     // Create new session
@@ -975,14 +1074,14 @@ ipcMain.handle(
 
       // Create metadata
       const meta: PtySessionMetadata = {
-        branchId,
+        paneId,
         cwd,
         createdAt: Date.now(),
         lastActivityAt: Date.now(),
         outputBuffer: [],
       };
       ptySessionMetadata.set(sessionId, meta);
-      branchToSessionId.set(branchId, sessionId);
+      paneToSessionId.set(paneId, sessionId);
 
       // Set up idle timeout
       resetPtyIdleTimeout(sessionId);
@@ -1043,17 +1142,14 @@ ipcMain.handle("pty:detach", async (_event, sessionId: string) => {
   return { success: true };
 });
 
-// Get session ID for a branch (if exists)
-ipcMain.handle(
-  "pty:get-session-for-branch",
-  async (_event, branchId: string) => {
-    const sessionId = branchToSessionId.get(branchId);
-    if (sessionId && ptySessions.has(sessionId)) {
-      return { sessionId };
-    }
-    return { sessionId: null };
-  },
-);
+// Get session ID for a pane (if exists)
+ipcMain.handle("pty:get-session-for-pane", async (_event, paneId: string) => {
+  const sessionId = paneToSessionId.get(paneId);
+  if (sessionId && ptySessions.has(sessionId)) {
+    return { sessionId };
+  }
+  return { sessionId: null };
+});
 
 ipcMain.handle("pty:write", async (_event, sessionId: string, data: string) => {
   const ptyProcess = ptySessions.get(sessionId);
@@ -1109,5 +1205,5 @@ app.on("before-quit", async () => {
   }
   ptySessions.clear();
   ptySessionMetadata.clear();
-  branchToSessionId.clear();
+  paneToSessionId.clear();
 });

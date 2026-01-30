@@ -1,5 +1,5 @@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TerminalPanel } from "@/components/terminal/terminal-panel";
+import { TerminalContainer } from "@/components/terminal/terminal-container";
 import { useBranchById, useBranchesStore } from "@/lib/branches-store";
 import { useRepositoriesStore } from "@/lib/repositories-store";
 import {
@@ -131,14 +131,13 @@ function BranchDetailPage() {
         <Outlet />
       </div>
 
-      {/* Terminal panel - always mounted, hidden when not active */}
+      {/* Terminal container - always mounted, hidden when not active */}
       <div
         className={`flex-1 min-h-0 ${activeTab === "terminal" ? "" : "hidden"}`}
       >
-        <TerminalPanel
+        <TerminalContainer
           branchId={branchId}
           cwd={cwd}
-          className="h-full w-full"
           active={activeTab === "terminal"}
         />
       </div>

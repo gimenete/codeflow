@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  useImperativeHandle,
+  forwardRef,
+} from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
@@ -9,16 +16,25 @@ import { usePtySessionStore } from "@/lib/pty-session-store";
 interface TerminalPanelProps {
   cwd: string;
   branchId?: string; // Optional branch ID for session persistence
+  paneId?: string; // Unique pane ID for multi-pane support
   className?: string;
   active?: boolean; // Only initialize terminal when true (lazy initialization)
+  onFocus?: () => void; // Called when terminal receives focus
+  onExit?: () => void; // Called when terminal process exits
 }
 
-export function TerminalPanel({
-  cwd,
-  branchId,
-  className,
-  active = true,
-}: TerminalPanelProps) {
+export interface TerminalPanelHandle {
+  clear: () => void;
+  focus: () => void;
+}
+
+export const TerminalPanel = forwardRef<
+  TerminalPanelHandle,
+  TerminalPanelProps
+>(function TerminalPanel(
+  { cwd, branchId, paneId, className, active = true, onFocus, onExit },
+  ref,
+) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -28,11 +44,35 @@ export function TerminalPanel({
   const [error, setError] = useState<string | null>(null);
   const initializedRef = useRef(false);
 
+  // Refs to store latest callback values (prevents infinite re-render loop)
+  const onFocusRef = useRef(onFocus);
+  const onExitRef = useRef(onExit);
+
+  // Keep refs updated with latest callback values
+  useEffect(() => {
+    onFocusRef.current = onFocus;
+    onExitRef.current = onExit;
+  });
+
   const {
     setSession,
     removeSession,
     setActive: setSessionActive,
   } = usePtySessionStore();
+
+  // Expose imperative handle for clear and focus
+  useImperativeHandle(ref, () => ({
+    clear: () => {
+      if (terminalRef.current) {
+        terminalRef.current.clear();
+      }
+    },
+    focus: () => {
+      if (terminalRef.current) {
+        terminalRef.current.focus();
+      }
+    },
+  }));
 
   // Handle terminal input - send to PTY
   const handleInput = useCallback((data: string) => {
@@ -143,16 +183,16 @@ export function TerminalPanel({
         let sessionId: string;
         let isExisting = false;
 
-        if (branchId && ptyAPI.createOrGet) {
-          // Use persistent session API
-          const result = await ptyAPI.createOrGet(branchId, cwd);
+        if (paneId && ptyAPI.createOrGet) {
+          // Use persistent session API - each pane gets its own session
+          const result = await ptyAPI.createOrGet(paneId, cwd);
           sessionId = result.sessionId;
           isExisting = result.isExisting;
 
-          // Store session in Zustand
-          setSession(branchId, {
+          // Store session in Zustand (using paneId as key)
+          setSession(paneId, {
             sessionId,
-            branchId,
+            branchId: branchId || paneId,
             cwd,
             isActive: true,
           });
@@ -175,7 +215,7 @@ export function TerminalPanel({
         sessionIdRef.current = sessionId;
 
         if (cleanup) {
-          if (branchId) {
+          if (paneId) {
             void ptyAPI.detach?.(sessionId);
           } else {
             void ptyAPI.kill(sessionId);
@@ -194,6 +234,11 @@ export function TerminalPanel({
         // Set up terminal resize handler
         terminal.onResize(handleResize);
 
+        // Set up focus tracking
+        container.addEventListener("focusin", () => {
+          onFocusRef.current?.();
+        });
+
         // Set up PTY output listener
         ptyAPI.onOutput(({ sessionId: sid, data }) => {
           if (sid === sessionIdRef.current && terminalRef.current) {
@@ -208,9 +253,11 @@ export function TerminalPanel({
               `\r\n[Process exited with code ${exitCode}]`,
             );
             // Remove session from store when process exits
-            if (branchId) {
-              removeSession(branchId);
+            if (paneId) {
+              removeSession(paneId);
             }
+            // Notify parent that terminal exited
+            onExitRef.current?.();
           }
         });
 
@@ -230,10 +277,10 @@ export function TerminalPanel({
 
       // Detach from session (don't kill if using persistent sessions)
       if (sessionIdRef.current && window.ptyAPI) {
-        if (branchId && window.ptyAPI.detach) {
+        if (paneId && window.ptyAPI.detach) {
           // Mark session as inactive but keep it alive
           void window.ptyAPI.detach(sessionIdRef.current);
-          setSessionActive(branchId, false);
+          setSessionActive(paneId, false);
         } else {
           // Kill session if not using persistence
           void window.ptyAPI.kill(sessionIdRef.current);
@@ -261,6 +308,7 @@ export function TerminalPanel({
     };
   }, [
     cwd,
+    paneId,
     branchId,
     handleInput,
     handleResize,
@@ -313,4 +361,4 @@ export function TerminalPanel({
       )}
     </div>
   );
-}
+});

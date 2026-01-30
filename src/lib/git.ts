@@ -100,6 +100,20 @@ interface GitAPI {
   getStatus(path: string): Promise<GitStatus>;
   getLog(path: string, branch: string, limit: number): Promise<GitCommit[]>;
   getDiffFile(path: string, file: string): Promise<string>;
+  getDiffStaged(path: string, file: string): Promise<string>;
+  getDiffHead(path: string, file: string): Promise<string>;
+  stage(
+    path: string,
+    file: string,
+  ): Promise<{ success: boolean; error?: string }>;
+  unstage(
+    path: string,
+    file: string,
+  ): Promise<{ success: boolean; error?: string }>;
+  discard(
+    path: string,
+    file: string,
+  ): Promise<{ success: boolean; error?: string }>;
   getCommitDetail(
     path: string,
     sha: string,
@@ -228,7 +242,8 @@ export function useGitStatus(path: string | undefined) {
         branch: "main",
         ahead: 0,
         behind: 0,
-        files: [],
+        stagedFiles: [],
+        unstagedFiles: [],
       });
       return;
     }
@@ -243,7 +258,8 @@ export function useGitStatus(path: string | undefined) {
         branch: "main",
         ahead: 0,
         behind: 0,
-        files: [],
+        stagedFiles: [],
+        unstagedFiles: [],
       });
     } finally {
       setIsLoading(false);

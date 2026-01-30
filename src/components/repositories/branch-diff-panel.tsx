@@ -12,11 +12,11 @@ import {
   stopWatcher,
   useGitStatus,
 } from "@/lib/git";
-import type { TrackedBranch } from "@/lib/github-types";
+import type { GitFileStatus, TrackedBranch } from "@/lib/github-types";
 import { isElectron } from "@/lib/platform";
 import { cn } from "@/lib/utils";
 import { Edit, FileCode, Minus, Plus, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Scrollable } from "../flex-layout";
 
 interface BranchDiffPanelProps {
@@ -105,7 +105,19 @@ export function BranchDiffPanel({
     }
   };
 
-  const files = status?.files ?? [];
+  // Combine staged and unstaged files, deduplicating by path
+  const files = useMemo(() => {
+    const stagedFiles = status?.stagedFiles ?? [];
+    const unstagedFiles = status?.unstagedFiles ?? [];
+    const fileMap = new Map<string, GitFileStatus>();
+
+    // Add staged files first
+    stagedFiles.forEach((file) => fileMap.set(file.path, file));
+    // Add unstaged files (may override status, but that's fine for this simple view)
+    unstagedFiles.forEach((file) => fileMap.set(file.path, file));
+
+    return Array.from(fileMap.values());
+  }, [status?.stagedFiles, status?.unstagedFiles]);
   const hasChanges = files.length > 0;
 
   return (
