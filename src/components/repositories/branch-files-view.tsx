@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/resizable";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  commitChanges,
   onWatcherChange,
   removeWatcherListeners,
   startWatcher,
@@ -49,6 +50,10 @@ export function BranchFilesView({
   const [selectedFile, setSelectedFile] = useState<FileSelection>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [focusedIndex, setFocusedIndex] = useState(-1);
+  const [commitSummary, setCommitSummary] = useState("");
+  const [commitDescription, setCommitDescription] = useState("");
+  const [isCommitting, setIsCommitting] = useState(false);
+  const [commitError, setCommitError] = useState<string | null>(null);
 
   const contentRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -207,6 +212,31 @@ export function BranchFilesView({
     [repositoryPath, refresh],
   );
 
+  const handleCommit = useCallback(async () => {
+    if (!commitSummary.trim() || stagedFiles.length === 0) return;
+
+    setIsCommitting(true);
+    setCommitError(null);
+    try {
+      const result = await commitChanges(
+        repositoryPath,
+        stagedFiles.map((f) => f.path),
+        commitSummary,
+        commitDescription || undefined,
+      );
+
+      if (result.success) {
+        setCommitSummary("");
+        setCommitDescription("");
+        await refresh();
+      } else {
+        setCommitError(result.error || "Commit failed");
+      }
+    } finally {
+      setIsCommitting(false);
+    }
+  }, [repositoryPath, stagedFiles, commitSummary, commitDescription, refresh]);
+
   const scrollToFile = useCallback(
     (path: string, section: "staged" | "unstaged") => {
       setSelectedFile({ path, section });
@@ -357,7 +387,7 @@ export function BranchFilesView({
           </div>
 
           {/* File list with sections */}
-          <Scrollable.Vertical className="flex-1">
+          <Scrollable.Vertical>
             <div
               ref={listRef}
               className="p-2 outline-none"
@@ -381,7 +411,7 @@ export function BranchFilesView({
                           key={`staged-${file.path}`}
                           data-index={globalIndex}
                           className={cn(
-                            "flex items-center gap-2 text-sm cursor-pointer hover:bg-accent transition-colors group",
+                            "flex items-center gap-2 text-sm cursor-pointer hover:bg-accent transition-colors group min-h-6",
                             selectedFile?.path === file.path &&
                               selectedFile?.section === "staged" &&
                               "bg-accent",
@@ -392,11 +422,11 @@ export function BranchFilesView({
                         >
                           {getStatusIcon(file.status)}
                           <div className="flex-1 min-w-0 flex items-baseline gap-1 overflow-hidden">
-                            <span className="font-mono text-xs truncate">
+                            <span className="font-mono text-xs shrink-0">
                               {filename}
                             </span>
                             {directory && (
-                              <span className="font-mono text-xs text-muted-foreground truncate">
+                              <span className="font-mono text-xs text-muted-foreground truncate min-w-0">
                                 {directory}
                               </span>
                             )}
@@ -404,7 +434,7 @@ export function BranchFilesView({
                           <Button
                             variant="outline"
                             size="icon"
-                            className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0"
+                            className="h-6 w-6 hidden group-hover:block shrink-0"
                             onClick={(e) => handleUnstage(file.path, e)}
                             title="Unstage"
                           >
@@ -434,7 +464,7 @@ export function BranchFilesView({
                           key={`unstaged-${file.path}`}
                           data-index={globalIndex}
                           className={cn(
-                            "flex items-center gap-2 text-sm cursor-pointer hover:bg-accent transition-colors group",
+                            "flex items-center gap-2 text-sm cursor-pointer hover:bg-accent transition-colors group min-h-6",
                             selectedFile?.path === file.path &&
                               selectedFile?.section === "unstaged" &&
                               "bg-accent",
@@ -445,16 +475,16 @@ export function BranchFilesView({
                         >
                           {getStatusIcon(file.status)}
                           <div className="flex-1 min-w-0 flex items-baseline gap-1 overflow-hidden">
-                            <span className="font-mono text-xs truncate">
+                            <span className="font-mono text-xs shrink-0">
                               {filename}
                             </span>
                             {directory && (
-                              <span className="font-mono text-xs text-muted-foreground truncate">
+                              <span className="font-mono text-xs text-muted-foreground truncate min-w-0">
                                 {directory}
                               </span>
                             )}
                           </div>
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 shrink-0">
+                          <div className="gap-1 hidden group-hover:flex shrink-0">
                             <Button
                               variant="outline"
                               size="icon"
@@ -501,20 +531,42 @@ export function BranchFilesView({
             </div>
           )}
 
-          {/* Commit UI - in sidebar, only show when there are staged files */}
-          {stagedFiles.length > 0 && (
-            <div className="border-t p-3 shrink-0 bg-background space-y-2">
-              <Input placeholder="Commit summary" className="h-8 text-sm" />
-              <Textarea
-                placeholder="Description (optional)"
-                className="min-h-[60px] resize-none text-sm"
-              />
-              <Button size="sm" className="w-full" disabled>
-                Commit {stagedFiles.length} file
-                {stagedFiles.length !== 1 ? "s" : ""}
-              </Button>
-            </div>
-          )}
+          {/* Commit UI - always visible, disabled when no staged files */}
+          <div className="border-t p-3 shrink-0 bg-background space-y-2">
+            <Input
+              placeholder="Commit summary"
+              className="h-8 text-sm"
+              value={commitSummary}
+              onChange={(e) => setCommitSummary(e.target.value)}
+              disabled={stagedFiles.length === 0}
+            />
+            <Textarea
+              placeholder="Description (optional)"
+              className="min-h-[60px] resize-none text-sm"
+              value={commitDescription}
+              onChange={(e) => setCommitDescription(e.target.value)}
+              disabled={stagedFiles.length === 0}
+            />
+            {commitError && (
+              <div className="text-xs text-destructive">{commitError}</div>
+            )}
+            <Button
+              size="sm"
+              className="w-full"
+              disabled={
+                stagedFiles.length === 0 ||
+                !commitSummary.trim() ||
+                isCommitting
+              }
+              onClick={handleCommit}
+            >
+              {isCommitting
+                ? "Committing..."
+                : stagedFiles.length === 0
+                  ? "Commit"
+                  : `Commit ${stagedFiles.length} file${stagedFiles.length !== 1 ? "s" : ""}`}
+            </Button>
+          </div>
         </div>
       </ResizablePanel>
       <ResizableHandle />
