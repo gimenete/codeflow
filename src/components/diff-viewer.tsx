@@ -49,7 +49,7 @@ function HunkActions({
   const isStaged = annotation.metadata?.isStaged;
 
   return (
-    <div className="flex items-center gap-1 py-1 px-2 bg-muted/50 border-b">
+    <div className="flex items-center gap-1 py-1 px-2 bg-muted/50 border-b justify-end">
       {isStaged ? (
         <Button
           variant="outline"

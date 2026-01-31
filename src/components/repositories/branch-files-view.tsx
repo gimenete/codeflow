@@ -918,7 +918,7 @@ export function BranchFilesView({
         {/* Right panel: Diff content */}
         <div className="flex-1 min-w-0 flex flex-col h-full">
           {/* Diff Options Toolbar */}
-          <div className="shrink-0 px-4 py-2 border-b flex items-center justify-end gap-2">
+          <div className="shrink-0 px-4 py-1.5 border-b flex items-center justify-end gap-2">
             <Tabs
               value={diffStyle}
               onValueChange={(v) => setDiffStyle(v as "unified" | "split")}
