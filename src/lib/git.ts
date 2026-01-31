@@ -114,6 +114,18 @@ interface GitAPI {
     path: string,
     file: string,
   ): Promise<{ success: boolean; error?: string }>;
+  stageHunk(
+    path: string,
+    patch: string,
+  ): Promise<{ success: boolean; error?: string }>;
+  unstageHunk(
+    path: string,
+    patch: string,
+  ): Promise<{ success: boolean; error?: string }>;
+  discardHunk(
+    path: string,
+    patch: string,
+  ): Promise<{ success: boolean; error?: string }>;
   getCommitDetail(
     path: string,
     sha: string,

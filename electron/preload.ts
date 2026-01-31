@@ -95,6 +95,18 @@ const gitAPI = {
     return ipcRenderer.invoke("git:discard", path, file);
   },
 
+  stageHunk: (path: string, patch: string): Promise<OperationResult> => {
+    return ipcRenderer.invoke("git:stage-hunk", path, patch);
+  },
+
+  unstageHunk: (path: string, patch: string): Promise<OperationResult> => {
+    return ipcRenderer.invoke("git:unstage-hunk", path, patch);
+  },
+
+  discardHunk: (path: string, patch: string): Promise<OperationResult> => {
+    return ipcRenderer.invoke("git:discard-hunk", path, patch);
+  },
+
   getCommitDetail: (path: string, sha: string): Promise<CommitDetail> => {
     return ipcRenderer.invoke("git:commit-detail", path, sha);
   },

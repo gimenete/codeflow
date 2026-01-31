@@ -89,6 +89,31 @@ function getGit(repoPath: string): SimpleGit {
   return simpleGit(repoPath);
 }
 
+// Helper to apply patch content (writes to temp file since simple-git expects file paths)
+async function applyPatchContent(
+  git: SimpleGit,
+  patchContent: string,
+  options: string[],
+): Promise<void> {
+  const tempDir = os.tmpdir();
+  const tempFile = path.join(
+    tempDir,
+    `git-patch-${Date.now()}-${Math.random().toString(36).slice(2)}.patch`,
+  );
+
+  try {
+    await fs.promises.writeFile(tempFile, patchContent, "utf-8");
+    await git.applyPatch(tempFile, options);
+  } finally {
+    // Clean up temp file
+    try {
+      await fs.promises.unlink(tempFile);
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -352,6 +377,60 @@ ipcMain.handle(
       return { success: true };
     } catch (error) {
       console.error("git:discard error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  },
+);
+
+// Stage a hunk (apply patch to index)
+ipcMain.handle(
+  "git:stage-hunk",
+  async (_event, repoPath: string, patch: string) => {
+    try {
+      const git = getGit(repoPath);
+      await applyPatchContent(git, patch, ["--cached"]);
+      return { success: true };
+    } catch (error) {
+      console.error("git:stage-hunk error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  },
+);
+
+// Unstage a hunk (reverse apply from index)
+ipcMain.handle(
+  "git:unstage-hunk",
+  async (_event, repoPath: string, patch: string) => {
+    try {
+      const git = getGit(repoPath);
+      await applyPatchContent(git, patch, ["--cached", "--reverse"]);
+      return { success: true };
+    } catch (error) {
+      console.error("git:unstage-hunk error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  },
+);
+
+// Discard a hunk (reverse apply to working directory)
+ipcMain.handle(
+  "git:discard-hunk",
+  async (_event, repoPath: string, patch: string) => {
+    try {
+      const git = getGit(repoPath);
+      await applyPatchContent(git, patch, ["--reverse"]);
+      return { success: true };
+    } catch (error) {
+      console.error("git:discard-hunk error:", error);
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error),

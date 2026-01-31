@@ -17,6 +17,9 @@ import {
   stopWatcher,
   useGitStatus,
 } from "@/lib/git";
+import { parseHunks, createChangeGroupPatch } from "@/lib/diff";
+import type { HunkAnnotation } from "@/components/diff-viewer";
+import type { DiffLineAnnotation } from "@pierre/diffs";
 import type { GitFileStatus, TrackedBranch } from "@/lib/github-types";
 import { isElectron } from "@/lib/platform";
 import { cn, fuzzyFilter } from "@/lib/utils";
@@ -49,7 +52,10 @@ export function BranchFilesView({
 }: BranchFilesViewProps) {
   const { status, isLoading, refresh } = useGitStatus(repositoryPath);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [fileDiffs, setFileDiffs] = useState<Record<string, string>>({});
+  const [stagedDiffs, setStagedDiffs] = useState<Record<string, string>>({});
+  const [unstagedDiffs, setUnstagedDiffs] = useState<Record<string, string>>(
+    {},
+  );
   const [selectedFile, setSelectedFile] = useState<FileSelection>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -127,29 +133,39 @@ export function BranchFilesView({
     };
   }, [branch.id, branch.worktreePath, repositoryPath, refresh]);
 
-  // Fetch combined diffs for all files
+  // Fetch staged and unstaged diffs separately
   useEffect(() => {
     if (!isElectron() || !window.gitAPI || allFilePaths.length === 0) {
-      setFileDiffs({});
+      setStagedDiffs({});
+      setUnstagedDiffs({});
       return;
     }
 
     async function fetchDiffs() {
-      const newDiffs: Record<string, string> = {};
+      const newStagedDiffs: Record<string, string> = {};
+      const newUnstagedDiffs: Record<string, string> = {};
 
       for (const filePath of allFilePaths) {
         try {
-          const diff = await window.gitAPI!.getDiffHead(
+          // Fetch staged diff (index vs HEAD)
+          newStagedDiffs[filePath] = await window.gitAPI!.getDiffStaged(
             repositoryPath,
             filePath,
           );
-          newDiffs[filePath] = diff;
+
+          // Fetch unstaged diff (working directory vs index)
+          newUnstagedDiffs[filePath] = await window.gitAPI!.getDiffFile(
+            repositoryPath,
+            filePath,
+          );
         } catch {
-          newDiffs[filePath] = "Error loading diff";
+          newStagedDiffs[filePath] = "";
+          newUnstagedDiffs[filePath] = "";
         }
       }
 
-      setFileDiffs(newDiffs);
+      setStagedDiffs(newStagedDiffs);
+      setUnstagedDiffs(newUnstagedDiffs);
     }
 
     void fetchDiffs();
@@ -252,6 +268,169 @@ export function BranchFilesView({
       setIsCommitting(false);
     }
   }, [repositoryPath, stagedFiles, commitSummary, commitDescription, refresh]);
+
+  // Create annotations for unstaged change groups (from unstaged diff)
+  const createUnstagedAnnotations = useCallback(
+    (filePath: string): DiffLineAnnotation<HunkAnnotation>[] => {
+      const unstagedPatch = unstagedDiffs[filePath] || "";
+      const hunks = parseHunks(unstagedPatch);
+
+      return hunks.flatMap((hunk, hunkIndex) =>
+        hunk.changeGroups
+          .map((group, groupIndex) => {
+            // Prefer additions side, fall back to deletions for delete-only groups
+            if (group.endAdditionLine !== null) {
+              return {
+                side: "additions" as const,
+                lineNumber: group.endAdditionLine,
+                metadata: { hunkIndex, groupIndex, isStaged: false, filePath },
+              };
+            } else if (group.endDeletionLine !== null) {
+              return {
+                side: "deletions" as const,
+                lineNumber: group.endDeletionLine,
+                metadata: { hunkIndex, groupIndex, isStaged: false, filePath },
+              };
+            }
+            return null;
+          })
+          .filter((a): a is DiffLineAnnotation<HunkAnnotation> => a !== null),
+      );
+    },
+    [unstagedDiffs],
+  );
+
+  // Create annotations for staged change groups (from staged diff)
+  const createStagedAnnotations = useCallback(
+    (filePath: string): DiffLineAnnotation<HunkAnnotation>[] => {
+      const stagedPatch = stagedDiffs[filePath] || "";
+      const hunks = parseHunks(stagedPatch);
+
+      return hunks.flatMap((hunk, hunkIndex) =>
+        hunk.changeGroups
+          .map((group, groupIndex) => {
+            // Prefer additions side, fall back to deletions for delete-only groups
+            if (group.endAdditionLine !== null) {
+              return {
+                side: "additions" as const,
+                lineNumber: group.endAdditionLine,
+                metadata: { hunkIndex, groupIndex, isStaged: true, filePath },
+              };
+            } else if (group.endDeletionLine !== null) {
+              return {
+                side: "deletions" as const,
+                lineNumber: group.endDeletionLine,
+                metadata: { hunkIndex, groupIndex, isStaged: true, filePath },
+              };
+            }
+            return null;
+          })
+          .filter((a): a is DiffLineAnnotation<HunkAnnotation> => a !== null),
+      );
+    },
+    [stagedDiffs],
+  );
+
+  // Change group action handlers
+  const handleStageHunk = useCallback(
+    async (filePath: string, hunkIndex: number, groupIndex: number) => {
+      if (!window.gitAPI) return;
+
+      const unstagedPatch = unstagedDiffs[filePath];
+      if (!unstagedPatch) return;
+
+      const hunks = parseHunks(unstagedPatch);
+      if (hunkIndex >= hunks.length) return;
+
+      const hunk = hunks[hunkIndex];
+      if (groupIndex >= hunk.changeGroups.length) return;
+
+      const group = hunk.changeGroups[groupIndex];
+      const patch = createChangeGroupPatch(
+        filePath,
+        hunk,
+        group,
+        unstagedPatch,
+      );
+
+      try {
+        const result = await window.gitAPI.stageHunk(repositoryPath, patch);
+        if (result.success) {
+          await refresh();
+        } else {
+          console.error("Failed to stage change group:", result.error);
+        }
+      } catch (error) {
+        console.error("Error staging change group:", error);
+      }
+    },
+    [repositoryPath, unstagedDiffs, refresh],
+  );
+
+  const handleUnstageHunk = useCallback(
+    async (filePath: string, hunkIndex: number, groupIndex: number) => {
+      if (!window.gitAPI) return;
+
+      const stagedPatch = stagedDiffs[filePath];
+      if (!stagedPatch) return;
+
+      const hunks = parseHunks(stagedPatch);
+      if (hunkIndex >= hunks.length) return;
+
+      const hunk = hunks[hunkIndex];
+      if (groupIndex >= hunk.changeGroups.length) return;
+
+      const group = hunk.changeGroups[groupIndex];
+      const patch = createChangeGroupPatch(filePath, hunk, group, stagedPatch);
+
+      try {
+        const result = await window.gitAPI.unstageHunk(repositoryPath, patch);
+        if (result.success) {
+          await refresh();
+        } else {
+          console.error("Failed to unstage change group:", result.error);
+        }
+      } catch (error) {
+        console.error("Error unstaging change group:", error);
+      }
+    },
+    [repositoryPath, stagedDiffs, refresh],
+  );
+
+  const handleDiscardHunk = useCallback(
+    async (filePath: string, hunkIndex: number, groupIndex: number) => {
+      if (!window.gitAPI) return;
+
+      const unstagedPatch = unstagedDiffs[filePath];
+      if (!unstagedPatch) return;
+
+      const hunks = parseHunks(unstagedPatch);
+      if (hunkIndex >= hunks.length) return;
+
+      const hunk = hunks[hunkIndex];
+      if (groupIndex >= hunk.changeGroups.length) return;
+
+      const group = hunk.changeGroups[groupIndex];
+      const patch = createChangeGroupPatch(
+        filePath,
+        hunk,
+        group,
+        unstagedPatch,
+      );
+
+      try {
+        const result = await window.gitAPI.discardHunk(repositoryPath, patch);
+        if (result.success) {
+          await refresh();
+        } else {
+          console.error("Failed to discard change group:", result.error);
+        }
+      } catch (error) {
+        console.error("Error discarding change group:", error);
+      }
+    },
+    [repositoryPath, unstagedDiffs, refresh],
+  );
 
   const scrollToFile = useCallback(
     (path: string, section: "staged" | "unstaged") => {
@@ -618,30 +797,73 @@ export function BranchFilesView({
           </div>
           <Scrollable.Vertical ref={contentRef} className="flex-1 min-h-0">
             <div className="space-y-4">
-              {allFilePaths.map((filePath) => (
-                <div
-                  key={filePath}
-                  id={`branch-file-${filePath.replace(/[^a-zA-Z0-9]/g, "-")}`}
-                  className="pb-4"
-                >
-                  {/* Combined diff */}
-                  <div className="p-4">
-                    {fileDiffs[filePath] ? (
-                      <div className="overflow-x-auto max-w-full border rounded">
-                        <LazyDiffViewer
-                          diff={fileDiffs[filePath]}
-                          filePath={filePath}
-                          diffStyle={diffStyle}
-                        />
-                      </div>
-                    ) : (
-                      <div className="text-muted-foreground text-sm">
-                        Loading diff...
-                      </div>
-                    )}
+              {allFilePaths.map((filePath) => {
+                const hasUnstaged = unstagedDiffs[filePath]?.trim();
+                const hasStaged = stagedDiffs[filePath]?.trim();
+                const hasBoth = hasUnstaged && hasStaged;
+
+                return (
+                  <div
+                    key={filePath}
+                    id={`branch-file-${filePath.replace(/[^a-zA-Z0-9]/g, "-")}`}
+                    className="pb-4"
+                  >
+                    <div className="p-4 space-y-4">
+                      {/* Unstaged changes */}
+                      {hasUnstaged && (
+                        <div>
+                          {hasBoth && (
+                            <div className="text-sm font-medium text-muted-foreground mb-2">
+                              Unstaged Changes
+                            </div>
+                          )}
+                          <div className="overflow-x-auto max-w-full border rounded">
+                            <LazyDiffViewer
+                              diff={unstagedDiffs[filePath]}
+                              filePath={filePath}
+                              diffStyle={diffStyle}
+                              lineAnnotations={createUnstagedAnnotations(
+                                filePath,
+                              )}
+                              onStageHunk={handleStageHunk}
+                              onDiscardHunk={handleDiscardHunk}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Staged changes */}
+                      {hasStaged && (
+                        <div>
+                          {hasBoth && (
+                            <div className="text-sm font-medium text-muted-foreground mb-2">
+                              Staged Changes
+                            </div>
+                          )}
+                          <div className="overflow-x-auto max-w-full border rounded">
+                            <LazyDiffViewer
+                              diff={stagedDiffs[filePath]}
+                              filePath={filePath}
+                              diffStyle={diffStyle}
+                              lineAnnotations={createStagedAnnotations(
+                                filePath,
+                              )}
+                              onUnstageHunk={handleUnstageHunk}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Loading state */}
+                      {!hasUnstaged && !hasStaged && (
+                        <div className="text-muted-foreground text-sm">
+                          Loading diff...
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </Scrollable.Vertical>
         </div>
