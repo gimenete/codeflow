@@ -7,6 +7,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   commitChanges,
@@ -20,11 +21,13 @@ import type { GitFileStatus, TrackedBranch } from "@/lib/github-types";
 import { isElectron } from "@/lib/platform";
 import { cn, fuzzyFilter } from "@/lib/utils";
 import {
+  Columns2,
   Edit as EditIcon,
   FileCode,
   Minus,
   Plus,
   RefreshCw,
+  Rows3,
   Undo2,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -54,6 +57,7 @@ export function BranchFilesView({
   const [commitDescription, setCommitDescription] = useState("");
   const [isCommitting, setIsCommitting] = useState(false);
   const [commitError, setCommitError] = useState<string | null>(null);
+  const [diffStyle, setDiffStyle] = useState<"unified" | "split">("unified");
 
   const contentRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -200,6 +204,18 @@ export function BranchFilesView({
       await refresh();
     },
     [repositoryPath, refresh],
+  );
+
+  const handleStageAll = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!window.gitAPI) return;
+      for (const file of unstagedFiles) {
+        await window.gitAPI.stage(repositoryPath, file.path);
+      }
+      await refresh();
+    },
+    [repositoryPath, unstagedFiles, refresh],
   );
 
   const handleDiscard = useCallback(
@@ -397,7 +413,7 @@ export function BranchFilesView({
               {/* Staged Changes Section */}
               {filteredStagedFiles.length > 0 && (
                 <div>
-                  <div className="py-2 text-sm font-medium">
+                  <div className="py-2 text-sm font-medium min-h-[40px] flex items-center">
                     Staged Changes ({filteredStagedFiles.length})
                   </div>
                   <div className="space-y-1">
@@ -450,8 +466,19 @@ export function BranchFilesView({
               {/* Unstaged Changes Section */}
               {filteredUnstagedFiles.length > 0 && (
                 <div className="mt-2">
-                  <div className="py-2 text-sm font-medium">
-                    Unstaged Changes ({filteredUnstagedFiles.length})
+                  <div className="py-2 text-sm font-medium flex items-center justify-between group min-h-[40px]">
+                    <span>
+                      Unstaged Changes ({filteredUnstagedFiles.length})
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-6 w-6 hidden group-hover:inline-flex"
+                      onClick={handleStageAll}
+                      title="Stage all"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                   <div className="space-y-1">
                     {filteredUnstagedFiles.map((file, index) => {
@@ -573,6 +600,22 @@ export function BranchFilesView({
       <ResizablePanel defaultSize={70} minSize={30}>
         {/* Right panel: Diff content */}
         <div className="flex-1 min-w-0 flex flex-col h-full">
+          {/* Diff Options Toolbar */}
+          <div className="shrink-0 px-4 py-2 border-b flex items-center justify-end gap-2">
+            <Tabs
+              value={diffStyle}
+              onValueChange={(v) => setDiffStyle(v as "unified" | "split")}
+            >
+              <TabsList>
+                <TabsTrigger value="unified" title="Unified view">
+                  <Rows3 className="h-4 w-4" />
+                </TabsTrigger>
+                <TabsTrigger value="split" title="Split view">
+                  <Columns2 className="h-4 w-4" />
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
           <Scrollable.Vertical ref={contentRef} className="flex-1 min-h-0">
             <div className="space-y-4">
               {allFilePaths.map((filePath) => (
@@ -588,6 +631,7 @@ export function BranchFilesView({
                         <LazyDiffViewer
                           diff={fileDiffs[filePath]}
                           filePath={filePath}
+                          diffStyle={diffStyle}
                         />
                       </div>
                     ) : (

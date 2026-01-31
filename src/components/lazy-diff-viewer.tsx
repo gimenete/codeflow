@@ -5,9 +5,14 @@ import { Skeleton } from "./ui/skeleton";
 interface LazyDiffViewerProps {
   diff: string;
   filePath: string;
+  diffStyle?: "unified" | "split";
 }
 
-export function LazyDiffViewer({ diff, filePath }: LazyDiffViewerProps) {
+export function LazyDiffViewer({
+  diff,
+  filePath,
+  diffStyle,
+}: LazyDiffViewerProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [hasBeenVisible, setHasBeenVisible] = useState(false);
 
@@ -32,7 +37,7 @@ export function LazyDiffViewer({ diff, filePath }: LazyDiffViewerProps) {
   return (
     <div ref={ref} className="overflow-x-auto">
       {hasBeenVisible ? (
-        <DiffViewer diff={diff} filePath={filePath} />
+        <DiffViewer diff={diff} filePath={filePath} diffStyle={diffStyle} />
       ) : (
         <div className="space-y-2 p-4">
           <Skeleton className="h-4 w-full" />

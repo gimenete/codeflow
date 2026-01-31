@@ -6,9 +6,14 @@ interface DiffViewerProps {
   diff: string | null | undefined;
   filePath?: string;
   className?: string;
+  diffStyle?: "unified" | "split";
 }
 
-export function DiffViewer({ diff, className }: DiffViewerProps) {
+export function DiffViewer({
+  diff,
+  className,
+  diffStyle = "unified",
+}: DiffViewerProps) {
   const theme = useDiffTheme();
 
   if (!diff) {
@@ -24,7 +29,7 @@ export function DiffViewer({ diff, className }: DiffViewerProps) {
       patch={diff}
       options={{
         themeType: theme,
-        diffStyle: "unified",
+        diffStyle,
         overflow: "wrap",
       }}
       className={cn("font-mono text-xs", className)}
