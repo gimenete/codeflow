@@ -35,6 +35,93 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+interface CommitFormProps {
+  repositoryPath: string;
+  stagedFiles: GitFileStatus[];
+  refresh: () => Promise<void>;
+}
+
+function CommitForm({ repositoryPath, stagedFiles, refresh }: CommitFormProps) {
+  const [commitSummary, setCommitSummary] = useState("");
+  const [commitDescription, setCommitDescription] = useState("");
+  const [isCommitting, setIsCommitting] = useState(false);
+  const [commitError, setCommitError] = useState<string | null>(null);
+
+  const handleCommit = useCallback(async () => {
+    if (!commitSummary.trim() || stagedFiles.length === 0) return;
+
+    setIsCommitting(true);
+    setCommitError(null);
+    try {
+      const result = await commitChanges(
+        repositoryPath,
+        stagedFiles.map((f) => f.path),
+        commitSummary,
+        commitDescription || undefined,
+      );
+
+      if (result.success) {
+        setCommitSummary("");
+        setCommitDescription("");
+        await refresh();
+      } else {
+        setCommitError(result.error || "Commit failed");
+      }
+    } finally {
+      setIsCommitting(false);
+    }
+  }, [repositoryPath, stagedFiles, commitSummary, commitDescription, refresh]);
+
+  const canCommit =
+    stagedFiles.length > 0 && commitSummary.trim() && !isCommitting;
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && canCommit) {
+        e.preventDefault();
+        void handleCommit();
+      }
+    },
+    [canCommit, handleCommit],
+  );
+
+  return (
+    <div className="border-t p-3 shrink-0 bg-background space-y-2">
+      <Input
+        placeholder="Commit summary"
+        className="h-8 text-sm"
+        value={commitSummary}
+        onChange={(e) => setCommitSummary(e.target.value)}
+        onKeyDown={handleKeyDown}
+        disabled={stagedFiles.length === 0}
+      />
+      <Textarea
+        placeholder="Description (optional)"
+        className="min-h-[60px] resize-none text-sm"
+        value={commitDescription}
+        onKeyDown={handleKeyDown}
+        onChange={(e) => setCommitDescription(e.target.value)}
+        disabled={stagedFiles.length === 0}
+      />
+      {commitError && (
+        <div className="text-xs text-destructive">{commitError}</div>
+      )}
+      <Button
+        size="sm"
+        className="w-full"
+        disabled={!canCommit}
+        onClick={handleCommit}
+      >
+        {isCommitting
+          ? "Committing..."
+          : stagedFiles.length === 0
+            ? "Commit"
+            : `Commit ${stagedFiles.length} file${stagedFiles.length !== 1 ? "s" : ""}`}
+      </Button>
+    </div>
+  );
+}
+
 interface BranchFilesViewProps {
   branch: TrackedBranch;
   repositoryPath: string;
@@ -59,10 +146,6 @@ export function BranchFilesView({
   const [selectedFile, setSelectedFile] = useState<FileSelection>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [focusedIndex, setFocusedIndex] = useState(-1);
-  const [commitSummary, setCommitSummary] = useState("");
-  const [commitDescription, setCommitDescription] = useState("");
-  const [isCommitting, setIsCommitting] = useState(false);
-  const [commitError, setCommitError] = useState<string | null>(null);
   const [diffStyle, setDiffStyle] = useState<"unified" | "split">("unified");
 
   const contentRef = useRef<HTMLDivElement>(null);
@@ -243,31 +326,6 @@ export function BranchFilesView({
     },
     [repositoryPath, refresh],
   );
-
-  const handleCommit = useCallback(async () => {
-    if (!commitSummary.trim() || stagedFiles.length === 0) return;
-
-    setIsCommitting(true);
-    setCommitError(null);
-    try {
-      const result = await commitChanges(
-        repositoryPath,
-        stagedFiles.map((f) => f.path),
-        commitSummary,
-        commitDescription || undefined,
-      );
-
-      if (result.success) {
-        setCommitSummary("");
-        setCommitDescription("");
-        await refresh();
-      } else {
-        setCommitError(result.error || "Commit failed");
-      }
-    } finally {
-      setIsCommitting(false);
-    }
-  }, [repositoryPath, stagedFiles, commitSummary, commitDescription, refresh]);
 
   // Create annotations for unstaged change groups (from unstaged diff)
   const createUnstagedAnnotations = useCallback(
@@ -738,41 +796,11 @@ export function BranchFilesView({
           )}
 
           {/* Commit UI - always visible, disabled when no staged files */}
-          <div className="border-t p-3 shrink-0 bg-background space-y-2">
-            <Input
-              placeholder="Commit summary"
-              className="h-8 text-sm"
-              value={commitSummary}
-              onChange={(e) => setCommitSummary(e.target.value)}
-              disabled={stagedFiles.length === 0}
-            />
-            <Textarea
-              placeholder="Description (optional)"
-              className="min-h-[60px] resize-none text-sm"
-              value={commitDescription}
-              onChange={(e) => setCommitDescription(e.target.value)}
-              disabled={stagedFiles.length === 0}
-            />
-            {commitError && (
-              <div className="text-xs text-destructive">{commitError}</div>
-            )}
-            <Button
-              size="sm"
-              className="w-full"
-              disabled={
-                stagedFiles.length === 0 ||
-                !commitSummary.trim() ||
-                isCommitting
-              }
-              onClick={handleCommit}
-            >
-              {isCommitting
-                ? "Committing..."
-                : stagedFiles.length === 0
-                  ? "Commit"
-                  : `Commit ${stagedFiles.length} file${stagedFiles.length !== 1 ? "s" : ""}`}
-            </Button>
-          </div>
+          <CommitForm
+            repositoryPath={repositoryPath}
+            stagedFiles={stagedFiles}
+            refresh={refresh}
+          />
         </div>
       </ResizablePanel>
       <ResizableHandle />
