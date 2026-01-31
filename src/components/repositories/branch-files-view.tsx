@@ -612,31 +612,6 @@ export function BranchFilesView({
     );
   }
 
-  // No changes state
-  if (!hasChanges) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="text-center text-muted-foreground">
-          <FileCode className="h-12 w-12 mx-auto mb-3 opacity-50" />
-          <p className="text-lg font-medium">No changes detected</p>
-          <p className="text-sm mt-1">Changes will appear here as you work</p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-4"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-          >
-            <RefreshCw
-              className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")}
-            />
-            Refresh
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <ResizablePanelGroup direction="horizontal" className="h-full min-h-0">
       <ResizablePanel defaultSize={100} minSize={150} maxSize={500}>
@@ -812,6 +787,16 @@ export function BranchFilesView({
                   No files match "{searchQuery}"
                 </div>
               )}
+
+              {!hasChanges && (
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                  <FileCode className="h-8 w-8 mb-2 opacity-50" />
+                  <p className="text-sm font-medium">No changes detected</p>
+                  <p className="text-xs mt-1">
+                    Changes will appear here as you work
+                  </p>
+                </div>
+              )}
             </div>
           </Scrollable.Vertical>
 
@@ -856,75 +841,81 @@ export function BranchFilesView({
             </Tabs>
           </div>
           <Scrollable.Vertical ref={contentRef} className="flex-1 min-h-0">
-            <div className="space-y-4">
-              {allFilePaths.map((filePath) => {
-                const hasUnstaged = unstagedDiffs[filePath]?.trim();
-                const hasStaged = stagedDiffs[filePath]?.trim();
-                const hasBoth = hasUnstaged && hasStaged;
+            {allFilePaths.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-muted-foreground">
+                <p className="text-sm">Select a file to view changes</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {allFilePaths.map((filePath) => {
+                  const hasUnstaged = unstagedDiffs[filePath]?.trim();
+                  const hasStaged = stagedDiffs[filePath]?.trim();
+                  const hasBoth = hasUnstaged && hasStaged;
 
-                return (
-                  <div key={filePath} className="pb-4">
-                    <div className="p-4 space-y-4">
-                      {/* Staged changes */}
-                      {hasStaged && (
-                        <div
-                          id={`branch-file-staged-${filePath.replace(/[^a-zA-Z0-9]/g, "-")}`}
-                        >
-                          {hasBoth && (
-                            <div className="text-sm font-medium text-muted-foreground mb-2">
-                              Staged Changes
+                  return (
+                    <div key={filePath} className="pb-4">
+                      <div className="p-4 space-y-4">
+                        {/* Staged changes */}
+                        {hasStaged && (
+                          <div
+                            id={`branch-file-staged-${filePath.replace(/[^a-zA-Z0-9]/g, "-")}`}
+                          >
+                            {hasBoth && (
+                              <div className="text-sm font-medium text-muted-foreground mb-2">
+                                Staged Changes
+                              </div>
+                            )}
+                            <div className="overflow-x-auto max-w-full border rounded">
+                              <LazyDiffViewer
+                                diff={stagedDiffs[filePath]}
+                                filePath={filePath}
+                                diffStyle={diffStyle}
+                                lineAnnotations={createStagedAnnotations(
+                                  filePath,
+                                )}
+                                onUnstageHunk={handleUnstageHunk}
+                              />
                             </div>
-                          )}
-                          <div className="overflow-x-auto max-w-full border rounded">
-                            <LazyDiffViewer
-                              diff={stagedDiffs[filePath]}
-                              filePath={filePath}
-                              diffStyle={diffStyle}
-                              lineAnnotations={createStagedAnnotations(
-                                filePath,
-                              )}
-                              onUnstageHunk={handleUnstageHunk}
-                            />
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      {/* Unstaged changes */}
-                      {hasUnstaged && (
-                        <div
-                          id={`branch-file-unstaged-${filePath.replace(/[^a-zA-Z0-9]/g, "-")}`}
-                        >
-                          {hasBoth && (
-                            <div className="text-sm font-medium text-muted-foreground mb-2">
-                              Unstaged Changes
+                        {/* Unstaged changes */}
+                        {hasUnstaged && (
+                          <div
+                            id={`branch-file-unstaged-${filePath.replace(/[^a-zA-Z0-9]/g, "-")}`}
+                          >
+                            {hasBoth && (
+                              <div className="text-sm font-medium text-muted-foreground mb-2">
+                                Unstaged Changes
+                              </div>
+                            )}
+                            <div className="overflow-x-auto max-w-full border rounded">
+                              <LazyDiffViewer
+                                diff={unstagedDiffs[filePath]}
+                                filePath={filePath}
+                                diffStyle={diffStyle}
+                                lineAnnotations={createUnstagedAnnotations(
+                                  filePath,
+                                )}
+                                onStageHunk={handleStageHunk}
+                                onDiscardHunk={handleDiscardHunk}
+                              />
                             </div>
-                          )}
-                          <div className="overflow-x-auto max-w-full border rounded">
-                            <LazyDiffViewer
-                              diff={unstagedDiffs[filePath]}
-                              filePath={filePath}
-                              diffStyle={diffStyle}
-                              lineAnnotations={createUnstagedAnnotations(
-                                filePath,
-                              )}
-                              onStageHunk={handleStageHunk}
-                              onDiscardHunk={handleDiscardHunk}
-                            />
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      {/* Loading state */}
-                      {!hasUnstaged && !hasStaged && (
-                        <div className="text-muted-foreground text-sm">
-                          Loading diff...
-                        </div>
-                      )}
+                        {/* Loading state */}
+                        {!hasUnstaged && !hasStaged && (
+                          <div className="text-muted-foreground text-sm">
+                            Loading diff...
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </Scrollable.Vertical>
         </div>
       </ResizablePanel>
