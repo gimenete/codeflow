@@ -1,5 +1,15 @@
 import { Scrollable } from "@/components/flex-layout";
 import { LazyDiffViewer } from "@/components/lazy-diff-viewer";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -147,6 +157,16 @@ export function BranchFilesView({
   const [searchQuery, setSearchQuery] = useState("");
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [diffStyle, setDiffStyle] = useState<"unified" | "split">("unified");
+
+  // State for discard confirmation dialogs
+  const [pendingFileDiscard, setPendingFileDiscard] = useState<string | null>(
+    null,
+  );
+  const [pendingHunkDiscard, setPendingHunkDiscard] = useState<{
+    filePath: string;
+    hunkIndex: number;
+    groupIndex: number;
+  } | null>(null);
 
   const contentRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -317,15 +337,17 @@ export function BranchFilesView({
     [repositoryPath, unstagedFiles, refresh],
   );
 
-  const handleDiscard = useCallback(
-    async (filePath: string, e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (!window.gitAPI) return;
-      await window.gitAPI.discard(repositoryPath, filePath);
-      await refresh();
-    },
-    [repositoryPath, refresh],
-  );
+  const handleDiscard = useCallback((filePath: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPendingFileDiscard(filePath);
+  }, []);
+
+  const confirmFileDiscard = useCallback(async () => {
+    if (!window.gitAPI || !pendingFileDiscard) return;
+    await window.gitAPI.discard(repositoryPath, pendingFileDiscard);
+    setPendingFileDiscard(null);
+    await refresh();
+  }, [repositoryPath, pendingFileDiscard, refresh]);
 
   // Create annotations for unstaged change groups (from unstaged diff)
   const createUnstagedAnnotations = useCallback(
@@ -456,44 +478,54 @@ export function BranchFilesView({
   );
 
   const handleDiscardHunk = useCallback(
-    async (filePath: string, hunkIndex: number, groupIndex: number) => {
-      if (!window.gitAPI) return;
-
-      const unstagedPatch = unstagedDiffs[filePath];
-      if (!unstagedPatch) return;
-
-      const hunks = parseHunks(unstagedPatch);
-      if (hunkIndex >= hunks.length) return;
-
-      const hunk = hunks[hunkIndex];
-      if (groupIndex >= hunk.changeGroups.length) return;
-
-      const group = hunk.changeGroups[groupIndex];
-      const patch = createChangeGroupPatch(
-        filePath,
-        hunk,
-        group,
-        unstagedPatch,
-      );
-
-      try {
-        const result = await window.gitAPI.discardHunk(repositoryPath, patch);
-        if (result.success) {
-          await refresh();
-        } else {
-          console.error("Failed to discard change group:", result.error);
-        }
-      } catch (error) {
-        console.error("Error discarding change group:", error);
-      }
+    (filePath: string, hunkIndex: number, groupIndex: number) => {
+      setPendingHunkDiscard({ filePath, hunkIndex, groupIndex });
     },
-    [repositoryPath, unstagedDiffs, refresh],
+    [],
   );
+
+  const confirmHunkDiscard = useCallback(async () => {
+    if (!window.gitAPI || !pendingHunkDiscard) return;
+
+    const { filePath, hunkIndex, groupIndex } = pendingHunkDiscard;
+    const unstagedPatch = unstagedDiffs[filePath];
+    if (!unstagedPatch) {
+      setPendingHunkDiscard(null);
+      return;
+    }
+
+    const hunks = parseHunks(unstagedPatch);
+    if (hunkIndex >= hunks.length) {
+      setPendingHunkDiscard(null);
+      return;
+    }
+
+    const hunk = hunks[hunkIndex];
+    if (groupIndex >= hunk.changeGroups.length) {
+      setPendingHunkDiscard(null);
+      return;
+    }
+
+    const group = hunk.changeGroups[groupIndex];
+    const patch = createChangeGroupPatch(filePath, hunk, group, unstagedPatch);
+
+    try {
+      const result = await window.gitAPI.discardHunk(repositoryPath, patch);
+      if (result.success) {
+        await refresh();
+      } else {
+        console.error("Failed to discard change group:", result.error);
+      }
+    } catch (error) {
+      console.error("Error discarding change group:", error);
+    }
+    setPendingHunkDiscard(null);
+  }, [repositoryPath, unstagedDiffs, pendingHunkDiscard, refresh]);
 
   const scrollToFile = useCallback(
     (path: string, section: "staged" | "unstaged") => {
       setSelectedFile({ path, section });
-      const elementId = `branch-file-${path.replace(/[^a-zA-Z0-9]/g, "-")}`;
+      const elementId = `branch-file-${section}-${path.replace(/[^a-zA-Z0-9]/g, "-")}`;
       const element = document.getElementById(elementId);
       if (element) {
         element.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -831,15 +863,37 @@ export function BranchFilesView({
                 const hasBoth = hasUnstaged && hasStaged;
 
                 return (
-                  <div
-                    key={filePath}
-                    id={`branch-file-${filePath.replace(/[^a-zA-Z0-9]/g, "-")}`}
-                    className="pb-4"
-                  >
+                  <div key={filePath} className="pb-4">
                     <div className="p-4 space-y-4">
+                      {/* Staged changes */}
+                      {hasStaged && (
+                        <div
+                          id={`branch-file-staged-${filePath.replace(/[^a-zA-Z0-9]/g, "-")}`}
+                        >
+                          {hasBoth && (
+                            <div className="text-sm font-medium text-muted-foreground mb-2">
+                              Staged Changes
+                            </div>
+                          )}
+                          <div className="overflow-x-auto max-w-full border rounded">
+                            <LazyDiffViewer
+                              diff={stagedDiffs[filePath]}
+                              filePath={filePath}
+                              diffStyle={diffStyle}
+                              lineAnnotations={createStagedAnnotations(
+                                filePath,
+                              )}
+                              onUnstageHunk={handleUnstageHunk}
+                            />
+                          </div>
+                        </div>
+                      )}
+
                       {/* Unstaged changes */}
                       {hasUnstaged && (
-                        <div>
+                        <div
+                          id={`branch-file-unstaged-${filePath.replace(/[^a-zA-Z0-9]/g, "-")}`}
+                        >
                           {hasBoth && (
                             <div className="text-sm font-medium text-muted-foreground mb-2">
                               Unstaged Changes
@@ -860,28 +914,6 @@ export function BranchFilesView({
                         </div>
                       )}
 
-                      {/* Staged changes */}
-                      {hasStaged && (
-                        <div>
-                          {hasBoth && (
-                            <div className="text-sm font-medium text-muted-foreground mb-2">
-                              Staged Changes
-                            </div>
-                          )}
-                          <div className="overflow-x-auto max-w-full border rounded">
-                            <LazyDiffViewer
-                              diff={stagedDiffs[filePath]}
-                              filePath={filePath}
-                              diffStyle={diffStyle}
-                              lineAnnotations={createStagedAnnotations(
-                                filePath,
-                              )}
-                              onUnstageHunk={handleUnstageHunk}
-                            />
-                          </div>
-                        </div>
-                      )}
-
                       {/* Loading state */}
                       {!hasUnstaged && !hasStaged && (
                         <div className="text-muted-foreground text-sm">
@@ -896,6 +928,62 @@ export function BranchFilesView({
           </Scrollable.Vertical>
         </div>
       </ResizablePanel>
+
+      {/* Discard file confirmation dialog */}
+      <AlertDialog
+        open={pendingFileDiscard !== null}
+        onOpenChange={(open) => !open && setPendingFileDiscard(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently discard all unstaged changes to{" "}
+              <span className="font-mono font-medium">
+                {pendingFileDiscard}
+              </span>
+              . This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={confirmFileDiscard}
+            >
+              Discard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Discard hunk confirmation dialog */}
+      <AlertDialog
+        open={pendingHunkDiscard !== null}
+        onOpenChange={(open) => !open && setPendingHunkDiscard(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently discard this change in{" "}
+              <span className="font-mono font-medium">
+                {pendingHunkDiscard?.filePath}
+              </span>
+              . This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={confirmHunkDiscard}
+            >
+              Discard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </ResizablePanelGroup>
   );
 }
