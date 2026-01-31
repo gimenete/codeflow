@@ -20,6 +20,12 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Empty,
+  EmptyDescription,
+  EmptyIcon,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import {
   commitChanges,
   onWatcherChange,
   removeWatcherListeners,
@@ -789,13 +795,15 @@ export function BranchFilesView({
               )}
 
               {!hasChanges && (
-                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                  <FileCode className="h-8 w-8 mb-2 opacity-50" />
-                  <p className="text-sm font-medium">No changes detected</p>
-                  <p className="text-xs mt-1">
+                <Empty>
+                  <EmptyIcon>
+                    <FileCode />
+                  </EmptyIcon>
+                  <EmptyTitle>No changes detected</EmptyTitle>
+                  <EmptyDescription>
                     Changes will appear here as you work
-                  </p>
-                </div>
+                  </EmptyDescription>
+                </Empty>
               )}
             </div>
           </Scrollable.Vertical>
@@ -842,9 +850,15 @@ export function BranchFilesView({
           </div>
           <Scrollable.Vertical ref={contentRef} className="flex-1 min-h-0">
             {allFilePaths.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-muted-foreground">
-                <p className="text-sm">Select a file to view changes</p>
-              </div>
+              <Empty className="pt-12">
+                <EmptyIcon>
+                  <FileCode />
+                </EmptyIcon>
+                <EmptyTitle>No changes to display</EmptyTitle>
+                <EmptyDescription>
+                  Changes will appear here when you modify files
+                </EmptyDescription>
+              </Empty>
             ) : (
               <div className="space-y-4">
                 {allFilePaths.map((filePath) => {
