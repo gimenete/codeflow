@@ -49,67 +49,43 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
       </div>
 
       <Scrollable.Vertical>
-        {/* Navigation */}
-        <div className="p-2">
-          <div className="space-y-1">
-            <Link
-              to="/repositories/$repository/branches"
-              params={{ repository: repositorySlug! }}
-              className={cn(
-                "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
-                location.pathname.includes("/branches")
-                  ? "bg-accent text-accent-foreground"
-                  : "hover:bg-accent/50 text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <ListTodo className="h-4 w-4" />
-              Branches
-            </Link>
-
-            {hasRemote && (
-              <>
-                <Link
-                  to="/repositories/$repository/queries/$query"
-                  params={{ repository: repositorySlug!, query: "issues" }}
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
-                    location.pathname.includes("/queries/") &&
-                      query === "issues"
-                      ? "bg-accent text-accent-foreground"
-                      : "hover:bg-accent/50 text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <CircleDot className="h-4 w-4" />
-                  Issues
-                </Link>
-
-                <Link
-                  to="/repositories/$repository/queries/$query"
-                  params={{ repository: repositorySlug!, query: "pulls" }}
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
-                    location.pathname.includes("/queries/") && query === "pulls"
-                      ? "bg-accent text-accent-foreground"
-                      : "hover:bg-accent/50 text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <GitPullRequest className="h-4 w-4" />
-                  Pull Requests
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Saved Queries Section */}
-        {hasRemote && savedQueries.length > 0 && (
+        {/* Issues and Pulls Section */}
+        {hasRemote && (
           <div className="p-2 border-t">
             <div className="flex items-center justify-between px-3 py-2">
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Saved Queries
+                Issues and Pulls
               </span>
             </div>
             <div className="space-y-1">
+              <Link
+                to="/repositories/$repository/queries/$query"
+                params={{ repository: repositorySlug!, query: "issues" }}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
+                  location.pathname.includes("/queries/") && query === "issues"
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-accent/50 text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <CircleDot className="h-4 w-4" />
+                Issues
+              </Link>
+
+              <Link
+                to="/repositories/$repository/queries/$query"
+                params={{ repository: repositorySlug!, query: "pulls" }}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
+                  location.pathname.includes("/queries/") && query === "pulls"
+                    ? "bg-accent text-accent-foreground"
+                    : "hover:bg-accent/50 text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <GitPullRequest className="h-4 w-4" />
+                Pull Requests
+              </Link>
+
               {savedQueries.map((q) => {
                 const Icon = getIconById(q.icon);
                 const isActive =
@@ -143,7 +119,7 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
         <div className="p-2 border-t">
           <div className="flex items-center justify-between px-3 py-2">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Tracked Branches
+              Branches
             </span>
             <Button
               variant="ghost"
@@ -155,6 +131,20 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
             </Button>
           </div>
           <div className="space-y-1">
+            <Link
+              to="/repositories/$repository/branches"
+              params={{ repository: repositorySlug! }}
+              className={cn(
+                "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
+                location.pathname.includes("/branches")
+                  ? "bg-accent text-accent-foreground"
+                  : "hover:bg-accent/50 text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <ListTodo className="h-4 w-4" />
+              Overview
+            </Link>
+
             {trackedBranches.length === 0 ? (
               <p className="px-3 py-2 text-xs text-muted-foreground">
                 No branches tracked

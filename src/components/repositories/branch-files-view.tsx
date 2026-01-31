@@ -715,7 +715,7 @@ export function BranchFilesView({
           <Scrollable.Vertical>
             <div
               ref={listRef}
-              className="p-2 outline-none"
+              className="px-2 outline-none"
               tabIndex={0}
               onKeyDown={handleListKeyDown}
             >
@@ -774,8 +774,8 @@ export function BranchFilesView({
 
               {/* Unstaged Changes Section */}
               {filteredUnstagedFiles.length > 0 && (
-                <div className="mt-2">
-                  <div className="py-2 text-sm font-medium flex items-center justify-between group min-h-[40px]">
+                <div>
+                  <div className="py-2 text-sm font-medium min-h-[40px] flex items-center justify-between group min-h-[40px]">
                     <span>
                       Unstaged Changes ({filteredUnstagedFiles.length})
                     </span>
