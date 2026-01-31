@@ -935,7 +935,7 @@ export function BranchFilesView({
           </div>
           <Scrollable.Vertical ref={contentRef} className="flex-1 min-h-0">
             {allFilePaths.length === 0 ? (
-              <Empty className="pt-12">
+              <Empty className="pt-6">
                 <EmptyIcon>
                   <FileCode />
                 </EmptyIcon>
