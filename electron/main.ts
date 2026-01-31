@@ -55,6 +55,7 @@ interface GitStatus {
   branch: string;
   ahead: number;
   behind: number;
+  tracking: string | null;
   stagedFiles: GitFileStatus[];
   unstagedFiles: GitFileStatus[];
 }
@@ -248,6 +249,7 @@ ipcMain.handle("git:status", async (_event, repoPath: string) => {
       branch: status.current || "HEAD",
       ahead: status.ahead,
       behind: status.behind,
+      tracking: status.tracking || null,
       stagedFiles,
       unstagedFiles,
     };
@@ -259,6 +261,7 @@ ipcMain.handle("git:status", async (_event, repoPath: string) => {
       branch: "main",
       ahead: 0,
       behind: 0,
+      tracking: null,
       stagedFiles: [],
       unstagedFiles: [],
     };

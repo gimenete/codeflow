@@ -161,6 +161,7 @@ export interface GitStatus {
   branch: string;
   ahead: number;
   behind: number;
+  tracking: string | null; // e.g., "origin/main" - upstream ref
   stagedFiles: GitFileStatus[];
   unstagedFiles: GitFileStatus[];
 }

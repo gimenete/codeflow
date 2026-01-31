@@ -259,6 +259,7 @@ export function useGitStatus(path: string | undefined) {
         branch: "main",
         ahead: 0,
         behind: 0,
+        tracking: null,
         stagedFiles: [],
         unstagedFiles: [],
       });
@@ -275,6 +276,7 @@ export function useGitStatus(path: string | undefined) {
         branch: "main",
         ahead: 0,
         behind: 0,
+        tracking: null,
         stagedFiles: [],
         unstagedFiles: [],
       });

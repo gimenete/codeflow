@@ -27,6 +27,8 @@ import {
 } from "@/components/ui/empty";
 import {
   commitChanges,
+  gitPull,
+  gitPush,
   onWatcherChange,
   removeWatcherListeners,
   startWatcher,
@@ -40,6 +42,7 @@ import type { GitFileStatus, TrackedBranch } from "@/lib/github-types";
 import { isElectron } from "@/lib/platform";
 import { cn, fuzzyFilter } from "@/lib/utils";
 import {
+  ArrowDownUp,
   Columns2,
   Edit as EditIcon,
   FileCode,
@@ -155,6 +158,8 @@ export function BranchFilesView({
 }: BranchFilesViewProps) {
   const { status, isLoading, refresh } = useGitStatus(repositoryPath);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [stagedDiffs, setStagedDiffs] = useState<Record<string, string>>({});
   const [unstagedDiffs, setUnstagedDiffs] = useState<Record<string, string>>(
     {},
@@ -285,6 +290,60 @@ export function BranchFilesView({
     await refresh();
     setIsRefreshing(false);
   }, [refresh]);
+
+  // Parse remote name from tracking ref (e.g., "origin/main" -> "origin")
+  const upstreamRemote = useMemo(() => {
+    if (!status?.tracking) return null;
+    const slashIndex = status.tracking.indexOf("/");
+    return slashIndex > 0 ? status.tracking.slice(0, slashIndex) : null;
+  }, [status?.tracking]);
+
+  const handleSync = useCallback(async () => {
+    if (!status?.branch || !upstreamRemote) return;
+
+    setIsSyncing(true);
+    setSyncError(null);
+
+    try {
+      // Pull first if behind
+      if ((status.behind ?? 0) > 0) {
+        const pullResult = await gitPull(
+          repositoryPath,
+          upstreamRemote,
+          status.branch,
+        );
+        if (!pullResult.success) {
+          setSyncError(pullResult.error || "Pull failed");
+          return;
+        }
+      }
+
+      // Push if ahead
+      if ((status.ahead ?? 0) > 0) {
+        const pushResult = await gitPush(
+          repositoryPath,
+          upstreamRemote,
+          status.branch,
+          false,
+        );
+        if (!pushResult.success) {
+          setSyncError(pushResult.error || "Push failed");
+          return;
+        }
+      }
+
+      await refresh();
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [
+    repositoryPath,
+    upstreamRemote,
+    status?.branch,
+    status?.ahead,
+    status?.behind,
+    refresh,
+  ]);
 
   const getStatusIcon = (fileStatus: string) => {
     switch (fileStatus) {
@@ -810,13 +869,39 @@ export function BranchFilesView({
 
           {/* Summary footer */}
           {status && (
-            <div className="px-3 py-2 border-t text-xs text-muted-foreground shrink-0">
-              {(status.ahead ?? 0) > 0 && <span>{status.ahead} ahead</span>}
-              {(status.ahead ?? 0) > 0 && (status.behind ?? 0) > 0 && " · "}
-              {(status.behind ?? 0) > 0 && <span>{status.behind} behind</span>}
-              {(status.ahead ?? 0) === 0 && (status.behind ?? 0) === 0 && (
-                <span>Up to date with remote</span>
-              )}
+            <div className="px-3 py-2 border-t text-xs text-muted-foreground shrink-0 flex items-center justify-between">
+              <div>
+                {(status.ahead ?? 0) > 0 && <span>{status.ahead} ahead</span>}
+                {(status.ahead ?? 0) > 0 && (status.behind ?? 0) > 0 && " · "}
+                {(status.behind ?? 0) > 0 && (
+                  <span>{status.behind} behind</span>
+                )}
+                {(status.ahead ?? 0) === 0 && (status.behind ?? 0) === 0 && (
+                  <span>Up to date with remote</span>
+                )}
+                {syncError && (
+                  <span className="text-destructive ml-2">{syncError}</span>
+                )}
+              </div>
+              {upstreamRemote &&
+                ((status.ahead ?? 0) > 0 || (status.behind ?? 0) > 0) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2"
+                    onClick={handleSync}
+                    disabled={isSyncing}
+                    title="Sync with remote"
+                  >
+                    <ArrowDownUp
+                      className={cn(
+                        "h-3.5 w-3.5 mr-1",
+                        isSyncing && "animate-spin",
+                      )}
+                    />
+                    Sync
+                  </Button>
+                )}
             </div>
           )}
 
