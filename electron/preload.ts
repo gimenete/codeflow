@@ -67,8 +67,9 @@ const gitAPI = {
     path: string,
     branch: string,
     limit: number,
+    skip: number = 0,
   ): Promise<GitCommit[]> => {
-    return ipcRenderer.invoke("git:log", path, branch, limit);
+    return ipcRenderer.invoke("git:log", path, branch, limit, skip);
   },
 
   getDiffFile: (path: string, file: string): Promise<string> => {

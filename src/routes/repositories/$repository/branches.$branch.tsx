@@ -10,7 +10,12 @@ import {
   useLocation,
   useNavigate,
 } from "@tanstack/react-router";
-import { Bot, FileText, TerminalSquare } from "lucide-react";
+import {
+  Bot,
+  FileText,
+  GitCommitHorizontal,
+  TerminalSquare,
+} from "lucide-react";
 import { useEffect } from "react";
 
 export const Route = createFileRoute(
@@ -42,7 +47,9 @@ function BranchDetailPage() {
     ? "terminal"
     : location.pathname.endsWith("/diff")
       ? "diff"
-      : "agent";
+      : location.pathname.endsWith("/commits")
+        ? "commits"
+        : "agent";
 
   // Redirect if branch not found (after hydration)
   useEffect(() => {
@@ -109,6 +116,15 @@ function BranchDetailPage() {
               <TabsTrigger value="diff" className="gap-1">
                 <FileText className="h-4 w-4" />
                 Changes
+              </TabsTrigger>
+            </Link>
+            <Link
+              to="/repositories/$repository/branches/$branch/commits"
+              params={{ repository: repositorySlug, branch: branchId }}
+            >
+              <TabsTrigger value="commits" className="gap-1">
+                <GitCommitHorizontal className="h-4 w-4" />
+                Commits
               </TabsTrigger>
             </Link>
             <Link

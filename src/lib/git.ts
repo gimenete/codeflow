@@ -98,7 +98,12 @@ interface GitAPI {
   getCurrentBranch(path: string): Promise<string>;
   getBranches(path: string): Promise<string[]>;
   getStatus(path: string): Promise<GitStatus>;
-  getLog(path: string, branch: string, limit: number): Promise<GitCommit[]>;
+  getLog(
+    path: string,
+    branch: string,
+    limit: number,
+    skip?: number,
+  ): Promise<GitCommit[]>;
   getDiffFile(path: string, file: string): Promise<string>;
   getDiffStaged(path: string, file: string): Promise<string>;
   getDiffHead(path: string, file: string): Promise<string>;
@@ -312,6 +317,69 @@ export function useGitLog(path: string | undefined, branch: string) {
   }, [path, branch]);
 
   return { commits, isLoading };
+}
+
+export function useGitLogInfinite(
+  path: string | undefined,
+  branch: string,
+  pageSize: number = 30,
+) {
+  const [commits, setCommits] = useState<GitCommit[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+
+  // Load initial page
+  useEffect(() => {
+    if (!path || !isElectron() || !window.gitAPI) {
+      setCommits([]);
+      setHasMore(false);
+      return;
+    }
+
+    async function fetchInitialLog() {
+      setIsLoading(true);
+      try {
+        const result = await window.gitAPI!.getLog(path!, branch, pageSize, 0);
+        setCommits(result);
+        setHasMore(result.length >= pageSize);
+      } catch (error) {
+        console.error("Failed to get git log:", error);
+        setCommits([]);
+        setHasMore(false);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    void fetchInitialLog();
+  }, [path, branch, pageSize]);
+
+  const loadMore = useCallback(async () => {
+    if (!path || !hasMore || isLoadingMore || !window.gitAPI) {
+      return;
+    }
+
+    setIsLoadingMore(true);
+    try {
+      const result = await window.gitAPI.getLog(
+        path,
+        branch,
+        pageSize,
+        commits.length,
+      );
+      if (result.length > 0) {
+        setCommits((prev) => [...prev, ...result]);
+      }
+      setHasMore(result.length >= pageSize);
+    } catch (error) {
+      console.error("Failed to load more commits:", error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [path, branch, pageSize, commits.length, hasMore, isLoadingMore]);
+
+  return { commits, isLoading, isLoadingMore, hasMore, loadMore };
 }
 
 export function useFileDiff(path: string | undefined, file: string | null) {

@@ -267,13 +267,23 @@ ipcMain.handle("git:status", async (_event, repoPath: string) => {
 
 ipcMain.handle(
   "git:log",
-  async (_event, repoPath: string, branch: string, limit: number) => {
+  async (
+    _event,
+    repoPath: string,
+    branch: string,
+    limit: number,
+    skip: number = 0,
+  ) => {
     try {
       const git = getGit(repoPath);
-      const log = await git.log({
+      const options: Record<string, unknown> = {
         maxCount: limit,
         [branch]: null,
-      });
+      };
+      if (skip > 0) {
+        options["--skip"] = skip;
+      }
+      const log = await git.log(options);
 
       const commits: GitCommit[] = log.all.map((commit) => ({
         sha: commit.hash,
@@ -481,15 +491,13 @@ ipcMain.handle(
           status = "renamed";
         }
 
-        // Get just the diff part (after the header)
-        const diffStartIndex = section.indexOf("@@");
-        const diffContent =
-          diffStartIndex > -1 ? section.substring(diffStartIndex) : "";
+        // Reconstruct the full diff with header for the diff viewer
+        const fullDiff = "diff --git " + section;
 
         files.push({
           path: filePath,
           status,
-          diff: diffContent,
+          diff: fullDiff,
         });
       }
 
