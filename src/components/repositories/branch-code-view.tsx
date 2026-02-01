@@ -53,6 +53,37 @@ export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const theme = useDiffTheme();
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const fileViewerRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to current match when it changes
+  useEffect(() => {
+    if (currentMatchIndex < 0 || !searchResults[currentMatchIndex]) return;
+
+    const lineNumber = searchResults[currentMatchIndex].lineNumber;
+
+    // The @pierre/diffs library uses Shadow DOM, so we need to query inside it
+    const shadowHost = fileViewerRef.current?.querySelector("diffs-container");
+    const shadowRoot = shadowHost?.shadowRoot;
+    const lineElement = shadowRoot?.querySelector(
+      `[data-line="${lineNumber}"]`,
+    ) as HTMLElement | null;
+
+    if (lineElement && fileViewerRef.current) {
+      // Get the line position relative to the scroll container
+      const containerRect = fileViewerRef.current.getBoundingClientRect();
+      const lineRect = lineElement.getBoundingClientRect();
+
+      // Calculate how much to scroll to center the line
+      const lineCenter = lineRect.top + lineRect.height / 2;
+      const containerCenter = containerRect.top + containerRect.height / 2;
+      const scrollOffset = lineCenter - containerCenter;
+
+      fileViewerRef.current.scrollBy({
+        top: scrollOffset,
+        behavior: "smooth",
+      });
+    }
+  }, [currentMatchIndex, searchResults]);
 
   // Handle Cmd+F / Ctrl+F to focus search input
   useEffect(() => {
@@ -266,7 +297,7 @@ export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
                   )}
                 </div>
               )}
-              <div className="flex-1 min-h-0 overflow-auto">
+              <div ref={fileViewerRef} className="flex-1 min-h-0 overflow-auto">
                 {loadingFile ? (
                   <div className="flex h-full items-center justify-center text-muted-foreground">
                     Loading file...
