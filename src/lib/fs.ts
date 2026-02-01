@@ -11,6 +11,12 @@ export interface SearchResult {
   name: string;
   score: number;
   ignored?: boolean;
+  matches?: number[];
+}
+
+export interface FileEntry {
+  path: string;
+  name: string;
 }
 
 declare global {
@@ -27,6 +33,7 @@ declare global {
         pattern: string,
         limit?: number,
       ) => Promise<SearchResult[]>;
+      listAllFiles: (rootPath: string, limit?: number) => Promise<FileEntry[]>;
     };
   }
 }

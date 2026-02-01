@@ -404,6 +404,11 @@ interface SearchResult {
   ignored?: boolean;
 }
 
+interface FileEntry {
+  path: string;
+  name: string;
+}
+
 const fsAPI = {
   listDirectory: (
     dirPath: string,
@@ -429,6 +434,10 @@ const fsAPI = {
     limit?: number,
   ): Promise<SearchResult[]> => {
     return ipcRenderer.invoke("fs:search-files", rootPath, pattern, limit);
+  },
+
+  listAllFiles: (rootPath: string, limit?: number): Promise<FileEntry[]> => {
+    return ipcRenderer.invoke("fs:list-all-files", rootPath, limit);
   },
 };
 

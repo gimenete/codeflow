@@ -1529,6 +1529,30 @@ ipcMain.handle(
   },
 );
 
+ipcMain.handle(
+  "fs:list-all-files",
+  async (_event, rootPath: string, limit: number = 10000) => {
+    const ig = await getGitignore(rootPath);
+    const allFiles = await listAllFiles(rootPath);
+
+    // Filter out git-ignored files and apply limit
+    const files: Array<{ path: string; name: string }> = [];
+    for (const filePath of allFiles) {
+      if (files.length >= limit) break;
+
+      const relativePath = path.relative(rootPath, filePath);
+      if (ig.ignores(relativePath)) continue;
+
+      files.push({
+        path: relativePath,
+        name: path.basename(filePath),
+      });
+    }
+
+    return files;
+  },
+);
+
 // Cleanup watchers and PTY sessions on window close
 app.on("before-quit", async () => {
   // Clean up file watchers

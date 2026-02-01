@@ -5,7 +5,9 @@ import {
   useDeferredValue,
   memo,
   useRef,
+  useMemo,
 } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import {
   InputGroup,
@@ -33,6 +35,42 @@ import {
   DefaultFolderOpenedIcon,
 } from "@react-symbols/icons/utils";
 import type { FileTreeEntry, SearchResult } from "@/lib/fs";
+
+// Fuzzy match: checks if pattern chars appear in order in str
+// Returns match indices and a score, or null if no match
+function fuzzyMatch(
+  pattern: string,
+  text: string,
+): { matches: number[]; score: number } | null {
+  const lowerPattern = pattern.toLowerCase();
+  const lowerText = text.toLowerCase();
+  const matches: number[] = [];
+  let patternIdx = 0;
+  let score = 0;
+  let lastMatchIdx = -1;
+
+  for (
+    let i = 0;
+    i < lowerText.length && patternIdx < lowerPattern.length;
+    i++
+  ) {
+    if (lowerText[i] === lowerPattern[patternIdx]) {
+      matches.push(i);
+      // Score: bonus for start, after separator, or consecutive
+      if (i === 0 || "/\\-_.".includes(text[i - 1])) {
+        score += 3;
+      } else if (lastMatchIdx === i - 1) {
+        score += 2;
+      } else {
+        score += 1;
+      }
+      lastMatchIdx = i;
+      patternIdx++;
+    }
+  }
+
+  return patternIdx === lowerPattern.length ? { matches, score } : null;
+}
 
 interface FileTreeProps {
   rootPath: string;
@@ -303,41 +341,61 @@ export function FileTree({
   const [error, setError] = useState<string | null>(null);
 
   // Fuzzy search state
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [searching, setSearching] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const deferredFilter = useDeferredValue(filterText);
   const [shouldScrollToSelected, setShouldScrollToSelected] = useState(false);
 
-  // Search effect - DON'T clear results while loading (keep previous results visible)
-  useEffect(() => {
-    if (!deferredFilter) {
-      setSearchResults([]);
-      setSearching(false);
-      return;
+  // Load all files upfront with React Query (cached)
+  const { data: allFiles = [], isLoading: filesLoading } = useQuery({
+    queryKey: ["all-files", rootPath],
+    queryFn: () =>
+      window.fsAPI?.listAllFiles(rootPath, 10000) ?? Promise.resolve([]),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: !!rootPath,
+  });
+
+  // In-memory fuzzy search (instant, no IPC per keystroke)
+  const searchResults = useMemo((): SearchResult[] => {
+    if (!deferredFilter.trim()) {
+      return [];
     }
 
-    let cancelled = false;
-    setSearching(true);
+    const pattern = deferredFilter.trim();
+    const results: SearchResult[] = [];
 
-    void window.fsAPI
-      ?.searchFiles(rootPath, deferredFilter, 50)
-      .then((results) => {
-        if (!cancelled) {
-          setSearchResults(results);
-          setSearching(false);
-          setFocusedIndex(0); // Reset focus when results change
-        }
-      });
+    for (const file of allFiles) {
+      const match = fuzzyMatch(pattern, file.name);
+      if (match) {
+        // Construct full path from rootPath and relative path
+        const fullPath = `${rootPath}/${file.path}`;
+        results.push({
+          path: fullPath,
+          name: file.name,
+          score: match.score,
+          matches: match.matches,
+        });
+      }
+    }
 
-    return () => {
-      cancelled = true;
-    };
-  }, [deferredFilter, rootPath]);
+    // Sort by score descending, limit to 50
+    results.sort((a, b) => b.score - a.score);
+    return results.slice(0, 50);
+  }, [deferredFilter, allFiles, rootPath]);
+
+  // Reset focus when filter changes
+  useEffect(() => {
+    setFocusedIndex(0);
+  }, [deferredFilter]);
 
   // Handle keyboard navigation
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      if (e.key === "Escape" && filterText) {
+        e.preventDefault();
+        setFilterText("");
+        return;
+      }
+
       if (!filterText || searchResults.length === 0) return;
 
       switch (e.key) {
@@ -543,7 +601,7 @@ export function FileTree({
             onKeyDown={handleKeyDown}
             className="text-sm"
           />
-          {searching ? (
+          {filesLoading && filterText ? (
             <InputGroupAddon align="inline-end">
               <Loader2 className="h-4 w-4 animate-spin" />
             </InputGroupAddon>
@@ -572,7 +630,7 @@ export function FileTree({
                 onSelect={onFileSelect}
               />
             ))
-          ) : !searching ? (
+          ) : !filesLoading ? (
             <Empty className="h-full">
               <EmptyIcon>
                 <SearchX />
