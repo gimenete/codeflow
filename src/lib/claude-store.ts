@@ -1,6 +1,12 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { ModelId, ChatMessage } from "./claude";
+import type {
+  ModelId,
+  ChatMessage,
+  UserChatMessage,
+  AssistantChatMessage,
+  SDKMessage,
+} from "./claude";
 
 export interface Conversation {
   id: string;
@@ -33,6 +39,7 @@ interface ClaudeState {
   // Streaming state
   isStreaming: boolean;
   streamingContent: string;
+  currentAssistantTurnId: string | null; // Track current assistant turn for streaming
 
   // Actions - Conversations
   createConversation: () => string;
@@ -44,8 +51,9 @@ interface ClaudeState {
   getConversationByBranchId: (branchId: string) => Conversation | null;
 
   // Actions - Messages
-  addMessage: (conversationId: string, message: ChatMessage) => void;
-  updateLastAssistantMessage: (conversationId: string, content: string) => void;
+  addUserMessage: (conversationId: string, content: string) => void;
+  startAssistantTurn: (conversationId: string) => void;
+  appendSDKMessage: (conversationId: string, message: SDKMessage) => void;
   setConversationSessionId: (conversationId: string, sessionId: string) => void;
 
   // Actions - Streaming
@@ -62,7 +70,9 @@ function generateId(): string {
 }
 
 function generateTitle(messages: ChatMessage[]): string {
-  const firstUserMessage = messages.find((m) => m.role === "user");
+  const firstUserMessage = messages.find(
+    (m): m is UserChatMessage => m.role === "user",
+  );
   if (!firstUserMessage) return "New Conversation";
   const content = firstUserMessage.content.slice(0, 50);
   return content.length < firstUserMessage.content.length
@@ -82,6 +92,7 @@ export const useClaudeStore = create<ClaudeState>()(
       },
       isStreaming: false,
       streamingContent: "",
+      currentAssistantTurnId: null,
 
       createConversation: () => {
         const id = generateId();
@@ -143,6 +154,7 @@ export const useClaudeStore = create<ClaudeState>()(
                   messages: [],
                   title: "New Conversation",
                   updatedAt: new Date().toISOString(),
+                  sessionId: undefined, // Clear session ID when clearing conversation
                 }
               : c,
           ),
@@ -166,7 +178,12 @@ export const useClaudeStore = create<ClaudeState>()(
         return get().conversations.find((c) => c.branchId === branchId) ?? null;
       },
 
-      addMessage: (conversationId, message) => {
+      addUserMessage: (conversationId, content) => {
+        const message: UserChatMessage = {
+          role: "user",
+          content,
+          timestamp: new Date().toISOString(),
+        };
         set((state) => ({
           conversations: state.conversations.map((c) => {
             if (c.id !== conversationId) return c;
@@ -184,14 +201,39 @@ export const useClaudeStore = create<ClaudeState>()(
         }));
       },
 
-      updateLastAssistantMessage: (conversationId, content) => {
+      startAssistantTurn: (conversationId) => {
+        const turnId = `turn-${Date.now()}`;
+        const message: AssistantChatMessage = {
+          role: "assistant",
+          sdkMessages: [],
+          timestamp: new Date().toISOString(),
+        };
+        set((state) => ({
+          conversations: state.conversations.map((c) => {
+            if (c.id !== conversationId) return c;
+            return {
+              ...c,
+              messages: [...c.messages, message],
+              updatedAt: new Date().toISOString(),
+            };
+          }),
+          currentAssistantTurnId: turnId,
+        }));
+      },
+
+      appendSDKMessage: (conversationId, sdkMessage) => {
         set((state) => ({
           conversations: state.conversations.map((c) => {
             if (c.id !== conversationId) return c;
             const messages = [...c.messages];
             const lastIndex = messages.length - 1;
-            if (lastIndex >= 0 && messages[lastIndex].role === "assistant") {
-              messages[lastIndex] = { ...messages[lastIndex], content };
+            const lastMessage = messages[lastIndex];
+            if (lastIndex >= 0 && lastMessage?.role === "assistant") {
+              const assistantMsg = lastMessage;
+              messages[lastIndex] = {
+                ...assistantMsg,
+                sdkMessages: [...assistantMsg.sdkMessages, sdkMessage],
+              };
             }
             return { ...c, messages, updatedAt: new Date().toISOString() };
           }),
@@ -209,7 +251,7 @@ export const useClaudeStore = create<ClaudeState>()(
       setStreaming: (isStreaming) => {
         set({ isStreaming });
         if (!isStreaming) {
-          set({ streamingContent: "" });
+          set({ streamingContent: "", currentAssistantTurnId: null });
         }
       },
 
@@ -231,7 +273,7 @@ export const useClaudeStore = create<ClaudeState>()(
     }),
     {
       name: "codeflow:claude-chat",
-      version: 5,
+      version: 6,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         conversations: state.conversations,
@@ -275,6 +317,48 @@ export const useClaudeStore = create<ClaudeState>()(
           if (settings && !settings.permissionMode) {
             settings.permissionMode = "acceptEdits";
           }
+        }
+        if (version < 6) {
+          // Migration from version 5: convert legacy messages to new format
+          // Legacy format: { role: "user" | "assistant", content: string }
+          // New format: UserChatMessage | AssistantChatMessage
+          const conversations =
+            (state.conversations as Array<Record<string, unknown>>) ?? [];
+          state.conversations = conversations.map((c) => {
+            const messages =
+              (c.messages as Array<Record<string, unknown>>) ?? [];
+            const migratedMessages = messages.map((m) => {
+              const role = m.role as string;
+              const now = new Date().toISOString();
+              if (role === "user") {
+                return {
+                  role: "user",
+                  content: (m.content as string) || "",
+                  timestamp: now,
+                };
+              } else {
+                // Convert assistant message with plain content to new format
+                // Create a synthetic SDK message with the text content
+                const content = (m.content as string) || "";
+                return {
+                  role: "assistant",
+                  sdkMessages: content
+                    ? [
+                        {
+                          type: "assistant",
+                          message: {
+                            role: "assistant",
+                            content: [{ type: "text", text: content }],
+                          },
+                        },
+                      ]
+                    : [],
+                  timestamp: now,
+                };
+              }
+            });
+            return { ...c, messages: migratedMessages };
+          });
         }
         return state as unknown as ClaudeState;
       },

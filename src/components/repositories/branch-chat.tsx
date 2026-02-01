@@ -5,14 +5,12 @@ import { ChatInput } from "@/components/claude/chat-input";
 import {
   isElectronWithChatAPI,
   getClaudeChatAPI,
-  extractTextFromAgentMessage,
-  type AgentMessage,
+  type SDKMessage,
 } from "@/lib/claude";
 import {
   useClaudeStore,
   useClaudeSettings,
   useIsStreaming,
-  useStreamingContent,
   useConversationByBranchId,
   type PermissionMode,
 } from "@/lib/claude-store";
@@ -27,28 +25,26 @@ interface BranchChatProps {
 export function BranchChat({ branch, cwd }: BranchChatProps) {
   const [inputValue, setInputValue] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const conversationIdRef = useRef<string | null>(null);
-  const accumulatedTextRef = useRef<string>("");
   const sessionIdRef = useRef<string | null>(null);
 
   const conversation = useConversationByBranchId(branch.id);
-  console.log("conversation:", conversation?.sessionId);
   const settings = useClaudeSettings();
   const isStreaming = useIsStreaming();
-  const streamingContent = useStreamingContent();
   const linkConversation = useBranchesStore((state) => state.linkConversation);
 
   const {
     createConversationForBranch,
-    addMessage,
-    updateLastAssistantMessage,
+    addUserMessage,
+    startAssistantTurn,
+    appendSDKMessage,
     setStreaming,
-    appendStreamingContent,
-    setStreamingContent,
     updateSettings,
     setConversationSessionId,
+    clearConversation,
   } = useClaudeStore();
 
   // Sync sessionIdRef with conversation's sessionId when conversation exists
@@ -71,8 +67,49 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
     }
   }, []);
 
+  // Handle slash commands locally
+  const handleCommand = useCallback(
+    (command: string): boolean => {
+      const cmd = command.toLowerCase().trim();
+
+      if (cmd === "/clear") {
+        if (conversation?.id) {
+          clearConversation(conversation.id);
+          // Also clear the session ID so next message starts fresh
+          sessionIdRef.current = null;
+        }
+        setInputValue("");
+        setError(null);
+        setInfo(null);
+        return true;
+      }
+
+      if (cmd === "/help") {
+        setInfo("Available commands: /clear (clear conversation), /help");
+        setError(null);
+        setInputValue("");
+        return true;
+      }
+
+      return false;
+    },
+    [conversation?.id, clearConversation],
+  );
+
   const handleSend = useCallback(async () => {
     if (!inputValue.trim() || isStreaming) return;
+
+    const userMessage = inputValue.trim();
+
+    // Check for slash commands first
+    if (userMessage.startsWith("/")) {
+      if (handleCommand(userMessage)) {
+        return;
+      }
+      // Unknown command - show error but don't send to Claude
+      setError(`Unknown command: ${userMessage.split(" ")[0]}`);
+      return;
+    }
 
     if (!isElectronWithChatAPI()) {
       setError(
@@ -82,6 +119,7 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
     }
 
     setError(null);
+    setInfo(null);
 
     // Create a conversation if none exists for this branch
     let conversationId = conversation?.id;
@@ -92,20 +130,17 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
 
     // Store conversation ID for message handlers
     conversationIdRef.current = conversationId;
-    accumulatedTextRef.current = "";
 
     // Add user message
-    const userMessage = inputValue.trim();
-    addMessage(conversationId, { role: "user", content: userMessage });
+    addUserMessage(conversationId, userMessage);
     setInputValue("");
 
     // Scroll to bottom after adding user message
     setTimeout(scrollToBottom, 0);
 
-    // Add empty assistant message for streaming
-    addMessage(conversationId, { role: "assistant", content: "" });
+    // Start assistant turn for streaming SDK messages
+    startAssistantTurn(conversationId);
     setStreaming(true);
-    setStreamingContent("");
 
     // Send via IPC with cwd, permissionMode, and sessionId for conversation resumption
     const chatAPI = getClaudeChatAPI();
@@ -118,6 +153,7 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
   }, [
     inputValue,
     isStreaming,
+    handleCommand,
     conversation?.id,
     branch.id,
     cwd,
@@ -125,9 +161,9 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
     settings.permissionMode,
     createConversationForBranch,
     linkConversation,
-    addMessage,
+    addUserMessage,
+    startAssistantTurn,
     setStreaming,
-    setStreamingContent,
     scrollToBottom,
   ]);
 
@@ -137,7 +173,7 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
 
     const chatAPI = getClaudeChatAPI();
 
-    const handleMessage = (message: AgentMessage) => {
+    const handleMessage = (message: SDKMessage) => {
       const conversationId = conversationIdRef.current;
       if (!conversationId) return;
 
@@ -147,31 +183,19 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
         setConversationSessionId(conversationId, message.session_id);
       }
 
-      // Extract text from assistant messages
-      if (message.type === "assistant") {
-        const text = extractTextFromAgentMessage(message);
-        if (text) {
-          accumulatedTextRef.current += text;
-          appendStreamingContent(text);
-          updateLastAssistantMessage(
-            conversationId,
-            accumulatedTextRef.current,
-          );
-          scrollToBottom();
-        }
-      }
+      // Append all SDK messages to the current assistant turn
+      appendSDKMessage(conversationId, message);
+      scrollToBottom();
     };
 
     const handleDone = () => {
       setStreaming(false);
       conversationIdRef.current = null;
-      accumulatedTextRef.current = "";
     };
 
     const handleInterrupted = () => {
       setStreaming(false);
       conversationIdRef.current = null;
-      accumulatedTextRef.current = "";
     };
 
     const handleError = (errorMsg: string) => {
@@ -186,7 +210,11 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
           .conversations.find((c) => c.id === conversationId);
         if (conv && conv.messages.length > 0) {
           const lastMessage = conv.messages[conv.messages.length - 1];
-          if (lastMessage.role === "assistant" && !lastMessage.content) {
+          if (
+            lastMessage.role === "assistant" &&
+            "sdkMessages" in lastMessage &&
+            lastMessage.sdkMessages.length === 0
+          ) {
             useClaudeStore.setState((state) => ({
               conversations: state.conversations.map((c) =>
                 c.id === conversationId
@@ -199,7 +227,6 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
       }
 
       conversationIdRef.current = null;
-      accumulatedTextRef.current = "";
     };
 
     chatAPI.onMessage(handleMessage);
@@ -211,8 +238,7 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
       chatAPI.removeAllListeners();
     };
   }, [
-    appendStreamingContent,
-    updateLastAssistantMessage,
+    appendSDKMessage,
     setStreaming,
     scrollToBottom,
     setConversationSessionId,
@@ -225,7 +251,7 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
     }
   }, []);
 
-  // Get messages to display (including streaming content)
+  // Get messages to display
   const displayMessages = conversation?.messages ?? [];
   const lastMessage = displayMessages[displayMessages.length - 1];
   const isLastMessageStreaming =
@@ -255,14 +281,7 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
             {displayMessages.map((message, index) => (
               <ChatMessage
                 key={index}
-                message={
-                  isLastMessageStreaming && index === displayMessages.length - 1
-                    ? {
-                        ...message,
-                        content: streamingContent || message.content,
-                      }
-                    : message
-                }
+                message={message}
                 isStreaming={
                   isLastMessageStreaming && index === displayMessages.length - 1
                 }
@@ -271,6 +290,13 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
           </div>
         )}
       </ScrollArea>
+
+      {/* Info message */}
+      {info && (
+        <div className="px-4 py-2 text-sm text-muted-foreground bg-muted/50 border-t">
+          {info}
+        </div>
+      )}
 
       {/* Error message */}
       {error && (
