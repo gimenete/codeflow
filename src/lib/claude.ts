@@ -15,6 +15,7 @@ export interface ChatMessage {
 // Agent SDK message types
 export interface AgentMessage {
   type: "user" | "assistant" | "result" | "system";
+  session_id?: string; // Session ID for resuming conversations
   message?: {
     role?: string;
     content?: Array<{
@@ -45,6 +46,7 @@ export interface ClaudeChatAPI {
       allowedTools?: string[];
       cwd?: string;
       permissionMode?: string;
+      sessionId?: string; // Session ID for resuming conversation
     },
   ) => Promise<void>;
   interrupt: () => Promise<void>;

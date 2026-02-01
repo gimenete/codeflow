@@ -31,8 +31,10 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const conversationIdRef = useRef<string | null>(null);
   const accumulatedTextRef = useRef<string>("");
+  const sessionIdRef = useRef<string | null>(null);
 
   const conversation = useConversationByBranchId(branch.id);
+  console.log("conversation:", conversation?.sessionId);
   const settings = useClaudeSettings();
   const isStreaming = useIsStreaming();
   const streamingContent = useStreamingContent();
@@ -46,7 +48,17 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
     appendStreamingContent,
     setStreamingContent,
     updateSettings,
+    setConversationSessionId,
   } = useClaudeStore();
+
+  // Sync sessionIdRef with conversation's sessionId when conversation exists
+  useEffect(() => {
+    if (conversation?.sessionId) {
+      sessionIdRef.current = conversation.sessionId;
+    } else {
+      sessionIdRef.current = null;
+    }
+  }, [conversation?.sessionId]);
 
   const scrollToBottom = useCallback(() => {
     if (scrollAreaRef.current) {
@@ -95,12 +107,13 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
     setStreaming(true);
     setStreamingContent("");
 
-    // Send via IPC with cwd and permissionMode
+    // Send via IPC with cwd, permissionMode, and sessionId for conversation resumption
     const chatAPI = getClaudeChatAPI();
     void chatAPI.sendMessage(userMessage, {
       systemPrompt: settings.systemPrompt || undefined,
       cwd,
       permissionMode: settings.permissionMode,
+      sessionId: sessionIdRef.current || undefined,
     });
   }, [
     inputValue,
@@ -127,6 +140,12 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
     const handleMessage = (message: AgentMessage) => {
       const conversationId = conversationIdRef.current;
       if (!conversationId) return;
+
+      // Capture session ID from any message (all messages have session_id)
+      if (message.session_id && !sessionIdRef.current) {
+        sessionIdRef.current = message.session_id;
+        setConversationSessionId(conversationId, message.session_id);
+      }
 
       // Extract text from assistant messages
       if (message.type === "assistant") {
@@ -196,6 +215,7 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
     updateLastAssistantMessage,
     setStreaming,
     scrollToBottom,
+    setConversationSessionId,
   ]);
 
   const handleStop = useCallback(() => {

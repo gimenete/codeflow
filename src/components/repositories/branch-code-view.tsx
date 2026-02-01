@@ -210,7 +210,6 @@ export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
     `;
   }, [searchResults, selectedLines?.start]);
 
-  const selectedFileName = selectedFile?.split("/").pop() || "";
   const fileExtension = selectedFile ? getFileExtension(selectedFile) : "";
 
   return (
@@ -309,7 +308,9 @@ export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
                 ) : fileContent !== null ? (
                   <File
                     file={{
-                      name: selectedFileName,
+                      name: selectedFile.startsWith(repositoryPath)
+                        ? selectedFile.slice(repositoryPath.length + 1)
+                        : selectedFile,
                       contents: fileContent,
                       lang: fileExtension as never,
                     }}

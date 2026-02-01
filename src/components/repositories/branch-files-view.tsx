@@ -122,9 +122,22 @@ function CommitForm({ repositoryPath, stagedFiles, refresh }: CommitFormProps) {
         onChange={(e) => setCommitDescription(e.target.value)}
         disabled={stagedFiles.length === 0}
       />
-      {commitError && (
-        <div className="text-xs text-destructive">{commitError}</div>
-      )}
+      <AlertDialog
+        open={commitError !== null}
+        onOpenChange={(open) => !open && setCommitError(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader className="overflow-hidden">
+            <AlertDialogTitle>Commit failed</AlertDialogTitle>
+          </AlertDialogHeader>
+          <pre className="text-xs whitespace-pre overflow-auto max-h-96 bg-muted p-4 rounded-md">
+            {commitError}
+          </pre>
+          <AlertDialogFooter>
+            <AlertDialogAction>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <Button
         size="sm"
         className="w-full"

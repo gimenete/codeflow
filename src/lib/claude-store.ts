@@ -11,6 +11,7 @@ export interface Conversation {
   // Branch-related fields
   cwd?: string; // Working directory for Claude operations
   branchId?: string; // Link to tracked branch if created from branch view
+  sessionId?: string; // Claude Agent SDK session ID for resuming conversations
 }
 
 export type PermissionMode = "default" | "acceptEdits" | "plan" | "dontAsk";
@@ -45,6 +46,7 @@ interface ClaudeState {
   // Actions - Messages
   addMessage: (conversationId: string, message: ChatMessage) => void;
   updateLastAssistantMessage: (conversationId: string, content: string) => void;
+  setConversationSessionId: (conversationId: string, sessionId: string) => void;
 
   // Actions - Streaming
   setStreaming: (isStreaming: boolean) => void;
@@ -193,6 +195,14 @@ export const useClaudeStore = create<ClaudeState>()(
             }
             return { ...c, messages, updatedAt: new Date().toISOString() };
           }),
+        }));
+      },
+
+      setConversationSessionId: (conversationId, sessionId) => {
+        set((state) => ({
+          conversations: state.conversations.map((c) =>
+            c.id === conversationId ? { ...c, sessionId } : c,
+          ),
         }));
       },
 

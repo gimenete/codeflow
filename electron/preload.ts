@@ -358,6 +358,7 @@ const claudeChatAPI = {
       allowedTools?: string[];
       cwd?: string;
       permissionMode?: string;
+      sessionId?: string;
     },
   ): Promise<void> => {
     return ipcRenderer.invoke("claude:chat", prompt, options);

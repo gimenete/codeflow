@@ -927,6 +927,7 @@ ipcMain.handle(
       allowedTools?: string[];
       cwd?: string;
       permissionMode?: string;
+      sessionId?: string;
     },
   ) => {
     if (!mainWindow) return;
@@ -952,6 +953,8 @@ ipcMain.handle(
               | "plan"
               | "dontAsk") || "acceptEdits",
           cwd: options?.cwd || undefined,
+          // Resume session if sessionId is provided
+          resume: options?.sessionId || undefined,
         },
       });
 
