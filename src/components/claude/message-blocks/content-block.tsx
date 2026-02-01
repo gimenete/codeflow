@@ -6,43 +6,23 @@ import {
   isThinkingBlock,
 } from "@/lib/claude";
 import { TextBlock } from "./text-block";
-import { ToolUseBlock } from "./tool-use-block";
 import { ToolResultBlock } from "./tool-result-block";
 import { ThinkingBlock } from "./thinking-block";
 
 interface ContentBlockProps {
   block: ContentBlockType;
-  // For tool_use blocks, we may have the result available
-  toolResults?: Map<string, { content: string; isError?: boolean }>;
-  // Track running tool uses
-  runningToolIds?: Set<string>;
   // Map of tool_use_id to tool name (for displaying in tool results)
   toolNames?: Map<string, string>;
 }
 
-export function ContentBlock({
-  block,
-  toolResults,
-  runningToolIds,
-  toolNames,
-}: ContentBlockProps) {
+export function ContentBlock({ block, toolNames }: ContentBlockProps) {
   if (isTextBlock(block)) {
     return <TextBlock block={block} />;
   }
 
   if (isToolUseBlock(block)) {
-    const toolBlock = block;
-    const result = toolResults?.get(toolBlock.id);
-    const isRunning = runningToolIds?.has(toolBlock.id);
-    const status = result
-      ? result.isError
-        ? "error"
-        : "success"
-      : isRunning
-        ? "running"
-        : "pending";
-
-    return <ToolUseBlock block={toolBlock} result={result} status={status} />;
+    // Tool use blocks are now shown only via ActiveToolIndicator
+    return null;
   }
 
   if (isToolResultBlock(block)) {

@@ -14,8 +14,6 @@ import {
   isTaskNotificationMessage,
   isToolUseSummaryMessage,
   isCompactBoundaryMessage,
-  isToolUseBlock,
-  isToolResultBlock,
 } from "@/lib/claude";
 import { AssistantMessage } from "./assistant-message";
 import { UserMessage } from "./user-message";
@@ -30,61 +28,11 @@ import {
 } from "./hook-messages";
 import { AuthStatusMessage } from "./auth-status-message";
 import { TaskNotificationMessage } from "./task-notification-message";
-import { ToolUseSummaryMessage } from "./tool-use-summary-message";
 import { CompactBoundaryMessage } from "./compact-boundary-message";
 
 interface SDKMessageRendererProps {
   messages: SDKMessage[];
   isStreaming?: boolean;
-}
-
-// Build tool results map from the messages
-function buildToolResults(
-  messages: SDKMessage[],
-): Map<string, { content: string; isError?: boolean }> {
-  const results = new Map<string, { content: string; isError?: boolean }>();
-
-  for (const message of messages) {
-    if (isAssistantMessage(message)) {
-      for (const block of message.message.content) {
-        if (isToolResultBlock(block)) {
-          const content =
-            typeof block.content === "string"
-              ? block.content
-              : block.content.map((c) => c.text).join("");
-          results.set(block.tool_use_id, {
-            content,
-            isError: block.is_error,
-          });
-        }
-      }
-    }
-  }
-
-  return results;
-}
-
-// Find all tool_use IDs that don't have results yet
-function findRunningToolIds(
-  messages: SDKMessage[],
-  toolResults: Map<string, { content: string; isError?: boolean }>,
-): Set<string> {
-  const running = new Set<string>();
-
-  for (const message of messages) {
-    if (isAssistantMessage(message)) {
-      for (const block of message.message.content) {
-        if (isToolUseBlock(block)) {
-          const toolBlock = block;
-          if (!toolResults.has(toolBlock.id)) {
-            running.add(toolBlock.id);
-          }
-        }
-      }
-    }
-  }
-
-  return running;
 }
 
 export function SDKMessageRenderer({
@@ -95,10 +43,6 @@ export function SDKMessageRenderer({
     return null;
   }
 
-  // Pre-compute tool results and running tools
-  const toolResults = buildToolResults(messages);
-  const runningToolIds = findRunningToolIds(messages, toolResults);
-
   return (
     <div className="space-y-2">
       {messages.map((message, index) => {
@@ -106,14 +50,7 @@ export function SDKMessageRenderer({
         const showStreamingCursor = isStreaming && isLastMessage;
 
         if (isAssistantMessage(message)) {
-          return (
-            <AssistantMessage
-              key={index}
-              message={message}
-              toolResults={toolResults}
-              runningToolIds={showStreamingCursor ? runningToolIds : undefined}
-            />
-          );
+          return <AssistantMessage key={index} message={message} />;
         }
 
         if (isUserMessage(message)) {
@@ -167,7 +104,7 @@ export function SDKMessageRenderer({
         }
 
         if (isToolUseSummaryMessage(message)) {
-          return <ToolUseSummaryMessage key={index} message={message} />;
+          return null;
         }
 
         if (isCompactBoundaryMessage(message)) {

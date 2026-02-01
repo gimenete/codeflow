@@ -43,7 +43,7 @@ export function ResultMessage({ message }: ResultMessageProps) {
 
   if (!result) return null;
 
-  const isSuccess = result.success;
+  const hasError = result.error_type !== undefined;
   const hasStats =
     result.duration_ms ||
     result.input_tokens ||
@@ -54,8 +54,8 @@ export function ResultMessage({ message }: ResultMessageProps) {
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <div
         className={cn("rounded px-3 py-2 my-2 text-xs", {
-          "bg-green-500/10 border border-green-500/20": isSuccess,
-          "bg-red-500/10 border border-red-500/20": !isSuccess,
+          "bg-green-500/10 border border-green-500/20": !hasError,
+          "bg-red-500/10 border border-red-500/20": hasError,
         })}
       >
         <CollapsibleTrigger className="flex items-center gap-2 w-full text-left">
@@ -66,7 +66,7 @@ export function ResultMessage({ message }: ResultMessageProps) {
               <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             ))}
           {!hasStats && <div className="w-3.5" />}
-          {isSuccess ? (
+          {!hasError ? (
             <>
               <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />
               <span className="text-green-600 dark:text-green-400">

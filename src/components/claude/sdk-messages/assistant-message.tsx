@@ -5,17 +5,9 @@ import { ContentBlock } from "../message-blocks";
 
 interface AssistantMessageProps {
   message: SDKAssistantMessage;
-  // Tool results from subsequent messages in the conversation
-  toolResults?: Map<string, { content: string; isError?: boolean }>;
-  // Tool use IDs that are currently running
-  runningToolIds?: Set<string>;
 }
 
-export function AssistantMessage({
-  message,
-  toolResults,
-  runningToolIds,
-}: AssistantMessageProps) {
+export function AssistantMessage({ message }: AssistantMessageProps) {
   // Build a map of tool_use_id to tool name for result display
   const toolNames = useMemo(() => {
     const names = new Map<string, string>();
@@ -40,13 +32,7 @@ export function AssistantMessage({
   return (
     <div className="space-y-1">
       {contentBlocks.map((block, index) => (
-        <ContentBlock
-          key={index}
-          block={block}
-          toolResults={toolResults}
-          runningToolIds={runningToolIds}
-          toolNames={toolNames}
-        />
+        <ContentBlock key={index} block={block} toolNames={toolNames} />
       ))}
     </div>
   );

@@ -1,11 +1,17 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "@/components/claude/chat-message";
 import { ChatInput } from "@/components/claude/chat-input";
+import { ActiveToolIndicator } from "@/components/claude/active-tool-indicator";
+import { QuestionAnswerer } from "@/components/claude/question-answerer";
+import type { AskUserQuestionInput } from "@/components/claude/sdk-messages/ask-user-question-block";
 import {
   isElectronWithChatAPI,
   getClaudeChatAPI,
+  isAssistantMessage,
+  isToolUseBlock,
   type SDKMessage,
+  type ToolUseBlock,
 } from "@/lib/claude";
 import {
   useClaudeStore,
@@ -26,6 +32,9 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
   const [inputValue, setInputValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [dismissedQuestionIds, setDismissedQuestionIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const conversationIdRef = useRef<string | null>(null);
@@ -56,13 +65,19 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
     }
   }, [conversation?.sessionId]);
 
-  const scrollToBottom = useCallback(() => {
+  const scrollToBottom = useCallback((force = false) => {
     if (scrollAreaRef.current) {
       const viewport = scrollAreaRef.current.querySelector(
         "[data-slot='scroll-area-viewport']",
       );
       if (viewport) {
-        viewport.scrollTop = viewport.scrollHeight;
+        // Only scroll if forced or user is already near the bottom (within 100px)
+        const isNearBottom =
+          viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <
+          100;
+        if (force || isNearBottom) {
+          viewport.scrollTop = viewport.scrollHeight;
+        }
       }
     }
   }, []);
@@ -135,8 +150,8 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
     addUserMessage(conversationId, userMessage);
     setInputValue("");
 
-    // Scroll to bottom after adding user message
-    setTimeout(scrollToBottom, 0);
+    // Scroll to bottom after adding user message (force scroll since user just sent)
+    setTimeout(() => scrollToBottom(true), 0);
 
     // Start assistant turn for streaming SDK messages
     startAssistantTurn(conversationId);
@@ -174,6 +189,9 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
     const chatAPI = getClaudeChatAPI();
 
     const handleMessage = (message: SDKMessage) => {
+      // Debug logging for all SDK messages
+      console.log("[Claude SDK Message]", message);
+
       const conversationId = conversationIdRef.current;
       if (!conversationId) return;
 
@@ -257,12 +275,200 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
   const isLastMessageStreaming =
     isStreaming && lastMessage?.role === "assistant";
 
+  // Compute active tool from the last assistant message's SDK messages
+  const activeTool = useMemo((): {
+    name: string;
+    summary: string;
+  } | null => {
+    if (!isStreaming || !lastMessage || lastMessage.role !== "assistant") {
+      return null;
+    }
+
+    const sdkMessages = lastMessage.sdkMessages;
+    if (!sdkMessages || sdkMessages.length === 0) return null;
+
+    // Find tool_use blocks that don't have a corresponding tool_result
+    const toolUseBlocks: ToolUseBlock[] = [];
+    const completedToolIds = new Set<string>();
+
+    for (const msg of sdkMessages) {
+      if (isAssistantMessage(msg)) {
+        for (const block of msg.message.content) {
+          if (isToolUseBlock(block)) {
+            toolUseBlocks.push(block);
+          }
+        }
+      }
+      // Check for tool results to mark tools as completed
+      if (msg.type === "assistant") {
+        const assistantMsg = msg;
+        for (const block of assistantMsg.message.content) {
+          if (block.type === "tool_result") {
+            completedToolIds.add(block.tool_use_id);
+          }
+        }
+      }
+    }
+
+    // Find the last incomplete tool
+    const runningTool = [...toolUseBlocks]
+      .reverse()
+      .find((t) => !completedToolIds.has(t.id));
+
+    if (!runningTool) return null;
+
+    // Generate summary based on tool type
+    const input = runningTool.input as Record<string, unknown>;
+    let summary = "";
+    switch (runningTool.name) {
+      case "Read":
+        summary = input.file_path ? String(input.file_path) : "";
+        break;
+      case "Write":
+      case "Edit":
+        summary = input.file_path ? String(input.file_path) : "";
+        break;
+      case "Bash":
+        summary = input.command
+          ? String(input.command).slice(0, 50) +
+            (String(input.command).length > 50 ? "..." : "")
+          : "";
+        break;
+      case "Glob":
+      case "Grep":
+        summary = input.pattern ? String(input.pattern) : "";
+        break;
+      case "Task":
+        summary = input.description ? String(input.description) : "";
+        break;
+      default:
+        summary = "";
+    }
+
+    return { name: runningTool.name, summary };
+  }, [isStreaming, lastMessage]);
+
+  // Detect pending AskUserQuestion that needs an answer
+  const pendingQuestion = useMemo((): {
+    id: string;
+    input: AskUserQuestionInput;
+  } | null => {
+    if (!conversation) return null;
+
+    const lastMsg = conversation.messages[conversation.messages.length - 1];
+    if (!lastMsg || lastMsg.role !== "assistant") return null;
+
+    const sdkMessages = lastMsg.sdkMessages;
+    if (!sdkMessages || sdkMessages.length === 0) return null;
+
+    // Find AskUserQuestion tool_use blocks and their corresponding tool_results
+    const toolUses: { id: string; input: unknown }[] = [];
+    const toolResults = new Set<string>();
+
+    for (const sdkMsg of sdkMessages) {
+      if (isAssistantMessage(sdkMsg)) {
+        for (const block of sdkMsg.message.content) {
+          if (isToolUseBlock(block) && block.name === "AskUserQuestion") {
+            toolUses.push({ id: block.id, input: block.input });
+          }
+          if (block.type === "tool_result") {
+            toolResults.add(block.tool_use_id);
+          }
+        }
+      }
+    }
+
+    // Return first unanswered question (excluding dismissed ones)
+    const unanswered = toolUses.find(
+      (t) => !toolResults.has(t.id) && !dismissedQuestionIds.has(t.id),
+    );
+    return unanswered
+      ? { id: unanswered.id, input: unanswered.input as AskUserQuestionInput }
+      : null;
+  }, [conversation, dismissedQuestionIds]);
+
   const handleModeChange = useCallback(
     (mode: PermissionMode) => {
       updateSettings({ permissionMode: mode });
     },
     [updateSettings],
   );
+
+  // Handle question answer submission
+  const handleQuestionSubmit = useCallback(
+    async (answers: Record<string, string | string[]>) => {
+      if (!pendingQuestion || isStreaming) return;
+
+      // Format answers as a text message
+      const lines = pendingQuestion.input.questions.map((q, i) => {
+        const answer = answers[i.toString()];
+        const formatted = Array.isArray(answer) ? answer.join(", ") : answer;
+        return `- ${q.header || `Question ${i + 1}`}: ${formatted}`;
+      });
+
+      const message = `Here are my answers:\n${lines.join("\n")}`;
+
+      if (!isElectronWithChatAPI()) {
+        setError(
+          "Chat requires running in Electron with Claude CLI authentication",
+        );
+        return;
+      }
+
+      setError(null);
+      setInfo(null);
+
+      // Get or create conversation
+      let conversationId = conversation?.id;
+      if (!conversationId) {
+        conversationId = createConversationForBranch(branch.id, cwd);
+        linkConversation(branch.id, conversationId);
+      }
+
+      conversationIdRef.current = conversationId;
+
+      // Add user message with the answers
+      addUserMessage(conversationId, message);
+
+      // Scroll to bottom
+      setTimeout(() => scrollToBottom(true), 0);
+
+      // Start assistant turn
+      startAssistantTurn(conversationId);
+      setStreaming(true);
+
+      // Send via IPC - use existing sessionId to continue the conversation
+      const chatAPI = getClaudeChatAPI();
+      void chatAPI.sendMessage(message, {
+        systemPrompt: settings.systemPrompt || undefined,
+        cwd,
+        permissionMode: settings.permissionMode,
+        sessionId: sessionIdRef.current || undefined,
+      });
+    },
+    [
+      pendingQuestion,
+      isStreaming,
+      conversation?.id,
+      branch.id,
+      cwd,
+      settings.systemPrompt,
+      settings.permissionMode,
+      createConversationForBranch,
+      linkConversation,
+      addUserMessage,
+      startAssistantTurn,
+      setStreaming,
+      scrollToBottom,
+    ],
+  );
+
+  const handleQuestionCancel = useCallback(() => {
+    // Dismiss the current question so user can type a different message
+    if (pendingQuestion) {
+      setDismissedQuestionIds((prev) => new Set([...prev, pendingQuestion.id]));
+    }
+  }, [pendingQuestion]);
 
   return (
     <div className="flex flex-col h-full">
@@ -305,17 +511,35 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
         </div>
       )}
 
+      {/* Active tool indicator */}
+      {activeTool && (
+        <div className="px-4 py-3">
+          <ActiveToolIndicator
+            toolName={activeTool.name}
+            summary={activeTool.summary}
+          />
+        </div>
+      )}
+
       {/* Input */}
       <div className="border-t p-4">
-        <ChatInput
-          value={inputValue}
-          onChange={setInputValue}
-          onSend={handleSend}
-          onStop={handleStop}
-          isStreaming={isStreaming}
-          permissionMode={settings.permissionMode}
-          onModeChange={handleModeChange}
-        />
+        {pendingQuestion && !isStreaming ? (
+          <QuestionAnswerer
+            questions={pendingQuestion.input.questions}
+            onSubmit={handleQuestionSubmit}
+            onCancel={handleQuestionCancel}
+          />
+        ) : (
+          <ChatInput
+            value={inputValue}
+            onChange={setInputValue}
+            onSend={handleSend}
+            onStop={handleStop}
+            isStreaming={isStreaming}
+            permissionMode={settings.permissionMode}
+            onModeChange={handleModeChange}
+          />
+        )}
       </div>
     </div>
   );

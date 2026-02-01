@@ -8,6 +8,14 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  AskUserQuestionBlock,
+  isAskUserQuestionBlock,
+} from "@/components/claude/sdk-messages/ask-user-question-block";
+import {
+  ExitPlanModeBlock,
+  isExitPlanModeBlock,
+} from "@/components/claude/sdk-messages/exit-plan-mode-block";
 
 interface ToolUseBlockProps {
   block: ToolUseBlockType;
@@ -87,6 +95,16 @@ function getToolSummary(name: string, input: unknown): string {
 
 export function ToolUseBlock({ block, result, status }: ToolUseBlockProps) {
   const [isOpen, setIsOpen] = useState(false);
+
+  // Handle special tool types with custom rendering
+  if (isAskUserQuestionBlock(block)) {
+    return <AskUserQuestionBlock block={block} />;
+  }
+
+  if (isExitPlanModeBlock(block)) {
+    return <ExitPlanModeBlock block={block} />;
+  }
+
   const summary = getToolSummary(block.name, block.input);
   const borderColor = cn({
     "border-l-blue-500": status === "running" || status === "pending",

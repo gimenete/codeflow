@@ -4,6 +4,8 @@ import type {
   ContentBlock,
 } from "@/lib/claude";
 import { isTextBlock } from "@/lib/claude";
+import { User } from "lucide-react";
+import { MarkdownContent } from "@/components/claude/markdown-content";
 
 interface UserMessageProps {
   message: SDKUserMessage | SDKUserMessageReplay;
@@ -23,13 +25,16 @@ export function UserMessage({ message, isReplay }: UserMessageProps) {
 
   if (!content) return null;
 
+  // SDK user messages (internal prompts) are styled differently from actual user chat messages
+  // They appear left-aligned with muted styling to distinguish them as internal prompts
   return (
-    <div className="flex justify-end">
-      <div className="bg-primary text-primary-foreground rounded-2xl rounded-br-sm px-4 py-2 max-w-[80%]">
-        <p className="text-sm whitespace-pre-wrap">{content}</p>
-        {isReplay && (
-          <span className="text-xs opacity-70 mt-1 block">(replay)</span>
-        )}
+    <div className="text-sm text-muted-foreground bg-muted/50 rounded-md px-3 py-2 my-2 border border-border/30">
+      <div className="flex items-center gap-1.5 text-xs opacity-70 mb-1">
+        <User className="h-3 w-3" />
+        <span>Agent prompt{isReplay ? " (replay)" : ""}</span>
+      </div>
+      <div className="text-foreground/80 prose-sm">
+        <MarkdownContent content={content} />
       </div>
     </div>
   );
