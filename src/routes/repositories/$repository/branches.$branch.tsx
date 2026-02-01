@@ -102,12 +102,15 @@ function BranchDetailPage() {
       {/* Tab navigation */}
       <div className="bg-background shrink-0">
         <Tabs value={activeTab}>
-          <TabsList className="w-full rounded-none border-b justify-start">
+          <TabsList className="h-auto bg-transparent p-0 w-full justify-start rounded-none border-b border-border">
             <Link
               to="/repositories/$repository/branches/$branch/agent"
               params={{ repository: repositorySlug, branch: branchId }}
             >
-              <TabsTrigger value="agent" className="gap-1">
+              <TabsTrigger
+                value="agent"
+                className="gap-1 rounded-none border-0 data-[state=active]:bg-muted data-[state=active]:shadow-none px-3 py-2"
+              >
                 <Bot className="h-4 w-4" />
                 Agent
               </TabsTrigger>
@@ -116,7 +119,10 @@ function BranchDetailPage() {
               to="/repositories/$repository/branches/$branch/diff"
               params={{ repository: repositorySlug, branch: branchId }}
             >
-              <TabsTrigger value="diff" className="gap-1">
+              <TabsTrigger
+                value="diff"
+                className="gap-1 rounded-none border-0 data-[state=active]:bg-muted data-[state=active]:shadow-none px-3 py-2"
+              >
                 <FileText className="h-4 w-4" />
                 Changes
               </TabsTrigger>
@@ -125,7 +131,10 @@ function BranchDetailPage() {
               to="/repositories/$repository/branches/$branch/commits"
               params={{ repository: repositorySlug, branch: branchId }}
             >
-              <TabsTrigger value="commits" className="gap-1">
+              <TabsTrigger
+                value="commits"
+                className="gap-1 rounded-none border-0 data-[state=active]:bg-muted data-[state=active]:shadow-none px-3 py-2"
+              >
                 <GitCommitHorizontal className="h-4 w-4" />
                 Commits
               </TabsTrigger>
@@ -134,7 +143,10 @@ function BranchDetailPage() {
               to="/repositories/$repository/branches/$branch/code"
               params={{ repository: repositorySlug, branch: branchId }}
             >
-              <TabsTrigger value="code" className="gap-1">
+              <TabsTrigger
+                value="code"
+                className="gap-1 rounded-none border-0 data-[state=active]:bg-muted data-[state=active]:shadow-none px-3 py-2"
+              >
                 <Code className="h-4 w-4" />
                 Code
               </TabsTrigger>
@@ -143,7 +155,10 @@ function BranchDetailPage() {
               to="/repositories/$repository/branches/$branch/terminal"
               params={{ repository: repositorySlug, branch: branchId }}
             >
-              <TabsTrigger value="terminal" className="gap-1">
+              <TabsTrigger
+                value="terminal"
+                className="gap-1 rounded-none border-0 data-[state=active]:bg-muted data-[state=active]:shadow-none px-3 py-2"
+              >
                 <TerminalSquare className="h-4 w-4" />
                 Terminal
               </TabsTrigger>
