@@ -12,6 +12,7 @@ import {
 } from "@tanstack/react-router";
 import {
   Bot,
+  Code,
   FileText,
   GitCommitHorizontal,
   TerminalSquare,
@@ -49,7 +50,9 @@ function BranchDetailPage() {
       ? "diff"
       : location.pathname.endsWith("/commits")
         ? "commits"
-        : "agent";
+        : location.pathname.endsWith("/code")
+          ? "code"
+          : "agent";
 
   // Redirect if branch not found (after hydration)
   useEffect(() => {
@@ -125,6 +128,15 @@ function BranchDetailPage() {
               <TabsTrigger value="commits" className="gap-1">
                 <GitCommitHorizontal className="h-4 w-4" />
                 Commits
+              </TabsTrigger>
+            </Link>
+            <Link
+              to="/repositories/$repository/branches/$branch/code"
+              params={{ repository: repositorySlug, branch: branchId }}
+            >
+              <TabsTrigger value="code" className="gap-1">
+                <Code className="h-4 w-4" />
+                Code
               </TabsTrigger>
             </Link>
             <Link

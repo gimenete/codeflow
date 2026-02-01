@@ -1268,6 +1268,90 @@ ipcMain.handle("pty:kill", async (_event, sessionId: string) => {
   }
 });
 
+// ==================== File System IPC Handlers ====================
+
+interface FileTreeEntry {
+  name: string;
+  path: string;
+  type: "file" | "directory";
+  children?: FileTreeEntry[];
+}
+
+ipcMain.handle(
+  "fs:list-directory",
+  async (_event, dirPath: string, depth: number = 1) => {
+    const buildTree = async (
+      currentPath: string,
+      currentDepth: number,
+    ): Promise<FileTreeEntry[]> => {
+      const entries = await fs.promises.readdir(currentPath, {
+        withFileTypes: true,
+      });
+
+      const result: FileTreeEntry[] = [];
+
+      for (const entry of entries) {
+        // Skip hidden files and common excludes
+        if (entry.name.startsWith(".") || entry.name === "node_modules") {
+          continue;
+        }
+
+        const fullPath = path.join(currentPath, entry.name);
+
+        if (entry.isDirectory()) {
+          const children =
+            currentDepth < depth
+              ? await buildTree(fullPath, currentDepth + 1)
+              : undefined;
+          result.push({
+            name: entry.name,
+            path: fullPath,
+            type: "directory",
+            children,
+          });
+        } else {
+          result.push({
+            name: entry.name,
+            path: fullPath,
+            type: "file",
+          });
+        }
+      }
+
+      // Sort: directories first, then alphabetically
+      return result.sort((a, b) => {
+        if (a.type !== b.type) return a.type === "directory" ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+    };
+
+    return buildTree(dirPath, 1);
+  },
+);
+
+ipcMain.handle("fs:read-file", async (_event, filePath: string) => {
+  const content = await fs.promises.readFile(filePath, "utf-8");
+  return content;
+});
+
+ipcMain.handle("fs:expand-directory", async (_event, dirPath: string) => {
+  const entries = await fs.promises.readdir(dirPath, {
+    withFileTypes: true,
+  });
+
+  return entries
+    .filter((e) => !e.name.startsWith(".") && e.name !== "node_modules")
+    .map((entry) => ({
+      name: entry.name,
+      path: path.join(dirPath, entry.name),
+      type: entry.isDirectory() ? ("directory" as const) : ("file" as const),
+    }))
+    .sort((a, b) => {
+      if (a.type !== b.type) return a.type === "directory" ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+});
+
 // Cleanup watchers and PTY sessions on window close
 app.on("before-quit", async () => {
   // Clean up file watchers

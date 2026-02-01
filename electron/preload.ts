@@ -388,6 +388,31 @@ const claudeChatAPI = {
   },
 };
 
+// File System API
+interface FileTreeEntry {
+  name: string;
+  path: string;
+  type: "file" | "directory";
+  children?: FileTreeEntry[];
+}
+
+const fsAPI = {
+  listDirectory: (
+    dirPath: string,
+    depth?: number,
+  ): Promise<FileTreeEntry[]> => {
+    return ipcRenderer.invoke("fs:list-directory", dirPath, depth);
+  },
+
+  readFile: (filePath: string): Promise<string> => {
+    return ipcRenderer.invoke("fs:read-file", filePath);
+  },
+
+  expandDirectory: (dirPath: string): Promise<FileTreeEntry[]> => {
+    return ipcRenderer.invoke("fs:expand-directory", dirPath);
+  },
+};
+
 // Expose APIs to renderer
 contextBridge.exposeInMainWorld("electronAPI", {
   git: gitAPI,
@@ -410,3 +435,4 @@ contextBridge.exposeInMainWorld("claudeChatAPI", claudeChatAPI);
 contextBridge.exposeInMainWorld("shellAPI", shellAPI);
 contextBridge.exposeInMainWorld("watcherAPI", watcherAPI);
 contextBridge.exposeInMainWorld("ptyAPI", ptyAPI);
+contextBridge.exposeInMainWorld("fsAPI", fsAPI);
