@@ -353,7 +353,12 @@ const ptyAPI = {
 const claudeChatAPI = {
   sendMessage: (
     prompt: string,
-    options?: { systemPrompt?: string; allowedTools?: string[]; cwd?: string },
+    options?: {
+      systemPrompt?: string;
+      allowedTools?: string[];
+      cwd?: string;
+      permissionMode?: string;
+    },
   ): Promise<void> => {
     return ipcRenderer.invoke("claude:chat", prompt, options);
   },

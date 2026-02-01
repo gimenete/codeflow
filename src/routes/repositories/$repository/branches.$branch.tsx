@@ -11,13 +11,19 @@ import {
   useNavigate,
 } from "@tanstack/react-router";
 import {
-  Bot,
   Code,
   FileText,
   GitCommitHorizontal,
   TerminalSquare,
 } from "lucide-react";
+import { ClaudeIcon } from "@/components/ui/claude-icon";
 import { useEffect } from "react";
+import type { AgentType } from "@/lib/github-types";
+
+const AGENT_NAMES: Record<AgentType, string> = {
+  claude: "Claude",
+  codex: "Codex",
+};
 
 export const Route = createFileRoute(
   "/repositories/$repository/branches/$branch",
@@ -111,8 +117,8 @@ function BranchDetailPage() {
                 value="agent"
                 className="gap-1 rounded-none border-0 data-[state=active]:bg-muted data-[state=active]:shadow-none px-3 py-2"
               >
-                <Bot className="h-4 w-4" />
-                Agent
+                <ClaudeIcon className="h-4 w-4" />
+                {AGENT_NAMES[repository.agent]}
               </TabsTrigger>
             </Link>
             <Link

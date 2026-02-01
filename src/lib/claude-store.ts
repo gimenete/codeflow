@@ -13,9 +13,12 @@ export interface Conversation {
   branchId?: string; // Link to tracked branch if created from branch view
 }
 
+export type PermissionMode = "default" | "acceptEdits" | "plan" | "dontAsk";
+
 export interface ClaudeSettings {
   model: ModelId;
   systemPrompt: string;
+  permissionMode: PermissionMode;
 }
 
 interface ClaudeState {
@@ -73,6 +76,7 @@ export const useClaudeStore = create<ClaudeState>()(
       settings: {
         model: "claude-sonnet-4-20250514",
         systemPrompt: "",
+        permissionMode: "acceptEdits",
       },
       isStreaming: false,
       streamingContent: "",
@@ -217,7 +221,7 @@ export const useClaudeStore = create<ClaudeState>()(
     }),
     {
       name: "codeflow:claude-chat",
-      version: 4,
+      version: 5,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         conversations: state.conversations,
@@ -254,6 +258,13 @@ export const useClaudeStore = create<ClaudeState>()(
             }
             return c;
           });
+        }
+        if (version < 5) {
+          // Migration from version 4: add permissionMode to settings
+          const settings = state.settings as Record<string, unknown>;
+          if (settings && !settings.permissionMode) {
+            settings.permissionMode = "acceptEdits";
+          }
         }
         return state as unknown as ClaudeState;
       },

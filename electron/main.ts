@@ -922,7 +922,12 @@ ipcMain.handle(
   async (
     _event,
     prompt: string,
-    options?: { systemPrompt?: string; allowedTools?: string[]; cwd?: string },
+    options?: {
+      systemPrompt?: string;
+      allowedTools?: string[];
+      cwd?: string;
+      permissionMode?: string;
+    },
   ) => {
     if (!mainWindow) return;
 
@@ -940,7 +945,12 @@ ipcMain.handle(
             "Grep",
             "Bash",
           ],
-          permissionMode: "acceptEdits",
+          permissionMode:
+            (options?.permissionMode as
+              | "default"
+              | "acceptEdits"
+              | "plan"
+              | "dontAsk") || "acceptEdits",
           cwd: options?.cwd || undefined,
         },
       });

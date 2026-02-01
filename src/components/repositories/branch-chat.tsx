@@ -1,16 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Settings, MoreHorizontal, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { ChatMessage } from "@/components/claude/chat-message";
 import { ChatInput } from "@/components/claude/chat-input";
-import { ChatSettingsDialog } from "@/components/claude/chat-settings-dialog";
 import {
   isElectronWithChatAPI,
   getClaudeChatAPI,
@@ -23,6 +14,7 @@ import {
   useIsStreaming,
   useStreamingContent,
   useConversationByBranchId,
+  type PermissionMode,
 } from "@/lib/claude-store";
 import { useBranchesStore } from "@/lib/branches-store";
 import type { TrackedBranch } from "@/lib/github-types";
@@ -34,7 +26,6 @@ interface BranchChatProps {
 
 export function BranchChat({ branch, cwd }: BranchChatProps) {
   const [inputValue, setInputValue] = useState("");
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -49,12 +40,12 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
 
   const {
     createConversationForBranch,
-    clearConversation,
     addMessage,
     updateLastAssistantMessage,
     setStreaming,
     appendStreamingContent,
     setStreamingContent,
+    updateSettings,
   } = useClaudeStore();
 
   const scrollToBottom = useCallback(() => {
@@ -104,11 +95,12 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
     setStreaming(true);
     setStreamingContent("");
 
-    // Send via IPC with cwd
+    // Send via IPC with cwd and permissionMode
     const chatAPI = getClaudeChatAPI();
     void chatAPI.sendMessage(userMessage, {
       systemPrompt: settings.systemPrompt || undefined,
       cwd,
+      permissionMode: settings.permissionMode,
     });
   }, [
     inputValue,
@@ -117,6 +109,7 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
     branch.id,
     cwd,
     settings.systemPrompt,
+    settings.permissionMode,
     createConversationForBranch,
     linkConversation,
     addMessage,
@@ -218,38 +211,15 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
   const isLastMessageStreaming =
     isStreaming && lastMessage?.role === "assistant";
 
+  const handleModeChange = useCallback(
+    (mode: PermissionMode) => {
+      updateSettings({ permissionMode: mode });
+    },
+    [updateSettings],
+  );
+
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2 px-4 py-3 border-b">
-        <div className="min-w-0">
-          <h2 className="font-semibold truncate">Chat</h2>
-          <p className="text-xs text-muted-foreground truncate">{cwd}</p>
-        </div>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
-              <Settings className="h-4 w-4" />
-              Settings
-            </DropdownMenuItem>
-            {conversation && (
-              <DropdownMenuItem
-                onClick={() => clearConversation(conversation.id)}
-              >
-                <Trash2 className="h-4 w-4" />
-                Clear messages
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
       {/* Messages */}
       <ScrollArea ref={scrollAreaRef} className="flex-1 min-h-0">
         {displayMessages.length === 0 ? (
@@ -261,7 +231,7 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
             </p>
           </div>
         ) : (
-          <div className="divide-y">
+          <div>
             {displayMessages.map((message, index) => (
               <ChatMessage
                 key={index}
@@ -297,11 +267,10 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
           onSend={handleSend}
           onStop={handleStop}
           isStreaming={isStreaming}
+          permissionMode={settings.permissionMode}
+          onModeChange={handleModeChange}
         />
       </div>
-
-      {/* Settings Dialog */}
-      <ChatSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>
   );
 }
