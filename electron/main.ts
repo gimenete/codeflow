@@ -5,6 +5,11 @@ import { fileURLToPath } from "url";
 import fs from "fs";
 import os from "os";
 import crypto from "crypto";
+import { exec } from "child_process";
+import { promisify } from "util";
+import ignore, { Ignore } from "ignore";
+
+const execAsync = promisify(exec);
 import { simpleGit, SimpleGit, StatusResult } from "simple-git";
 import keytar from "keytar";
 import chokidar from "chokidar";
@@ -1270,16 +1275,64 @@ ipcMain.handle("pty:kill", async (_event, sessionId: string) => {
 
 // ==================== File System IPC Handlers ====================
 
+// Cache for gitignore patterns per repository
+const gitignoreCache = new Map<string, Ignore>();
+
+async function getGitignore(repoPath: string): Promise<Ignore> {
+  // Check cache first
+  if (gitignoreCache.has(repoPath)) {
+    return gitignoreCache.get(repoPath)!;
+  }
+
+  const ig = ignore();
+
+  // Load .gitignore from repo root
+  const gitignorePath = path.join(repoPath, ".gitignore");
+  try {
+    if (fs.existsSync(gitignorePath)) {
+      const content = await fs.promises.readFile(gitignorePath, "utf-8");
+      ig.add(content);
+    }
+  } catch (err) {
+    console.error("Failed to load .gitignore:", err);
+  }
+
+  // Always ignore .git directory
+  ig.add(".git");
+
+  gitignoreCache.set(repoPath, ig);
+  return ig;
+}
+
+function isIgnored(
+  ig: Ignore,
+  repoPath: string,
+  filePath: string,
+  isDirectory: boolean = false,
+): boolean {
+  const relativePath = path.relative(repoPath, filePath);
+  if (!relativePath) return false;
+  // For directories, also check with trailing slash for correct matching
+  if (isDirectory) {
+    return ig.ignores(relativePath) || ig.ignores(relativePath + "/");
+  }
+  return ig.ignores(relativePath);
+}
+
 interface FileTreeEntry {
   name: string;
   path: string;
   type: "file" | "directory";
   children?: FileTreeEntry[];
+  ignored?: boolean;
 }
 
 ipcMain.handle(
   "fs:list-directory",
   async (_event, dirPath: string, depth: number = 1) => {
+    // Get gitignore for the root path
+    const ig = await getGitignore(dirPath);
+
     const buildTree = async (
       currentPath: string,
       currentDepth: number,
@@ -1291,14 +1344,16 @@ ipcMain.handle(
       const result: FileTreeEntry[] = [];
 
       for (const entry of entries) {
-        // Skip hidden files and common excludes
-        if (entry.name.startsWith(".") || entry.name === "node_modules") {
+        const fullPath = path.join(currentPath, entry.name);
+        const isDir = entry.isDirectory();
+        const ignored = isIgnored(ig, dirPath, fullPath, isDir);
+
+        // Skip hidden files but show gitignored files (with ignored flag)
+        if (entry.name.startsWith(".")) {
           continue;
         }
 
-        const fullPath = path.join(currentPath, entry.name);
-
-        if (entry.isDirectory()) {
+        if (isDir) {
           const children =
             currentDepth < depth
               ? await buildTree(fullPath, currentDepth + 1)
@@ -1308,12 +1363,14 @@ ipcMain.handle(
             path: fullPath,
             type: "directory",
             children,
+            ignored,
           });
         } else {
           result.push({
             name: entry.name,
             path: fullPath,
             type: "file",
+            ignored,
           });
         }
       }
@@ -1334,23 +1391,143 @@ ipcMain.handle("fs:read-file", async (_event, filePath: string) => {
   return content;
 });
 
-ipcMain.handle("fs:expand-directory", async (_event, dirPath: string) => {
-  const entries = await fs.promises.readdir(dirPath, {
-    withFileTypes: true,
-  });
+ipcMain.handle(
+  "fs:expand-directory",
+  async (_event, dirPath: string, rootPath?: string) => {
+    // Use rootPath for gitignore, or fall back to dirPath
+    const gitignoreRoot = rootPath || dirPath;
+    const ig = await getGitignore(gitignoreRoot);
 
-  return entries
-    .filter((e) => !e.name.startsWith(".") && e.name !== "node_modules")
-    .map((entry) => ({
-      name: entry.name,
-      path: path.join(dirPath, entry.name),
-      type: entry.isDirectory() ? ("directory" as const) : ("file" as const),
-    }))
-    .sort((a, b) => {
-      if (a.type !== b.type) return a.type === "directory" ? -1 : 1;
-      return a.name.localeCompare(b.name);
+    const entries = await fs.promises.readdir(dirPath, {
+      withFileTypes: true,
     });
-});
+
+    return entries
+      .filter((e) => !e.name.startsWith("."))
+      .map((entry) => {
+        const fullPath = path.join(dirPath, entry.name);
+        const isDir = entry.isDirectory();
+        return {
+          name: entry.name,
+          path: fullPath,
+          type: isDir ? ("directory" as const) : ("file" as const),
+          ignored: isIgnored(ig, gitignoreRoot, fullPath, isDir),
+        };
+      })
+      .sort((a, b) => {
+        if (a.type !== b.type) return a.type === "directory" ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+  },
+);
+
+// Fuzzy match: checks if pattern chars appear in order in str
+// "fb" matches "foobar" (f...b), "abc" matches "a_big_component"
+function fuzzyMatch(
+  pattern: string,
+  str: string,
+): { matches: boolean; score: number } {
+  const patternLower = pattern.toLowerCase();
+  const strLower = str.toLowerCase();
+
+  let patternIdx = 0;
+  let score = 0;
+  let lastMatchIdx = -1;
+
+  for (
+    let i = 0;
+    i < strLower.length && patternIdx < patternLower.length;
+    i++
+  ) {
+    if (strLower[i] === patternLower[patternIdx]) {
+      // Bonus for consecutive matches
+      if (lastMatchIdx === i - 1) score += 2;
+      // Bonus for match at start or after separator
+      if (i === 0 || /[_\-./\\]/.test(str[i - 1])) score += 3;
+      score += 1;
+      lastMatchIdx = i;
+      patternIdx++;
+    }
+  }
+
+  return {
+    matches: patternIdx === patternLower.length,
+    score: patternIdx === patternLower.length ? score : 0,
+  };
+}
+
+// Get all files using system command (fast!)
+async function listAllFiles(rootPath: string): Promise<string[]> {
+  const isWindows = process.platform === "win32";
+
+  try {
+    if (isWindows) {
+      // Windows: use dir command
+      const { stdout } = await execAsync(`dir /s /b /a:-d`, {
+        cwd: rootPath,
+        maxBuffer: 50 * 1024 * 1024,
+      });
+      return stdout.split("\r\n").filter(Boolean);
+    } else {
+      // macOS/Linux: use find command, exclude hidden and node_modules
+      const { stdout } = await execAsync(
+        `find . -type f -not -path '*/\\.*' -not -path '*/node_modules/*'`,
+        { cwd: rootPath, maxBuffer: 50 * 1024 * 1024 },
+      );
+      return stdout
+        .split("\n")
+        .filter(Boolean)
+        .map((p) => path.join(rootPath, p.slice(2))); // Remove "./" prefix
+    }
+  } catch (err) {
+    console.error("File listing failed:", err);
+    return [];
+  }
+}
+
+ipcMain.handle(
+  "fs:search-files",
+  async (
+    _event,
+    rootPath: string,
+    pattern: string,
+    limit: number = 100,
+  ): Promise<
+    Array<{ path: string; name: string; score: number; ignored?: boolean }>
+  > => {
+    if (!pattern) return [];
+
+    // Get gitignore for the root path
+    const ig = await getGitignore(rootPath);
+
+    // Get all files using fast system command
+    const allFiles = await listAllFiles(rootPath);
+
+    // Apply fuzzy matching and scoring
+    const results: Array<{
+      path: string;
+      name: string;
+      score: number;
+      ignored?: boolean;
+    }> = [];
+
+    for (const filePath of allFiles) {
+      const name = path.basename(filePath);
+
+      // Skip hidden files on Windows (find already excludes on Unix)
+      if (name.startsWith(".")) continue;
+
+      const { matches, score } = fuzzyMatch(pattern, name);
+      if (matches) {
+        const ignored = isIgnored(ig, rootPath, filePath);
+        results.push({ path: filePath, name, score, ignored });
+      }
+    }
+
+    // Sort by score (highest first) and limit
+    return results.sort((a, b) => b.score - a.score).slice(0, limit);
+  },
+);
 
 // Cleanup watchers and PTY sessions on window close
 app.on("before-quit", async () => {

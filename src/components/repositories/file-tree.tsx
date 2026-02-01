@@ -1,6 +1,19 @@
-import { useEffect, useState, useCallback } from "react";
+import {
+  useEffect,
+  useState,
+  useCallback,
+  useDeferredValue,
+  memo,
+  useRef,
+} from "react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import {
+  Empty,
+  EmptyIcon,
+  EmptyTitle,
+  EmptyDescription,
+} from "@/components/ui/empty";
 import {
   ChevronRight,
   ChevronDown,
@@ -8,8 +21,10 @@ import {
   FolderOpen,
   File,
   Search,
+  SearchX,
+  Loader2,
 } from "lucide-react";
-import type { FileTreeEntry } from "@/lib/fs";
+import type { FileTreeEntry, SearchResult } from "@/lib/fs";
 
 interface FileTreeProps {
   rootPath: string;
@@ -24,40 +39,82 @@ interface TreeNodeProps {
   expandedPaths: Set<string>;
   onToggle: (path: string) => void;
   onFileSelect: (path: string) => void;
-  filterText: string;
+  parentIgnored?: boolean;
 }
 
-function matchesFilter(entry: FileTreeEntry, filterText: string): boolean {
-  if (!filterText) return true;
-  const lowerFilter = filterText.toLowerCase();
-
-  if (entry.name.toLowerCase().includes(lowerFilter)) {
-    return true;
+// Highlight fuzzy matching characters in a name (consecutive matches are unified)
+function HighlightedName({ name, pattern }: { name: string; pattern: string }) {
+  if (!pattern) {
+    return <span className="truncate">{name}</span>;
   }
 
-  if (entry.type === "directory" && entry.children) {
-    return entry.children.some((child) => matchesFilter(child, filterText));
+  // Find all match indices
+  const matchIndices: number[] = [];
+  let patternIdx = 0;
+  const patternLower = pattern.toLowerCase();
+  const nameLower = name.toLowerCase();
+
+  for (let i = 0; i < name.length && patternIdx < patternLower.length; i++) {
+    if (nameLower[i] === patternLower[patternIdx]) {
+      matchIndices.push(i);
+      patternIdx++;
+    }
   }
 
-  return false;
+  // Build result with consecutive matches unified
+  const result: React.ReactNode[] = [];
+  let i = 0;
+  let matchIdx = 0;
+
+  while (i < name.length) {
+    if (matchIdx < matchIndices.length && i === matchIndices[matchIdx]) {
+      // Start of a match sequence - find consecutive matches
+      let end = i;
+      while (
+        matchIdx < matchIndices.length - 1 &&
+        matchIndices[matchIdx + 1] === end + 1
+      ) {
+        matchIdx++;
+        end++;
+      }
+      // Add the unified highlight span
+      result.push(
+        <span key={i} className="bg-yellow-300 dark:bg-yellow-700 rounded-sm">
+          {name.slice(i, end + 1)}
+        </span>,
+      );
+      matchIdx++;
+      i = end + 1;
+    } else {
+      // Non-matching character - collect consecutive non-matches
+      const start = i;
+      while (
+        i < name.length &&
+        (matchIdx >= matchIndices.length || i !== matchIndices[matchIdx])
+      ) {
+        i++;
+      }
+      result.push(name.slice(start, i));
+    }
+  }
+
+  return <span className="truncate">{result}</span>;
 }
 
-function TreeNode({
+const TreeNode = memo(function TreeNode({
   entry,
   depth,
   selectedFile,
   expandedPaths,
   onToggle,
   onFileSelect,
-  filterText,
+  parentIgnored,
 }: TreeNodeProps) {
   const isExpanded = expandedPaths.has(entry.path);
   const isSelected = selectedFile === entry.path;
   const isDirectory = entry.type === "directory";
-
-  if (!matchesFilter(entry, filterText)) {
-    return null;
-  }
+  // Entry is ignored if it's marked as ignored or if its parent is ignored
+  const isIgnored = entry.ignored || parentIgnored;
 
   const handleClick = () => {
     if (isDirectory) {
@@ -80,23 +137,58 @@ function TreeNode({
         {isDirectory ? (
           <>
             {isExpanded ? (
-              <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 shrink-0",
+                  isIgnored
+                    ? "text-muted-foreground/50"
+                    : "text-muted-foreground",
+                )}
+              />
             ) : (
-              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <ChevronRight
+                className={cn(
+                  "h-4 w-4 shrink-0",
+                  isIgnored
+                    ? "text-muted-foreground/50"
+                    : "text-muted-foreground",
+                )}
+              />
             )}
             {isExpanded ? (
-              <FolderOpen className="h-4 w-4 shrink-0 text-blue-500" />
+              <FolderOpen
+                className={cn(
+                  "h-4 w-4 shrink-0",
+                  isIgnored ? "text-blue-500/50" : "text-blue-500",
+                )}
+              />
             ) : (
-              <Folder className="h-4 w-4 shrink-0 text-blue-500" />
+              <Folder
+                className={cn(
+                  "h-4 w-4 shrink-0",
+                  isIgnored ? "text-blue-500/50" : "text-blue-500",
+                )}
+              />
             )}
           </>
         ) : (
           <>
             <span className="w-4" />
-            <File className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <File
+              className={cn(
+                "h-4 w-4 shrink-0",
+                isIgnored
+                  ? "text-muted-foreground/50"
+                  : "text-muted-foreground",
+              )}
+            />
           </>
         )}
-        <span className="truncate">{entry.name}</span>
+        <span
+          className={cn("truncate", isIgnored && "text-muted-foreground/50")}
+        >
+          {entry.name}
+        </span>
       </div>
 
       {isDirectory && isExpanded && entry.children && (
@@ -110,11 +202,83 @@ function TreeNode({
               expandedPaths={expandedPaths}
               onToggle={onToggle}
               onFileSelect={onFileSelect}
-              filterText={filterText}
+              parentIgnored={isIgnored}
             />
           ))}
         </div>
       )}
+    </div>
+  );
+});
+
+// Component for displaying search results
+interface SearchResultItemProps {
+  result: SearchResult;
+  pattern: string;
+  rootPath: string;
+  isSelected: boolean;
+  isFocused: boolean;
+  onSelect: (path: string) => void;
+}
+
+function SearchResultItem({
+  result,
+  pattern,
+  rootPath,
+  isSelected,
+  isFocused,
+  onSelect,
+}: SearchResultItemProps) {
+  const itemRef = useRef<HTMLDivElement>(null);
+
+  // Scroll into view when focused
+  useEffect(() => {
+    if (isFocused && itemRef.current) {
+      itemRef.current.scrollIntoView({ block: "nearest" });
+    }
+  }, [isFocused]);
+
+  // Get relative path from root
+  const relativePath = result.path.startsWith(rootPath)
+    ? result.path.slice(rootPath.length + 1)
+    : result.path;
+  const dirPath = relativePath.includes("/")
+    ? relativePath.slice(0, relativePath.lastIndexOf("/"))
+    : "";
+
+  return (
+    <div
+      ref={itemRef}
+      className={cn(
+        "flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-muted/50 text-sm",
+        isSelected && "bg-muted",
+        isFocused && "bg-accent",
+      )}
+      onClick={() => onSelect(result.path)}
+    >
+      <File
+        className={cn(
+          "h-4 w-4 shrink-0",
+          result.ignored ? "text-muted-foreground/50" : "text-muted-foreground",
+        )}
+      />
+      <div className="flex flex-col min-w-0 flex-1">
+        <span className={cn(result.ignored && "text-muted-foreground/50")}>
+          <HighlightedName name={result.name} pattern={pattern} />
+        </span>
+        {dirPath && (
+          <span
+            className={cn(
+              "text-xs truncate",
+              result.ignored
+                ? "text-muted-foreground/40"
+                : "text-muted-foreground",
+            )}
+          >
+            {dirPath}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -129,6 +293,65 @@ export function FileTree({
   const [filterText, setFilterText] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Fuzzy search state
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState(0);
+  const deferredFilter = useDeferredValue(filterText);
+
+  // Search effect - DON'T clear results while loading (keep previous results visible)
+  useEffect(() => {
+    if (!deferredFilter) {
+      setSearchResults([]);
+      setSearching(false);
+      return;
+    }
+
+    let cancelled = false;
+    setSearching(true);
+
+    void window.fsAPI
+      ?.searchFiles(rootPath, deferredFilter, 50)
+      .then((results) => {
+        if (!cancelled) {
+          setSearchResults(results);
+          setSearching(false);
+          setFocusedIndex(0); // Reset focus when results change
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [deferredFilter, rootPath]);
+
+  // Handle keyboard navigation
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (!filterText || searchResults.length === 0) return;
+
+      switch (e.key) {
+        case "ArrowDown":
+          e.preventDefault();
+          setFocusedIndex((prev) =>
+            prev < searchResults.length - 1 ? prev + 1 : prev,
+          );
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          setFocusedIndex((prev) => (prev > 0 ? prev - 1 : 0));
+          break;
+        case "Enter":
+          e.preventDefault();
+          if (searchResults[focusedIndex]) {
+            onFileSelect(searchResults[focusedIndex].path);
+          }
+          break;
+      }
+    },
+    [filterText, searchResults, focusedIndex, onFileSelect],
+  );
 
   useEffect(() => {
     async function loadDirectory() {
@@ -171,12 +394,14 @@ export function FileTree({
           return entries.map((entry) => {
             if (entry.path === path && entry.type === "directory") {
               if (!entry.children) {
-                // Load children asynchronously
-                void window.fsAPI?.expandDirectory(path).then((children) => {
-                  setEntries((prev) =>
-                    updateEntryChildren(prev, path, children),
-                  );
-                });
+                // Load children asynchronously, passing rootPath for gitignore
+                void window.fsAPI
+                  ?.expandDirectory(path, rootPath)
+                  .then((children) => {
+                    setEntries((prev) =>
+                      updateEntryChildren(prev, path, children),
+                    );
+                  });
               }
               return entry;
             }
@@ -190,7 +415,7 @@ export function FileTree({
         setEntries((prev) => findAndUpdateEntry(prev));
       }
     },
-    [expandedPaths],
+    [expandedPaths, rootPath],
   );
 
   if (loading) {
@@ -219,17 +444,47 @@ export function FileTree({
             placeholder="Filter files..."
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
-            className="pl-8 h-8 text-sm"
+            onKeyDown={handleKeyDown}
+            className="pl-8 pr-8 h-8 text-sm"
           />
+          {searching && (
+            <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground animate-spin" />
+          )}
         </div>
       </div>
 
       <div className="flex-1 overflow-auto">
-        {entries.length === 0 ? (
+        {filterText ? (
+          // Show search results when filtering
+          searchResults.length > 0 ? (
+            searchResults.map((result, index) => (
+              <SearchResultItem
+                key={result.path}
+                result={result}
+                pattern={deferredFilter}
+                rootPath={rootPath}
+                isSelected={selectedFile === result.path}
+                isFocused={index === focusedIndex}
+                onSelect={onFileSelect}
+              />
+            ))
+          ) : !searching ? (
+            <Empty className="h-full">
+              <EmptyIcon>
+                <SearchX />
+              </EmptyIcon>
+              <EmptyTitle>No matching files</EmptyTitle>
+              <EmptyDescription>
+                No files match &quot;{filterText}&quot;
+              </EmptyDescription>
+            </Empty>
+          ) : null
+        ) : entries.length === 0 ? (
           <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
             No files found
           </div>
         ) : (
+          // Show tree view when not filtering
           entries.map((entry) => (
             <TreeNode
               key={entry.path}
@@ -239,7 +494,6 @@ export function FileTree({
               expandedPaths={expandedPaths}
               onToggle={handleToggle}
               onFileSelect={onFileSelect}
-              filterText={filterText}
             />
           ))
         )}

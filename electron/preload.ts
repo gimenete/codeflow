@@ -394,6 +394,14 @@ interface FileTreeEntry {
   path: string;
   type: "file" | "directory";
   children?: FileTreeEntry[];
+  ignored?: boolean;
+}
+
+interface SearchResult {
+  path: string;
+  name: string;
+  score: number;
+  ignored?: boolean;
 }
 
 const fsAPI = {
@@ -408,8 +416,19 @@ const fsAPI = {
     return ipcRenderer.invoke("fs:read-file", filePath);
   },
 
-  expandDirectory: (dirPath: string): Promise<FileTreeEntry[]> => {
-    return ipcRenderer.invoke("fs:expand-directory", dirPath);
+  expandDirectory: (
+    dirPath: string,
+    rootPath?: string,
+  ): Promise<FileTreeEntry[]> => {
+    return ipcRenderer.invoke("fs:expand-directory", dirPath, rootPath);
+  },
+
+  searchFiles: (
+    rootPath: string,
+    pattern: string,
+    limit?: number,
+  ): Promise<SearchResult[]> => {
+    return ipcRenderer.invoke("fs:search-files", rootPath, pattern, limit);
   },
 };
 
