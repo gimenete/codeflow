@@ -4,13 +4,24 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from "@/components/ui/resizable";
-import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupInput,
+  InputGroupAddon,
+  InputGroupButton,
+} from "@/components/ui/input-group";
+import {
+  Empty,
+  EmptyIcon,
+  EmptyTitle,
+  EmptyDescription,
+} from "@/components/ui/empty";
 import { Button } from "@/components/ui/button";
 import { FileTree } from "./file-tree";
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useDiffTheme } from "@/lib/use-diff-theme";
 import type { TrackedBranch } from "@/lib/github-types";
-import { Search, ChevronUp, ChevronDown, X } from "lucide-react";
+import { Search, ChevronUp, ChevronDown, X, FileCode } from "lucide-react";
 import "@/lib/fs";
 
 interface SearchMatch {
@@ -41,6 +52,23 @@ export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
   const [searchResults, setSearchResults] = useState<SearchMatch[]>([]);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const theme = useDiffTheme();
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Handle Cmd+F / Ctrl+F to focus search input
+  useEffect(() => {
+    if (!selectedFile || fileContent === null) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "f") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedFile, fileContent]);
 
   const handleFileSelect = useCallback(async (filePath: string) => {
     setSelectedFile(filePath);
@@ -171,16 +199,22 @@ export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
           {selectedFile ? (
             <>
               {fileContent !== null && (
-                <div className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/30">
-                  <div className="relative flex-1 max-w-xs">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
+                <div className="flex items-center gap-2 p-2 border-b">
+                  <InputGroup className="h-8 flex-1 max-w-xs">
+                    <InputGroupAddon align="inline-start">
+                      <Search className="h-4 w-4" />
+                    </InputGroupAddon>
+                    <InputGroupInput
+                      ref={searchInputRef}
                       type="text"
                       placeholder="Search in file..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter") {
+                        if (e.key === "Escape" && searchQuery) {
+                          e.preventDefault();
+                          setSearchQuery("");
+                        } else if (e.key === "Enter") {
                           e.preventDefault();
                           if (e.shiftKey) {
                             goToPreviousMatch();
@@ -189,9 +223,19 @@ export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
                           }
                         }
                       }}
-                      className="pl-8 h-7 text-sm"
+                      className="text-sm"
                     />
-                  </div>
+                    {searchQuery && (
+                      <InputGroupAddon align="inline-end">
+                        <InputGroupButton
+                          size="icon-xs"
+                          onClick={() => setSearchQuery("")}
+                        >
+                          <X className="h-4 w-4" />
+                        </InputGroupButton>
+                      </InputGroupAddon>
+                    )}
+                  </InputGroup>
 
                   {searchQuery && (
                     <>
@@ -217,14 +261,6 @@ export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
                         disabled={searchResults.length === 0}
                       >
                         <ChevronDown className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0"
-                        onClick={() => setSearchQuery("")}
-                      >
-                        <X className="h-4 w-4" />
                       </Button>
                     </>
                   )}
@@ -258,9 +294,15 @@ export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
               </div>
             </>
           ) : (
-            <div className="flex h-full items-center justify-center text-muted-foreground">
-              Select a file to view
-            </div>
+            <Empty className="h-full">
+              <EmptyIcon>
+                <FileCode />
+              </EmptyIcon>
+              <EmptyTitle>No file selected</EmptyTitle>
+              <EmptyDescription>
+                Select a file from the tree to view its contents
+              </EmptyDescription>
+            </Empty>
           )}
         </div>
       </ResizablePanel>
