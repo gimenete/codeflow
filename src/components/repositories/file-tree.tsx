@@ -344,6 +344,21 @@ export function FileTree({
   const [focusedIndex, setFocusedIndex] = useState(0);
   const deferredFilter = useDeferredValue(filterText);
   const [shouldScrollToSelected, setShouldScrollToSelected] = useState(false);
+  const filterInputRef = useRef<HTMLInputElement>(null);
+
+  // Handle Cmd+P / Ctrl+P to focus filter input
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "p") {
+        e.preventDefault();
+        filterInputRef.current?.focus();
+        filterInputRef.current?.select();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Load all files upfront with React Query (cached)
   const { data: allFiles = [], isLoading: filesLoading } = useQuery({
@@ -594,6 +609,7 @@ export function FileTree({
             <Search className="h-4 w-4" />
           </InputGroupAddon>
           <InputGroupInput
+            ref={filterInputRef}
             type="text"
             placeholder="Filter files..."
             value={filterText}
