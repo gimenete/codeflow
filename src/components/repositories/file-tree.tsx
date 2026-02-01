@@ -17,13 +17,15 @@ import {
 import {
   ChevronRight,
   ChevronDown,
-  Folder,
-  FolderOpen,
-  File,
   Search,
   SearchX,
   Loader2,
 } from "lucide-react";
+import {
+  FileIcon,
+  FolderIcon,
+  DefaultFolderOpenedIcon,
+} from "@react-symbols/icons/utils";
 import type { FileTreeEntry, SearchResult } from "@/lib/fs";
 
 interface FileTreeProps {
@@ -155,33 +157,20 @@ const TreeNode = memo(function TreeNode({
                 )}
               />
             )}
-            {isExpanded ? (
-              <FolderOpen
-                className={cn(
-                  "h-4 w-4 shrink-0",
-                  isIgnored ? "text-blue-500/50" : "text-blue-500",
-                )}
-              />
-            ) : (
-              <Folder
-                className={cn(
-                  "h-4 w-4 shrink-0",
-                  isIgnored ? "text-blue-500/50" : "text-blue-500",
-                )}
-              />
-            )}
+            <span className={cn("shrink-0", isIgnored && "opacity-50")}>
+              {isExpanded ? (
+                <DefaultFolderOpenedIcon className="h-4 w-4" />
+              ) : (
+                <FolderIcon folderName={entry.name} className="h-4 w-4" />
+              )}
+            </span>
           </>
         ) : (
           <>
             <span className="w-4" />
-            <File
-              className={cn(
-                "h-4 w-4 shrink-0",
-                isIgnored
-                  ? "text-muted-foreground/50"
-                  : "text-muted-foreground",
-              )}
-            />
+            <span className={cn("shrink-0", isIgnored && "opacity-50")}>
+              <FileIcon fileName={entry.name} autoAssign className="h-4 w-4" />
+            </span>
           </>
         )}
         <span
@@ -256,12 +245,9 @@ function SearchResultItem({
       )}
       onClick={() => onSelect(result.path)}
     >
-      <File
-        className={cn(
-          "h-4 w-4 shrink-0",
-          result.ignored ? "text-muted-foreground/50" : "text-muted-foreground",
-        )}
-      />
+      <span className={cn("shrink-0", result.ignored && "opacity-50")}>
+        <FileIcon fileName={result.name} autoAssign className="h-4 w-4" />
+      </span>
       <div className="flex flex-col min-w-0 flex-1">
         <span className={cn(result.ignored && "text-muted-foreground/50")}>
           <HighlightedName name={result.name} pattern={pattern} />
