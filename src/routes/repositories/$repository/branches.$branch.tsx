@@ -1,5 +1,9 @@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TerminalContainer } from "@/components/terminal/terminal-container";
+import { BranchChat } from "@/components/repositories/branch-chat";
+import { BranchFilesView } from "@/components/repositories/branch-files-view";
+import { BranchCommitsView } from "@/components/repositories/branch-commits-view";
+import { BranchCodeView } from "@/components/repositories/branch-code-view";
 import { useBranchById, useBranchesStore } from "@/lib/branches-store";
 import { useRepositoriesStore } from "@/lib/repositories-store";
 import {
@@ -17,8 +21,10 @@ import {
   TerminalSquare,
 } from "lucide-react";
 import { ClaudeIcon } from "@/components/ui/claude-icon";
-import { useEffect } from "react";
+import { Activity, useEffect, useState } from "react";
 import type { AgentType } from "@/lib/github-types";
+
+type TabType = "agent" | "diff" | "commits" | "code" | "terminal";
 
 const AGENT_NAMES: Record<AgentType, string> = {
   claude: "Claude",
@@ -50,7 +56,7 @@ function BranchDetailPage() {
   const location = useLocation();
 
   // Derive active tab from pathname
-  const activeTab = location.pathname.endsWith("/terminal")
+  const activeTab: TabType = location.pathname.endsWith("/terminal")
     ? "terminal"
     : location.pathname.endsWith("/diff")
       ? "diff"
@@ -59,6 +65,19 @@ function BranchDetailPage() {
         : location.pathname.endsWith("/code")
           ? "code"
           : "agent";
+
+  // Track visited tabs for lazy mounting - only mount tabs that have been visited
+  const [visitedTabs, setVisitedTabs] = useState<Set<TabType>>(
+    () => new Set([activeTab]),
+  );
+
+  // Add current tab to visited set when it changes
+  useEffect(() => {
+    setVisitedTabs((prev) => {
+      if (prev.has(activeTab)) return prev;
+      return new Set([...prev, activeTab]);
+    });
+  }, [activeTab]);
 
   // Redirect if branch not found (after hydration)
   useEffect(() => {
@@ -173,23 +192,60 @@ function BranchDetailPage() {
         </Tabs>
       </div>
 
-      {/* Child route content - hide when terminal tab is active */}
-      <div
-        className={`flex-1 min-h-0 ${activeTab === "terminal" ? "hidden" : ""}`}
-      >
-        <Outlet />
+      {/* Tab content - all tabs rendered with Activity for state preservation */}
+      <div className="flex-1 min-h-0 relative">
+        {/* Agent Tab */}
+        {visitedTabs.has("agent") && (
+          <Activity mode={activeTab === "agent" ? "visible" : "hidden"}>
+            <div className="absolute inset-0">
+              <BranchChat branch={branch} cwd={cwd} />
+            </div>
+          </Activity>
+        )}
+
+        {/* Diff Tab */}
+        {visitedTabs.has("diff") && (
+          <Activity mode={activeTab === "diff" ? "visible" : "hidden"}>
+            <div className="absolute inset-0">
+              <BranchFilesView branch={branch} repositoryPath={cwd} />
+            </div>
+          </Activity>
+        )}
+
+        {/* Commits Tab */}
+        {visitedTabs.has("commits") && (
+          <Activity mode={activeTab === "commits" ? "visible" : "hidden"}>
+            <div className="absolute inset-0">
+              <BranchCommitsView branch={branch} repositoryPath={cwd} />
+            </div>
+          </Activity>
+        )}
+
+        {/* Code Tab */}
+        {visitedTabs.has("code") && (
+          <Activity mode={activeTab === "code" ? "visible" : "hidden"}>
+            <div className="absolute inset-0">
+              <BranchCodeView branch={branch} repositoryPath={cwd} />
+            </div>
+          </Activity>
+        )}
+
+        {/* Terminal Tab */}
+        {visitedTabs.has("terminal") && (
+          <Activity mode={activeTab === "terminal" ? "visible" : "hidden"}>
+            <div className="absolute inset-0">
+              <TerminalContainer
+                branchId={branchId}
+                cwd={cwd}
+                active={activeTab === "terminal"}
+              />
+            </div>
+          </Activity>
+        )}
       </div>
 
-      {/* Terminal container - always mounted, hidden when not active */}
-      <div
-        className={`flex-1 min-h-0 ${activeTab === "terminal" ? "" : "hidden"}`}
-      >
-        <TerminalContainer
-          branchId={branchId}
-          cwd={cwd}
-          active={activeTab === "terminal"}
-        />
-      </div>
+      {/* Keep Outlet for route matching (renders null) */}
+      <Outlet />
     </div>
   );
 }

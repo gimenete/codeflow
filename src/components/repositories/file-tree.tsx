@@ -35,6 +35,11 @@ import {
   DefaultFolderOpenedIcon,
 } from "@react-symbols/icons/utils";
 import type { FileTreeEntry, SearchResult } from "@/lib/fs";
+import {
+  useFileTreeStore,
+  useFileTreeExpandedPaths,
+  useFileTreeEntries,
+} from "@/lib/file-tree-store";
 
 // Fuzzy match: checks if pattern chars appear in order in str
 // Returns match indices and a score, or null if no match
@@ -334,8 +339,16 @@ export function FileTree({
   selectedFile,
   onFileSelect,
 }: FileTreeProps) {
-  const [entries, setEntries] = useState<FileTreeEntry[]>([]);
-  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+  // Use store for state that needs to persist across tab switches
+  const entries = useFileTreeEntries(rootPath);
+  const expandedPaths = useFileTreeExpandedPaths(rootPath);
+  const {
+    setEntries: storeSetEntries,
+    togglePath,
+    updateEntryChildren,
+  } = useFileTreeStore();
+
+  // Local state for ephemeral UI concerns
   const [filterText, setFilterText] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -461,7 +474,7 @@ export function FileTree({
   const expandDirectory = useCallback(
     async (path: string) => {
       // Add to expanded paths
-      setExpandedPaths((prev) => new Set([...prev, path]));
+      togglePath(rootPath, path, true);
 
       // Check if children need to be loaded by looking at current entries
       const findEntry = (
@@ -478,21 +491,18 @@ export function FileTree({
         return null;
       };
 
-      // We need to check current entries and load children if needed
-      setEntries((currentEntries) => {
-        const entry = findEntry(currentEntries, path);
-        if (entry && entry.type === "directory" && !entry.children) {
-          // Load children asynchronously
-          void window.fsAPI
-            ?.expandDirectory(path, rootPath)
-            .then((children) => {
-              setEntries((prev) => updateEntryChildren(prev, path, children));
-            });
+      // Check current entries and load children if needed
+      const currentEntries = useFileTreeStore.getState().getEntries(rootPath);
+      const entry = findEntry(currentEntries, path);
+      if (entry && entry.type === "directory" && !entry.children) {
+        // Load children asynchronously
+        const children = await window.fsAPI?.expandDirectory(path, rootPath);
+        if (children) {
+          updateEntryChildren(rootPath, path, children);
         }
-        return currentEntries;
-      });
+      }
     },
-    [rootPath],
+    [rootPath, togglePath, updateEntryChildren],
   );
 
   // Handle clear button click
@@ -522,6 +532,13 @@ export function FileTree({
 
   useEffect(() => {
     async function loadDirectory() {
+      // Check if we already have entries for this root (preserved from tab switch)
+      const existingEntries = useFileTreeStore.getState().getEntries(rootPath);
+      if (existingEntries.length > 0) {
+        setLoading(false);
+        return;
+      }
+
       if (!window.fsAPI) {
         setError("File system API not available");
         setLoading(false);
@@ -532,7 +549,7 @@ export function FileTree({
         setLoading(true);
         setError(null);
         const result = await window.fsAPI.listDirectory(rootPath, 1);
-        setEntries(result);
+        storeSetEntries(rootPath, result);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load files");
       } finally {
@@ -541,48 +558,47 @@ export function FileTree({
     }
 
     void loadDirectory();
-  }, [rootPath]);
+  }, [rootPath, storeSetEntries]);
 
   const handleToggle = useCallback(
     async (path: string) => {
-      const newExpanded = new Set(expandedPaths);
+      const currentExpanded = useFileTreeStore
+        .getState()
+        .getExpandedPaths(rootPath);
 
-      if (newExpanded.has(path)) {
-        newExpanded.delete(path);
-        setExpandedPaths(newExpanded);
+      if (currentExpanded.has(path)) {
+        togglePath(rootPath, path, false);
       } else {
-        newExpanded.add(path);
-        setExpandedPaths(newExpanded);
+        togglePath(rootPath, path, true);
 
         // Load children if not already loaded
-        const findAndUpdateEntry = (
+        const currentEntries = useFileTreeStore.getState().getEntries(rootPath);
+
+        const findEntry = (
           entries: FileTreeEntry[],
-        ): FileTreeEntry[] => {
-          return entries.map((entry) => {
-            if (entry.path === path && entry.type === "directory") {
-              if (!entry.children) {
-                // Load children asynchronously, passing rootPath for gitignore
-                void window.fsAPI
-                  ?.expandDirectory(path, rootPath)
-                  .then((children) => {
-                    setEntries((prev) =>
-                      updateEntryChildren(prev, path, children),
-                    );
-                  });
-              }
-              return entry;
-            }
+          targetPath: string,
+        ): FileTreeEntry | null => {
+          for (const entry of entries) {
+            if (entry.path === targetPath) return entry;
             if (entry.children) {
-              return { ...entry, children: findAndUpdateEntry(entry.children) };
+              const found = findEntry(entry.children, targetPath);
+              if (found) return found;
             }
-            return entry;
-          });
+          }
+          return null;
         };
 
-        setEntries((prev) => findAndUpdateEntry(prev));
+        const entry = findEntry(currentEntries, path);
+        if (entry && entry.type === "directory" && !entry.children) {
+          // Load children asynchronously, passing rootPath for gitignore
+          const children = await window.fsAPI?.expandDirectory(path, rootPath);
+          if (children) {
+            updateEntryChildren(rootPath, path, children);
+          }
+        }
       }
     },
-    [expandedPaths, rootPath],
+    [rootPath, togglePath, updateEntryChildren],
   );
 
   if (loading) {
@@ -680,23 +696,4 @@ export function FileTree({
       </div>
     </div>
   );
-}
-
-function updateEntryChildren(
-  entries: FileTreeEntry[],
-  targetPath: string,
-  children: FileTreeEntry[],
-): FileTreeEntry[] {
-  return entries.map((entry) => {
-    if (entry.path === targetPath) {
-      return { ...entry, children };
-    }
-    if (entry.children) {
-      return {
-        ...entry,
-        children: updateEntryChildren(entry.children, targetPath, children),
-      };
-    }
-    return entry;
-  });
 }
