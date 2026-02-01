@@ -177,6 +177,9 @@ export function BranchFilesView({
   const [unstagedDiffs, setUnstagedDiffs] = useState<Record<string, string>>(
     {},
   );
+  const [loadedFilePaths, setLoadedFilePaths] = useState<Set<string>>(
+    new Set(),
+  );
   const [selectedFile, setSelectedFile] = useState<FileSelection>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -265,6 +268,7 @@ export function BranchFilesView({
     if (!isElectron() || !window.gitAPI || allFilePaths.length === 0) {
       setStagedDiffs({});
       setUnstagedDiffs({});
+      setLoadedFilePaths(new Set());
       return;
     }
 
@@ -293,6 +297,7 @@ export function BranchFilesView({
 
       setStagedDiffs(newStagedDiffs);
       setUnstagedDiffs(newUnstagedDiffs);
+      setLoadedFilePaths(new Set(allFilePaths));
     }
 
     void fetchDiffs();
@@ -1016,12 +1021,23 @@ export function BranchFilesView({
                           </div>
                         )}
 
-                        {/* Loading state */}
-                        {!hasUnstaged && !hasStaged && (
-                          <div className="text-muted-foreground text-sm">
-                            Loading diff...
-                          </div>
-                        )}
+                        {/* Loading state - only show if we haven't loaded this file yet */}
+                        {!hasUnstaged &&
+                          !hasStaged &&
+                          !loadedFilePaths.has(filePath) && (
+                            <div className="text-muted-foreground text-sm">
+                              Loading diff...
+                            </div>
+                          )}
+
+                        {/* Show message for loaded files with no diff content (binary files, etc.) */}
+                        {!hasUnstaged &&
+                          !hasStaged &&
+                          loadedFilePaths.has(filePath) && (
+                            <div className="text-muted-foreground text-sm">
+                              Binary file or no textual changes
+                            </div>
+                          )}
                       </div>
                     </div>
                   );
