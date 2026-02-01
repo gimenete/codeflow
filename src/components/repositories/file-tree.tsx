@@ -7,7 +7,12 @@ import {
   useRef,
 } from "react";
 import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupInput,
+  InputGroupAddon,
+  InputGroupButton,
+} from "@/components/ui/input-group";
 import {
   Empty,
   EmptyIcon,
@@ -20,6 +25,7 @@ import {
   Search,
   SearchX,
   Loader2,
+  X,
 } from "lucide-react";
 import {
   FileIcon,
@@ -42,6 +48,8 @@ interface TreeNodeProps {
   onToggle: (path: string) => void;
   onFileSelect: (path: string) => void;
   parentIgnored?: boolean;
+  shouldScrollToSelected?: boolean;
+  onScrollComplete?: () => void;
 }
 
 // Highlight fuzzy matching characters in a name (consecutive matches are unified)
@@ -111,12 +119,23 @@ const TreeNode = memo(function TreeNode({
   onToggle,
   onFileSelect,
   parentIgnored,
+  shouldScrollToSelected,
+  onScrollComplete,
 }: TreeNodeProps) {
+  const nodeRef = useRef<HTMLDivElement>(null);
   const isExpanded = expandedPaths.has(entry.path);
   const isSelected = selectedFile === entry.path;
   const isDirectory = entry.type === "directory";
   // Entry is ignored if it's marked as ignored or if its parent is ignored
   const isIgnored = entry.ignored || parentIgnored;
+
+  // Scroll into view when selected and scroll is requested
+  useEffect(() => {
+    if (isSelected && shouldScrollToSelected && nodeRef.current) {
+      nodeRef.current.scrollIntoView({ block: "nearest" });
+      onScrollComplete?.();
+    }
+  }, [isSelected, shouldScrollToSelected, onScrollComplete]);
 
   const handleClick = () => {
     if (isDirectory) {
@@ -129,6 +148,7 @@ const TreeNode = memo(function TreeNode({
   return (
     <div>
       <div
+        ref={nodeRef}
         className={cn(
           "flex items-center gap-1 px-2 py-1 cursor-pointer hover:bg-muted/50 text-sm",
           isSelected && "bg-muted",
@@ -192,6 +212,8 @@ const TreeNode = memo(function TreeNode({
               onToggle={onToggle}
               onFileSelect={onFileSelect}
               parentIgnored={isIgnored}
+              shouldScrollToSelected={shouldScrollToSelected}
+              onScrollComplete={onScrollComplete}
             />
           ))}
         </div>
@@ -285,6 +307,7 @@ export function FileTree({
   const [searching, setSearching] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const deferredFilter = useDeferredValue(filterText);
+  const [shouldScrollToSelected, setShouldScrollToSelected] = useState(false);
 
   // Search effect - DON'T clear results while loading (keep previous results visible)
   useEffect(() => {
@@ -338,6 +361,91 @@ export function FileTree({
     },
     [filterText, searchResults, focusedIndex, onFileSelect],
   );
+
+  // Helper function to get all parent paths for a file
+  const getParentPaths = useCallback(
+    (filePath: string): string[] => {
+      const parents: string[] = [];
+      let currentPath = rootPath;
+
+      const relativePath = filePath.startsWith(rootPath + "/")
+        ? filePath.slice(rootPath.length + 1)
+        : filePath;
+
+      const parts = relativePath.split("/");
+      // Exclude the filename (last part)
+      for (let i = 0; i < parts.length - 1; i++) {
+        currentPath = `${currentPath}/${parts[i]}`;
+        parents.push(currentPath);
+      }
+
+      return parents;
+    },
+    [rootPath],
+  );
+
+  // Expand a directory and load its children if needed
+  const expandDirectory = useCallback(
+    async (path: string) => {
+      // Add to expanded paths
+      setExpandedPaths((prev) => new Set([...prev, path]));
+
+      // Check if children need to be loaded by looking at current entries
+      const findEntry = (
+        entries: FileTreeEntry[],
+        targetPath: string,
+      ): FileTreeEntry | null => {
+        for (const entry of entries) {
+          if (entry.path === targetPath) return entry;
+          if (entry.children) {
+            const found = findEntry(entry.children, targetPath);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      // We need to check current entries and load children if needed
+      setEntries((currentEntries) => {
+        const entry = findEntry(currentEntries, path);
+        if (entry && entry.type === "directory" && !entry.children) {
+          // Load children asynchronously
+          void window.fsAPI
+            ?.expandDirectory(path, rootPath)
+            .then((children) => {
+              setEntries((prev) => updateEntryChildren(prev, path, children));
+            });
+        }
+        return currentEntries;
+      });
+    },
+    [rootPath],
+  );
+
+  // Handle clear button click
+  const handleClear = useCallback(async () => {
+    setFilterText("");
+
+    if (selectedFile) {
+      // Expand all parent directories of the selected file
+      const parentPaths = getParentPaths(selectedFile);
+
+      // Expand each parent directory (this will also load their children)
+      for (const parentPath of parentPaths) {
+        await expandDirectory(parentPath);
+      }
+
+      // Small delay to allow React to render the expanded tree
+      setTimeout(() => {
+        setShouldScrollToSelected(true);
+      }, 50);
+    }
+  }, [selectedFile, getParentPaths, expandDirectory]);
+
+  // Callback when scroll completes
+  const handleScrollComplete = useCallback(() => {
+    setShouldScrollToSelected(false);
+  }, []);
 
   useEffect(() => {
     async function loadDirectory() {
@@ -423,20 +531,30 @@ export function FileTree({
   return (
     <div className="flex flex-col h-full">
       <div className="p-2 border-b">
-        <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
+        <InputGroup className="h-8">
+          <InputGroupAddon align="inline-start">
+            <Search className="h-4 w-4" />
+          </InputGroupAddon>
+          <InputGroupInput
             type="text"
             placeholder="Filter files..."
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="pl-8 pr-8 h-8 text-sm"
+            className="text-sm"
           />
-          {searching && (
-            <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground animate-spin" />
-          )}
-        </div>
+          {searching ? (
+            <InputGroupAddon align="inline-end">
+              <Loader2 className="h-4 w-4 animate-spin" />
+            </InputGroupAddon>
+          ) : filterText ? (
+            <InputGroupAddon align="inline-end">
+              <InputGroupButton size="icon-xs" onClick={handleClear}>
+                <X className="h-4 w-4" />
+              </InputGroupButton>
+            </InputGroupAddon>
+          ) : null}
+        </InputGroup>
       </div>
 
       <div className="flex-1 overflow-auto">
@@ -480,6 +598,8 @@ export function FileTree({
               expandedPaths={expandedPaths}
               onToggle={handleToggle}
               onFileSelect={onFileSelect}
+              shouldScrollToSelected={shouldScrollToSelected}
+              onScrollComplete={handleScrollComplete}
             />
           ))
         )}
