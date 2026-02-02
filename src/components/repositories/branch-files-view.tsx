@@ -17,6 +17,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -1021,12 +1022,24 @@ export function BranchFilesView({
                           </div>
                         )}
 
-                        {/* Loading state - only show if we haven't loaded this file yet */}
+                        {/* Loading state - show skeleton while we haven't loaded this file yet */}
                         {!hasUnstaged &&
                           !hasStaged &&
                           !loadedFilePaths.has(filePath) && (
-                            <div className="text-muted-foreground text-sm">
-                              Loading diff...
+                            <div className="border rounded">
+                              {/* Skeleton header */}
+                              <div className="flex items-center gap-2 p-2 border-b bg-muted/30">
+                                <Skeleton className="h-4 w-4" />
+                                <Skeleton className="h-4 w-48" />
+                              </div>
+                              {/* Skeleton diff lines */}
+                              <div className="space-y-1 p-3">
+                                <Skeleton className="h-4 w-full" />
+                                <Skeleton className="h-4 w-full" />
+                                <Skeleton className="h-4 w-3/4" />
+                                <Skeleton className="h-4 w-full" />
+                                <Skeleton className="h-4 w-5/6" />
+                              </div>
                             </div>
                           )}
 
