@@ -336,6 +336,13 @@ export interface AgentMessage {
   };
 }
 
+// Image content for Claude API
+export interface ImageContent {
+  type: "base64";
+  media_type: "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+  data: string;
+}
+
 // Type declarations for the IPC-exposed chat API
 export interface ClaudeChatAPI {
   sendMessage: (
@@ -346,6 +353,7 @@ export interface ClaudeChatAPI {
       cwd?: string;
       permissionMode?: string;
       sessionId?: string; // Session ID for resuming conversation
+      images?: ImageContent[]; // Image attachments
     },
   ) => Promise<void>;
   interrupt: () => Promise<void>;

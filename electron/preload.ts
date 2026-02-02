@@ -349,6 +349,13 @@ const ptyAPI = {
   },
 };
 
+// Image content for Claude API
+interface ImageContent {
+  type: "base64";
+  media_type: "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+  data: string;
+}
+
 // Claude Chat API (uses Agent SDK in main process)
 const claudeChatAPI = {
   sendMessage: (
@@ -359,6 +366,7 @@ const claudeChatAPI = {
       cwd?: string;
       permissionMode?: string;
       sessionId?: string;
+      images?: ImageContent[];
     },
   ): Promise<void> => {
     return ipcRenderer.invoke("claude:chat", prompt, options);
@@ -447,6 +455,18 @@ const fsAPI = {
   },
 };
 
+// App Info API
+interface AppInfo {
+  appVersion: string;
+  claudeSdkVersion: string;
+}
+
+const appAPI = {
+  getInfo: (): Promise<AppInfo> => {
+    return ipcRenderer.invoke("app:get-info");
+  },
+};
+
 // Expose APIs to renderer
 contextBridge.exposeInMainWorld("electronAPI", {
   git: gitAPI,
@@ -457,6 +477,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   shell: shellAPI,
   watcher: watcherAPI,
   pty: ptyAPI,
+  app: appAPI,
   isElectron: true,
 });
 
@@ -470,3 +491,4 @@ contextBridge.exposeInMainWorld("shellAPI", shellAPI);
 contextBridge.exposeInMainWorld("watcherAPI", watcherAPI);
 contextBridge.exposeInMainWorld("ptyAPI", ptyAPI);
 contextBridge.exposeInMainWorld("fsAPI", fsAPI);
+contextBridge.exposeInMainWorld("appAPI", appAPI);

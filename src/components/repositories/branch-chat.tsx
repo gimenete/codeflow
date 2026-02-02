@@ -4,7 +4,9 @@ import { ChatMessage } from "@/components/claude/chat-message";
 import { ChatInput } from "@/components/claude/chat-input";
 import { ActiveToolIndicator } from "@/components/claude/active-tool-indicator";
 import { QuestionAnswerer } from "@/components/claude/question-answerer";
+import { WelcomeMessage } from "@/components/claude/welcome-message";
 import type { AskUserQuestionInput } from "@/components/claude/sdk-messages/ask-user-question-block";
+import type { ImageAttachment } from "@/components/claude/attachment-preview";
 import {
   isElectronWithChatAPI,
   getClaudeChatAPI,
@@ -35,6 +37,7 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
   const [dismissedQuestionIds, setDismissedQuestionIds] = useState<Set<string>>(
     new Set(),
   );
+  const [attachments, setAttachments] = useState<ImageAttachment[]>([]);
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const conversationIdRef = useRef<string | null>(null);
@@ -112,7 +115,8 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
   );
 
   const handleSend = useCallback(async () => {
-    if (!inputValue.trim() || isStreaming) return;
+    const hasContent = inputValue.trim() || attachments.length > 0;
+    if (!hasContent || isStreaming) return;
 
     const userMessage = inputValue.trim();
 
@@ -146,9 +150,19 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
     // Store conversation ID for message handlers
     conversationIdRef.current = conversationId;
 
+    // Build message with attachments info
+    const messageWithAttachments =
+      attachments.length > 0
+        ? `${userMessage}\n\n[Attached ${attachments.length} image(s)]`
+        : userMessage;
+
     // Add user message
-    addUserMessage(conversationId, userMessage);
+    addUserMessage(conversationId, messageWithAttachments);
     setInputValue("");
+
+    // Clear attachments after adding to message
+    const currentAttachments = [...attachments];
+    setAttachments([]);
 
     // Scroll to bottom after adding user message (force scroll since user just sent)
     setTimeout(() => scrollToBottom(true), 0);
@@ -157,6 +171,20 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
     startAssistantTurn(conversationId);
     setStreaming(true);
 
+    // Prepare images for API if any
+    const images =
+      currentAttachments.length > 0
+        ? currentAttachments.map((a) => ({
+            type: "base64" as const,
+            media_type: a.mimeType as
+              | "image/png"
+              | "image/jpeg"
+              | "image/gif"
+              | "image/webp",
+            data: a.base64,
+          }))
+        : undefined;
+
     // Send via IPC with cwd, permissionMode, and sessionId for conversation resumption
     const chatAPI = getClaudeChatAPI();
     void chatAPI.sendMessage(userMessage, {
@@ -164,9 +192,11 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
       cwd,
       permissionMode: settings.permissionMode,
       sessionId: sessionIdRef.current || undefined,
+      images,
     });
   }, [
     inputValue,
+    attachments,
     isStreaming,
     handleCommand,
     conversation?.id,
@@ -181,6 +211,14 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
     setStreaming,
     scrollToBottom,
   ]);
+
+  // Handle command from autocomplete
+  const handleCommandFromAutocomplete = useCallback(
+    (commandName: string) => {
+      handleCommand(`/${commandName}`);
+    },
+    [handleCommand],
+  );
 
   // Setup IPC listeners
   useEffect(() => {
@@ -475,13 +513,7 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
       {/* Messages */}
       <ScrollArea ref={scrollAreaRef} className="flex-1 min-h-0">
         {displayMessages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center p-8 text-muted-foreground">
-            <h3 className="text-base font-medium mb-2">Start working</h3>
-            <p className="text-sm max-w-md">
-              Chat with Claude about this branch. Claude has access to the files
-              in your repository directory.
-            </p>
-          </div>
+          <WelcomeMessage />
         ) : (
           <div>
             {displayMessages.map((message, index) => (
@@ -538,6 +570,10 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
             isStreaming={isStreaming}
             permissionMode={settings.permissionMode}
             onModeChange={handleModeChange}
+            attachments={attachments}
+            onAttachmentsChange={setAttachments}
+            onCommand={handleCommandFromAutocomplete}
+            cwd={cwd}
           />
         )}
       </div>

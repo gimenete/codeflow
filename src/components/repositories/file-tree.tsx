@@ -40,42 +40,7 @@ import {
   useFileTreeExpandedPaths,
   useFileTreeEntries,
 } from "@/lib/file-tree-store";
-
-// Fuzzy match: checks if pattern chars appear in order in str
-// Returns match indices and a score, or null if no match
-function fuzzyMatch(
-  pattern: string,
-  text: string,
-): { matches: number[]; score: number } | null {
-  const lowerPattern = pattern.toLowerCase();
-  const lowerText = text.toLowerCase();
-  const matches: number[] = [];
-  let patternIdx = 0;
-  let score = 0;
-  let lastMatchIdx = -1;
-
-  for (
-    let i = 0;
-    i < lowerText.length && patternIdx < lowerPattern.length;
-    i++
-  ) {
-    if (lowerText[i] === lowerPattern[patternIdx]) {
-      matches.push(i);
-      // Score: bonus for start, after separator, or consecutive
-      if (i === 0 || "/\\-_.".includes(text[i - 1])) {
-        score += 3;
-      } else if (lastMatchIdx === i - 1) {
-        score += 2;
-      } else {
-        score += 1;
-      }
-      lastMatchIdx = i;
-      patternIdx++;
-    }
-  }
-
-  return patternIdx === lowerPattern.length ? { matches, score } : null;
-}
+import { fuzzyMatch, HighlightedTextFromPattern } from "@/lib/fuzzy-search";
 
 interface FileTreeProps {
   rootPath: string;
@@ -93,65 +58,6 @@ interface TreeNodeProps {
   parentIgnored?: boolean;
   shouldScrollToSelected?: boolean;
   onScrollComplete?: () => void;
-}
-
-// Highlight fuzzy matching characters in a name (consecutive matches are unified)
-function HighlightedName({ name, pattern }: { name: string; pattern: string }) {
-  if (!pattern) {
-    return <span className="truncate">{name}</span>;
-  }
-
-  // Find all match indices
-  const matchIndices: number[] = [];
-  let patternIdx = 0;
-  const patternLower = pattern.toLowerCase();
-  const nameLower = name.toLowerCase();
-
-  for (let i = 0; i < name.length && patternIdx < patternLower.length; i++) {
-    if (nameLower[i] === patternLower[patternIdx]) {
-      matchIndices.push(i);
-      patternIdx++;
-    }
-  }
-
-  // Build result with consecutive matches unified
-  const result: React.ReactNode[] = [];
-  let i = 0;
-  let matchIdx = 0;
-
-  while (i < name.length) {
-    if (matchIdx < matchIndices.length && i === matchIndices[matchIdx]) {
-      // Start of a match sequence - find consecutive matches
-      let end = i;
-      while (
-        matchIdx < matchIndices.length - 1 &&
-        matchIndices[matchIdx + 1] === end + 1
-      ) {
-        matchIdx++;
-        end++;
-      }
-      // Add the unified highlight span
-      result.push(
-        <span key={i} className="bg-yellow-300 dark:bg-yellow-700 rounded-sm">
-          {name.slice(i, end + 1)}
-        </span>,
-      );
-      matchIdx++;
-      i = end + 1;
-    } else {
-      // Non-matching character - collect consecutive non-matches
-      const start = i;
-      while (
-        i < name.length &&
-        (matchIdx >= matchIndices.length || i !== matchIndices[matchIdx])
-      ) {
-        i++;
-      }
-      result.push(name.slice(start, i));
-    }
-  }
-
-  return <span className="truncate">{result}</span>;
 }
 
 const TreeNode = memo(function TreeNode({
@@ -315,7 +221,11 @@ function SearchResultItem({
       </span>
       <div className="flex flex-col min-w-0 flex-1">
         <span className={cn(result.ignored && "text-muted-foreground/50")}>
-          <HighlightedName name={result.name} pattern={pattern} />
+          <HighlightedTextFromPattern
+            text={result.name}
+            pattern={pattern}
+            className="truncate"
+          />
         </span>
         {dirPath && (
           <span
@@ -400,7 +310,7 @@ export function FileTree({
           path: fullPath,
           name: file.name,
           score: match.score,
-          matches: match.matches,
+          matches: match.matchIndices,
         });
       }
     }

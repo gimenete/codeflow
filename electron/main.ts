@@ -917,6 +917,13 @@ ipcMain.handle("shell:open-external", async (_event, url: string) => {
 
 // ==================== Claude Chat IPC Handlers ====================
 
+// Image content type for Claude API
+interface ImageContent {
+  type: "base64";
+  media_type: "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+  data: string;
+}
+
 ipcMain.handle(
   "claude:chat",
   async (
@@ -928,15 +935,46 @@ ipcMain.handle(
       cwd?: string;
       permissionMode?: string;
       sessionId?: string;
+      images?: ImageContent[];
     },
   ) => {
     if (!mainWindow) return;
 
     chatAbortController = new AbortController();
 
+    // Build prompt with images if provided
+    let finalPrompt: string | Array<{ type: string; [key: string]: unknown }> =
+      prompt;
+    if (options?.images && options.images.length > 0) {
+      // Construct multimodal content blocks
+      const contentBlocks: Array<{ type: string; [key: string]: unknown }> = [];
+
+      // Add images first
+      for (const img of options.images) {
+        contentBlocks.push({
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: img.media_type,
+            data: img.data,
+          },
+        });
+      }
+
+      // Add text prompt
+      if (prompt) {
+        contentBlocks.push({
+          type: "text",
+          text: prompt,
+        });
+      }
+
+      finalPrompt = contentBlocks;
+    }
+
     try {
       chatQuery = query({
-        prompt,
+        prompt: finalPrompt as string, // SDK accepts string or content blocks
         options: {
           abortController: chatAbortController,
           systemPrompt: options?.systemPrompt || undefined,
@@ -1565,6 +1603,42 @@ ipcMain.handle(
     return files;
   },
 );
+
+// ==================== App Info IPC Handlers ====================
+
+ipcMain.handle("app:get-info", async () => {
+  // Get Claude CLI version
+  let claudeCliVersion = "unknown";
+  try {
+    const { stdout } = await execAsync("claude --version");
+    // Parse version from output like "claude v2.1.29" or "2.1.29"
+    const match = stdout.match(/v?(\d+\.\d+\.\d+)/);
+    if (match) {
+      claudeCliVersion = match[1];
+    }
+  } catch {
+    // CLI not installed or not in PATH
+  }
+
+  // Read package.json to get app version info
+  const packageJsonPath = path.join(__dirname, "..", "package.json");
+  try {
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8"));
+    return {
+      appVersion: packageJson.version || "unknown",
+      claudeCliVersion,
+      claudeSdkVersion:
+        packageJson.dependencies?.["@anthropic-ai/claude-agent-sdk"] ||
+        "unknown",
+    };
+  } catch {
+    return {
+      appVersion: app.getVersion() || "unknown",
+      claudeCliVersion,
+      claudeSdkVersion: "unknown",
+    };
+  }
+});
 
 // Cleanup watchers and PTY sessions on window close
 app.on("before-quit", async () => {

@@ -50,6 +50,8 @@ export function ResultMessage({ message }: ResultMessageProps) {
     result.output_tokens ||
     result.cost_usd;
 
+  if (!hasError) return null;
+
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <div
