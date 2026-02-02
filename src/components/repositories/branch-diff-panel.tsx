@@ -1,4 +1,5 @@
 import { DiffViewer } from "@/components/diff-viewer";
+import { FileActionsDropdown } from "@/components/file-actions-dropdown";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,
@@ -167,19 +168,24 @@ export function BranchDiffPanel({
                 open={expandedFiles.has(file.path)}
                 onOpenChange={() => toggleFile(file.path)}
               >
-                <CollapsibleTrigger asChild>
-                  <button
-                    className={cn(
-                      "w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm text-left hover:bg-accent/50 transition-colors",
-                      expandedFiles.has(file.path) && "bg-accent/50",
-                    )}
-                  >
-                    {getStatusIcon(file.status)}
-                    <span className="truncate flex-1 font-mono text-xs">
-                      {file.path}
-                    </span>
-                  </button>
-                </CollapsibleTrigger>
+                <div className="flex items-center gap-1 group">
+                  <CollapsibleTrigger asChild>
+                    <button
+                      className={cn(
+                        "flex-1 flex items-center gap-2 px-2 py-1.5 rounded text-sm text-left hover:bg-accent/50 transition-colors",
+                        expandedFiles.has(file.path) && "bg-accent/50",
+                      )}
+                    >
+                      {getStatusIcon(file.status)}
+                      <span className="truncate flex-1 font-mono text-xs">
+                        {file.path}
+                      </span>
+                    </button>
+                  </CollapsibleTrigger>
+                  <div className="hidden group-hover:block shrink-0">
+                    <FileActionsDropdown filePath={file.path} />
+                  </div>
+                </div>
                 <CollapsibleContent>
                   <div className="ml-6 mt-1 mb-2 rounded border bg-muted/30 overflow-auto">
                     {fileDiffs[file.path] ? (

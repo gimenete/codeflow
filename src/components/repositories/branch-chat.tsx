@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "@/components/claude/chat-message";
-import { ChatInput } from "@/components/claude/chat-input";
+import { ChatInput, type ChatInputRef } from "@/components/claude/chat-input";
 import { ActiveToolIndicator } from "@/components/claude/active-tool-indicator";
 import { QuestionAnswerer } from "@/components/claude/question-answerer";
 import { WelcomeMessage } from "@/components/claude/welcome-message";
@@ -42,6 +42,7 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const conversationIdRef = useRef<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+  const chatInputRef = useRef<ChatInputRef>(null);
 
   const conversation = useConversationByBranchId(branch.id);
   const settings = useClaudeSettings();
@@ -59,6 +60,11 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
     clearConversation,
   } = useClaudeStore();
 
+  const promptText = useClaudeStore((s) => s.promptText);
+  const clearPromptText = useClaudeStore((s) => s.clearPromptText);
+  const shouldFocusInput = useClaudeStore((s) => s.shouldFocusInput);
+  const clearInputFocus = useClaudeStore((s) => s.clearInputFocus);
+
   // Sync sessionIdRef with conversation's sessionId when conversation exists
   useEffect(() => {
     if (conversation?.sessionId) {
@@ -67,6 +73,28 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
       sessionIdRef.current = null;
     }
   }, [conversation?.sessionId]);
+
+  // Consume promptText from store and append to input
+  useEffect(() => {
+    if (promptText) {
+      setInputValue((prev) => {
+        const needsSpace = prev.trim().length > 0 && !prev.endsWith(" ");
+        return prev + (needsSpace ? " " : "") + promptText;
+      });
+      clearPromptText();
+    }
+  }, [promptText, clearPromptText]);
+
+  // Focus input when requested from store
+  useEffect(() => {
+    if (shouldFocusInput) {
+      // Small delay to ensure the tab has switched and the input is visible
+      setTimeout(() => {
+        chatInputRef.current?.focus();
+      }, 50);
+      clearInputFocus();
+    }
+  }, [shouldFocusInput, clearInputFocus]);
 
   const scrollToBottom = useCallback((force = false) => {
     if (scrollAreaRef.current) {
@@ -563,6 +591,7 @@ export function BranchChat({ branch, cwd }: BranchChatProps) {
           />
         ) : (
           <ChatInput
+            ref={chatInputRef}
             value={inputValue}
             onChange={setInputValue}
             onSend={handleSend}

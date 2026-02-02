@@ -9,6 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Toaster } from "@/components/ui/sonner";
 import { loadAccounts } from "@/lib/auth";
 import {
   BreadcrumbProvider,
@@ -208,6 +209,8 @@ function RootLayoutContent() {
       <Scrollable.Layout direction="vertical">
         <Outlet />
       </Scrollable.Layout>
+
+      <Toaster />
 
       {/* {import.meta.env.DEV && <TanStackRouterDevtools />} */}
     </div>

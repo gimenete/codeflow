@@ -17,6 +17,7 @@ import {
   EmptyDescription,
 } from "@/components/ui/empty";
 import { Button } from "@/components/ui/button";
+import { FileActionsDropdown } from "@/components/file-actions-dropdown";
 import { FileTree } from "./file-tree";
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useDiffTheme } from "@/lib/use-diff-theme";
@@ -294,6 +295,13 @@ export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
                       </Button>
                     </>
                   )}
+                  <FileActionsDropdown
+                    filePath={
+                      selectedFile.startsWith(repositoryPath)
+                        ? selectedFile.slice(repositoryPath.length + 1)
+                        : selectedFile
+                    }
+                  />
                 </div>
               )}
               <div ref={fileViewerRef} className="flex-1 min-h-0 overflow-auto">

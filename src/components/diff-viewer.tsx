@@ -3,8 +3,8 @@ import type { DiffLineAnnotation } from "@pierre/diffs";
 import { cn } from "@/lib/utils";
 import { useDiffTheme } from "@/lib/use-diff-theme";
 import { Button } from "@/components/ui/button";
-import { Plus, Minus, Undo2, Copy, Check } from "lucide-react";
-import { useState } from "react";
+import { FileActionsDropdown } from "@/components/file-actions-dropdown";
+import { Plus, Minus, Undo2 } from "lucide-react";
 
 export interface HunkAnnotation {
   hunkIndex: number;
@@ -34,32 +34,6 @@ interface DiffViewerProps {
     hunkIndex: number,
     groupIndex: number,
   ) => void;
-}
-
-function CopyPathButton({ path }: { path: string }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = () => {
-    void navigator.clipboard.writeText(path);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
-
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="h-6 w-6"
-      onClick={handleCopy}
-      title="Copy file path"
-    >
-      {copied ? (
-        <Check className="h-3.5 w-3.5 text-green-500" />
-      ) : (
-        <Copy className="h-3.5 w-3.5" />
-      )}
-    </Button>
-  );
 }
 
 function HunkActions({
@@ -180,7 +154,7 @@ export function DiffViewer({
           : undefined
       }
       renderHeaderMetadata={({ fileDiff }) => (
-        <CopyPathButton path={fileDiff?.name ?? ""} />
+        <FileActionsDropdown filePath={fileDiff?.name ?? ""} />
       )}
       className={cn("font-mono text-xs", className)}
     />

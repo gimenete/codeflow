@@ -41,6 +41,12 @@ interface ClaudeState {
   streamingContent: string;
   currentAssistantTurnId: string | null; // Track current assistant turn for streaming
 
+  // Prompt text (ephemeral, not persisted) - for external components to add text to chat input
+  promptText: string | null;
+
+  // Focus request (ephemeral, not persisted) - for triggering input focus from external components
+  shouldFocusInput: boolean;
+
   // Actions - Conversations
   createConversation: () => string;
   createConversationForBranch: (branchId: string, cwd: string) => string;
@@ -63,6 +69,14 @@ interface ClaudeState {
 
   // Actions - Settings
   updateSettings: (settings: Partial<ClaudeSettings>) => void;
+
+  // Actions - Prompt text
+  appendToPrompt: (text: string) => void;
+  clearPromptText: () => void;
+
+  // Actions - Focus
+  requestInputFocus: () => void;
+  clearInputFocus: () => void;
 }
 
 function generateId(): string {
@@ -93,6 +107,8 @@ export const useClaudeStore = create<ClaudeState>()(
       isStreaming: false,
       streamingContent: "",
       currentAssistantTurnId: null,
+      promptText: null,
+      shouldFocusInput: false,
 
       createConversation: () => {
         const id = generateId();
@@ -269,6 +285,22 @@ export const useClaudeStore = create<ClaudeState>()(
         set((state) => ({
           settings: { ...state.settings, ...settings },
         }));
+      },
+
+      appendToPrompt: (text) => {
+        set({ promptText: text });
+      },
+
+      clearPromptText: () => {
+        set({ promptText: null });
+      },
+
+      requestInputFocus: () => {
+        set({ shouldFocusInput: true });
+      },
+
+      clearInputFocus: () => {
+        set({ shouldFocusInput: false });
       },
     }),
     {
