@@ -1,10 +1,11 @@
 import { PatchDiff } from "@pierre/diffs/react";
-import type { DiffLineAnnotation } from "@pierre/diffs";
+import type { DiffLineAnnotation, SelectedLineRange } from "@pierre/diffs";
 import { cn } from "@/lib/utils";
 import { useDiffTheme } from "@/lib/use-diff-theme";
 import { Button } from "@/components/ui/button";
 import { FileActionsDropdown } from "@/components/file-actions-dropdown";
 import { Plus, Minus, Undo2 } from "lucide-react";
+import type { LineRange } from "@/lib/use-line-selection";
 
 export interface HunkAnnotation {
   hunkIndex: number;
@@ -19,6 +20,9 @@ interface DiffViewerProps {
   className?: string;
   diffStyle?: "unified" | "split";
   lineAnnotations?: DiffLineAnnotation<HunkAnnotation>[];
+  selectedLines?: LineRange | null;
+  enableLineSelection?: boolean;
+  onLineSelected?: (range: LineRange | null) => void;
   onStageHunk?: (
     filePath: string,
     hunkIndex: number,
@@ -95,11 +99,26 @@ export function DiffViewer({
   className,
   diffStyle = "unified",
   lineAnnotations,
+  selectedLines,
+  enableLineSelection,
+  onLineSelected,
   onStageHunk,
   onUnstageHunk,
   onDiscardHunk,
 }: DiffViewerProps) {
   const theme = useDiffTheme();
+
+  // Convert our LineRange to the library's SelectedLineRange format
+  const librarySelectedLines: SelectedLineRange | null = selectedLines
+    ? { start: selectedLines.start, end: selectedLines.end }
+    : null;
+
+  // Handle line selection from the library
+  const handleLineSelected = (range: SelectedLineRange | null) => {
+    if (onLineSelected) {
+      onLineSelected(range ? { start: range.start, end: range.end } : null);
+    }
+  };
 
   if (!diff) {
     return (
@@ -121,7 +140,10 @@ export function DiffViewer({
         themeType: theme,
         diffStyle,
         overflow: "wrap",
+        enableLineSelection,
+        onLineSelected: enableLineSelection ? handleLineSelected : undefined,
       }}
+      selectedLines={librarySelectedLines}
       lineAnnotations={lineAnnotations}
       renderAnnotation={
         hasAnnotations

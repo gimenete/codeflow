@@ -12,13 +12,25 @@ import { Textarea } from "@/components/ui/textarea";
 
 interface RequestChangesDialogProps {
   filePath: string;
+  lineRange?: { start: number; end: number } | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (instructions: string) => void;
 }
 
+function formatLineRange(
+  lineRange: { start: number; end: number } | null | undefined,
+): string {
+  if (!lineRange) return "";
+  if (lineRange.start === lineRange.end) {
+    return ` line ${lineRange.start}`;
+  }
+  return ` lines ${lineRange.start}-${lineRange.end}`;
+}
+
 export function RequestChangesDialog({
   filePath,
+  lineRange,
   open,
   onOpenChange,
   onSubmit,
@@ -63,6 +75,7 @@ export function RequestChangesDialog({
             <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">
               {filePath}
             </code>
+            {formatLineRange(lineRange)}
           </DialogDescription>
         </DialogHeader>
         <Textarea

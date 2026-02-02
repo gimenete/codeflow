@@ -27,6 +27,16 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { LineSelectionActions } from "@/components/line-selection-actions";
+import { RequestChangesDialog } from "@/components/request-changes-dialog";
+import { formatLineReference, type LineRange } from "@/lib/use-line-selection";
+import { useClaudeStore } from "@/lib/claude-store";
+import {
   commitChanges,
   gitPull,
   gitPush,
@@ -47,6 +57,7 @@ import {
   Columns2,
   Edit as EditIcon,
   FileCode,
+  MessageSquarePlus,
   Minus,
   Plus,
   RefreshCw,
@@ -54,6 +65,8 @@ import {
   Undo2,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 
 interface CommitFormProps {
   repositoryPath: string;
@@ -166,6 +179,13 @@ type FileSelection = {
   section: "staged" | "unstaged";
 } | null;
 
+// Type for tracking line selection in diffs
+type DiffLineSelection = {
+  filePath: string;
+  section: "staged" | "unstaged";
+  lineRange: LineRange;
+} | null;
+
 export function BranchFilesView({
   branch,
   repositoryPath,
@@ -196,9 +216,96 @@ export function BranchFilesView({
     groupIndex: number;
   } | null>(null);
 
+  // Line selection state for diffs
+  const [lineSelection, setLineSelection] = useState<DiffLineSelection>(null);
+  const [contextMenuDialogOpen, setContextMenuDialogOpen] = useState(false);
+  const lineSelectionAnchorRef = useRef<HTMLElement | null>(null);
+
   const contentRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+
+  // Claude store for appending to prompt
+  const appendToPrompt = useClaudeStore((s) => s.appendToPrompt);
+  const requestInputFocus = useClaudeStore((s) => s.requestInputFocus);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const navigateToAgentTab = useCallback(() => {
+    const pathParts = location.pathname.split("/");
+    const branchesIndex = pathParts.indexOf("branches");
+    if (branchesIndex !== -1 && branchesIndex + 1 < pathParts.length) {
+      const basePath = pathParts.slice(0, branchesIndex + 2).join("/");
+      requestInputFocus();
+      void navigate({ to: `${basePath}/agent` });
+    }
+  }, [location.pathname, navigate, requestInputFocus]);
+
+  // Handle line selection in a diff
+  const handleLineSelected = useCallback(
+    (filePath: string, section: "staged" | "unstaged") =>
+      (range: LineRange | null) => {
+        if (range) {
+          setLineSelection({ filePath, section, lineRange: range });
+          // Find anchor element for floating button (via Shadow DOM)
+          setTimeout(() => {
+            const elementId = `branch-file-${section}-${filePath.replace(/[^a-zA-Z0-9]/g, "-")}`;
+            const container = document.getElementById(elementId);
+            const shadowHost = container?.querySelector("diffs-container");
+            const shadowRoot = shadowHost?.shadowRoot;
+            const lineElement = shadowRoot?.querySelector(
+              `[data-line="${range.end}"]`,
+            ) as HTMLElement | null;
+            lineSelectionAnchorRef.current = lineElement;
+          }, 0);
+        } else {
+          setLineSelection(null);
+          lineSelectionAnchorRef.current = null;
+        }
+      },
+    [],
+  );
+
+  // Clear line selection
+  const clearLineSelection = useCallback(() => {
+    setLineSelection(null);
+    lineSelectionAnchorRef.current = null;
+  }, []);
+
+  // Handle context menu request changes
+  const handleContextMenuRequestChanges = useCallback(
+    (instructions: string) => {
+      if (!lineSelection) return;
+      const reference = formatLineReference(
+        lineSelection.filePath,
+        lineSelection.lineRange,
+      );
+      appendToPrompt(`${reference} ${instructions}`);
+      toast.success("Change request added to chat", {
+        action: {
+          label: "Go to chat",
+          onClick: navigateToAgentTab,
+        },
+        duration: 3000,
+      });
+      clearLineSelection();
+    },
+    [lineSelection, appendToPrompt, navigateToAgentTab, clearLineSelection],
+  );
+
+  // Clear line selection on escape
+  useEffect(() => {
+    if (!lineSelection) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        clearLineSelection();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [lineSelection, clearLineSelection]);
 
   const stagedFiles = useMemo(
     () => status?.stagedFiles ?? [],
@@ -983,17 +1090,45 @@ export function BranchFilesView({
                                 Staged Changes
                               </div>
                             )}
-                            <div className="overflow-x-auto max-w-full border rounded">
-                              <LazyDiffViewer
-                                diff={stagedDiffs[filePath]}
-                                filePath={filePath}
-                                diffStyle={diffStyle}
-                                lineAnnotations={createStagedAnnotations(
-                                  filePath,
+                            <ContextMenu>
+                              <ContextMenuTrigger asChild>
+                                <div className="overflow-x-auto max-w-full border rounded">
+                                  <LazyDiffViewer
+                                    diff={stagedDiffs[filePath]}
+                                    filePath={filePath}
+                                    diffStyle={diffStyle}
+                                    lineAnnotations={createStagedAnnotations(
+                                      filePath,
+                                    )}
+                                    enableLineSelection
+                                    selectedLines={
+                                      lineSelection?.filePath === filePath &&
+                                      lineSelection?.section === "staged"
+                                        ? lineSelection.lineRange
+                                        : null
+                                    }
+                                    onLineSelected={handleLineSelected(
+                                      filePath,
+                                      "staged",
+                                    )}
+                                    onUnstageHunk={handleUnstageHunk}
+                                  />
+                                </div>
+                              </ContextMenuTrigger>
+                              {lineSelection?.filePath === filePath &&
+                                lineSelection?.section === "staged" && (
+                                  <ContextMenuContent>
+                                    <ContextMenuItem
+                                      onClick={() =>
+                                        setContextMenuDialogOpen(true)
+                                      }
+                                    >
+                                      <MessageSquarePlus className="h-4 w-4" />
+                                      Request changes...
+                                    </ContextMenuItem>
+                                  </ContextMenuContent>
                                 )}
-                                onUnstageHunk={handleUnstageHunk}
-                              />
-                            </div>
+                            </ContextMenu>
                           </div>
                         )}
 
@@ -1007,18 +1142,46 @@ export function BranchFilesView({
                                 Unstaged Changes
                               </div>
                             )}
-                            <div className="overflow-x-auto max-w-full border rounded">
-                              <LazyDiffViewer
-                                diff={unstagedDiffs[filePath]}
-                                filePath={filePath}
-                                diffStyle={diffStyle}
-                                lineAnnotations={createUnstagedAnnotations(
-                                  filePath,
+                            <ContextMenu>
+                              <ContextMenuTrigger asChild>
+                                <div className="overflow-x-auto max-w-full border rounded">
+                                  <LazyDiffViewer
+                                    diff={unstagedDiffs[filePath]}
+                                    filePath={filePath}
+                                    diffStyle={diffStyle}
+                                    lineAnnotations={createUnstagedAnnotations(
+                                      filePath,
+                                    )}
+                                    enableLineSelection
+                                    selectedLines={
+                                      lineSelection?.filePath === filePath &&
+                                      lineSelection?.section === "unstaged"
+                                        ? lineSelection.lineRange
+                                        : null
+                                    }
+                                    onLineSelected={handleLineSelected(
+                                      filePath,
+                                      "unstaged",
+                                    )}
+                                    onStageHunk={handleStageHunk}
+                                    onDiscardHunk={handleDiscardHunk}
+                                  />
+                                </div>
+                              </ContextMenuTrigger>
+                              {lineSelection?.filePath === filePath &&
+                                lineSelection?.section === "unstaged" && (
+                                  <ContextMenuContent>
+                                    <ContextMenuItem
+                                      onClick={() =>
+                                        setContextMenuDialogOpen(true)
+                                      }
+                                    >
+                                      <MessageSquarePlus className="h-4 w-4" />
+                                      Request changes...
+                                    </ContextMenuItem>
+                                  </ContextMenuContent>
                                 )}
-                                onStageHunk={handleStageHunk}
-                                onDiscardHunk={handleDiscardHunk}
-                              />
-                            </div>
+                            </ContextMenu>
                           </div>
                         )}
 
@@ -1060,6 +1223,26 @@ export function BranchFilesView({
           </Scrollable.Vertical>
         </div>
       </ResizablePanel>
+
+      {/* Line selection floating actions */}
+      {lineSelection && lineSelectionAnchorRef.current && (
+        <LineSelectionActions
+          filePath={lineSelection.filePath}
+          lineRange={lineSelection.lineRange}
+          anchorElement={lineSelectionAnchorRef.current}
+          onDismiss={clearLineSelection}
+          preventDismiss={() => {}}
+        />
+      )}
+
+      {/* Request changes dialog for line selection */}
+      <RequestChangesDialog
+        filePath={lineSelection?.filePath ?? ""}
+        lineRange={lineSelection?.lineRange}
+        open={contextMenuDialogOpen}
+        onOpenChange={setContextMenuDialogOpen}
+        onSubmit={handleContextMenuRequestChanges}
+      />
 
       {/* Discard file confirmation dialog */}
       <AlertDialog

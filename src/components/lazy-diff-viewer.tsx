@@ -2,12 +2,16 @@ import { useRef, useState, useEffect } from "react";
 import { DiffViewer, type HunkAnnotation } from "./diff-viewer";
 import { Skeleton } from "./ui/skeleton";
 import type { DiffLineAnnotation } from "@pierre/diffs";
+import type { LineRange } from "@/lib/use-line-selection";
 
 interface LazyDiffViewerProps {
   diff: string;
   filePath: string;
   diffStyle?: "unified" | "split";
   lineAnnotations?: DiffLineAnnotation<HunkAnnotation>[];
+  selectedLines?: LineRange | null;
+  enableLineSelection?: boolean;
+  onLineSelected?: (range: LineRange | null) => void;
   onStageHunk?: (
     filePath: string,
     hunkIndex: number,
@@ -30,6 +34,9 @@ export function LazyDiffViewer({
   filePath,
   diffStyle,
   lineAnnotations,
+  selectedLines,
+  enableLineSelection,
+  onLineSelected,
   onStageHunk,
   onUnstageHunk,
   onDiscardHunk,
@@ -63,6 +70,9 @@ export function LazyDiffViewer({
           filePath={filePath}
           diffStyle={diffStyle}
           lineAnnotations={lineAnnotations}
+          selectedLines={selectedLines}
+          enableLineSelection={enableLineSelection}
+          onLineSelected={onLineSelected}
           onStageHunk={onStageHunk}
           onUnstageHunk={onUnstageHunk}
           onDiscardHunk={onDiscardHunk}

@@ -1,4 +1,5 @@
 import { File } from "@pierre/diffs/react";
+import type { SelectedLineRange } from "@pierre/diffs";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -18,11 +19,33 @@ import {
 } from "@/components/ui/empty";
 import { Button } from "@/components/ui/button";
 import { FileActionsDropdown } from "@/components/file-actions-dropdown";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { LineSelectionActions } from "@/components/line-selection-actions";
+import { RequestChangesDialog } from "@/components/request-changes-dialog";
+import {
+  useLineSelection,
+  formatLineReference,
+} from "@/lib/use-line-selection";
+import { useClaudeStore } from "@/lib/claude-store";
 import { FileTree } from "./file-tree";
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useDiffTheme } from "@/lib/use-diff-theme";
 import type { TrackedBranch } from "@/lib/github-types";
-import { Search, ChevronUp, ChevronDown, X, FileCode } from "lucide-react";
+import {
+  Search,
+  ChevronUp,
+  ChevronDown,
+  X,
+  FileCode,
+  MessageSquarePlus,
+} from "lucide-react";
+import { toast } from "sonner";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import "@/lib/fs";
 
 interface SearchMatch {
@@ -52,9 +75,62 @@ export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchMatch[]>([]);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const [contextMenuDialogOpen, setContextMenuDialogOpen] = useState(false);
   const theme = useDiffTheme();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const fileViewerRef = useRef<HTMLDivElement>(null);
+
+  // Line selection state
+  const lineSelection = useLineSelection({
+    filePath: selectedFile ?? "",
+    containerRef: fileViewerRef,
+    enabled: !searchQuery, // Disable line selection when searching
+  });
+
+  // Claude store for appending to prompt
+  const appendToPrompt = useClaudeStore((s) => s.appendToPrompt);
+  const requestInputFocus = useClaudeStore((s) => s.requestInputFocus);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const navigateToAgentTab = useCallback(() => {
+    const pathParts = location.pathname.split("/");
+    const branchesIndex = pathParts.indexOf("branches");
+    if (branchesIndex !== -1 && branchesIndex + 1 < pathParts.length) {
+      const basePath = pathParts.slice(0, branchesIndex + 2).join("/");
+      requestInputFocus();
+      void navigate({ to: `${basePath}/agent` });
+    }
+  }, [location.pathname, navigate, requestInputFocus]);
+
+  // Get the relative file path for display and chat references
+  const relativeFilePath = useMemo(() => {
+    if (!selectedFile) return "";
+    return selectedFile.startsWith(repositoryPath)
+      ? selectedFile.slice(repositoryPath.length + 1)
+      : selectedFile;
+  }, [selectedFile, repositoryPath]);
+
+  // Handle context menu request changes
+  const handleContextMenuRequestChanges = useCallback(
+    (instructions: string) => {
+      if (!lineSelection.selectedRange) return;
+      const reference = formatLineReference(
+        relativeFilePath,
+        lineSelection.selectedRange,
+      );
+      appendToPrompt(`${reference} ${instructions}`);
+      toast.success("Change request added to chat", {
+        action: {
+          label: "Go to chat",
+          onClick: navigateToAgentTab,
+        },
+        duration: 3000,
+      });
+      lineSelection.clearSelection();
+    },
+    [relativeFilePath, lineSelection, appendToPrompt, navigateToAgentTab],
+  );
 
   // Scroll to current match when it changes
   useEffect(() => {
@@ -102,29 +178,35 @@ export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedFile, fileContent]);
 
-  const handleFileSelect = useCallback(async (filePath: string) => {
-    setSelectedFile(filePath);
-    setFileContent(null);
-    setFileError(null);
-    setSearchQuery("");
-    setSearchResults([]);
-    setCurrentMatchIndex(0);
+  const handleFileSelect = useCallback(
+    async (filePath: string) => {
+      setSelectedFile(filePath);
+      setFileContent(null);
+      setFileError(null);
+      setSearchQuery("");
+      setSearchResults([]);
+      setCurrentMatchIndex(0);
+      lineSelection.clearSelection();
 
-    if (!window.fsAPI) {
-      setFileError("File system API not available");
-      return;
-    }
+      if (!window.fsAPI) {
+        setFileError("File system API not available");
+        return;
+      }
 
-    try {
-      setLoadingFile(true);
-      const content = await window.fsAPI.readFile(filePath);
-      setFileContent(content);
-    } catch (err) {
-      setFileError(err instanceof Error ? err.message : "Failed to read file");
-    } finally {
-      setLoadingFile(false);
-    }
-  }, []);
+      try {
+        setLoadingFile(true);
+        const content = await window.fsAPI.readFile(filePath);
+        setFileContent(content);
+      } catch (err) {
+        setFileError(
+          err instanceof Error ? err.message : "Failed to read file",
+        );
+      } finally {
+        setLoadingFile(false);
+      }
+    },
+    [lineSelection],
+  );
 
   // Compute matches when query or content changes
   useEffect(() => {
@@ -169,14 +251,27 @@ export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
     );
   }, [searchResults.length]);
 
-  // Selected line for current match (strong highlight)
-  const selectedLines =
-    currentMatchIndex >= 0 && searchResults[currentMatchIndex]
-      ? {
-          start: searchResults[currentMatchIndex].lineNumber,
-          end: searchResults[currentMatchIndex].lineNumber,
-        }
-      : null;
+  // Selected lines: search highlight takes priority over manual line selection
+  const selectedLines: SelectedLineRange | null = useMemo(() => {
+    // If searching, use search highlight
+    if (
+      searchQuery &&
+      currentMatchIndex >= 0 &&
+      searchResults[currentMatchIndex]
+    ) {
+      return {
+        start: searchResults[currentMatchIndex].lineNumber,
+        end: searchResults[currentMatchIndex].lineNumber,
+      };
+    }
+    // Otherwise, use manual line selection
+    return lineSelection.selectedRange;
+  }, [
+    searchQuery,
+    currentMatchIndex,
+    searchResults,
+    lineSelection.selectedRange,
+  ]);
 
   // Generate CSS for all matching lines (subtle highlight)
   const searchHighlightCSS = useMemo(() => {
@@ -212,6 +307,21 @@ export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
   }, [searchResults, selectedLines?.start]);
 
   const fileExtension = selectedFile ? getFileExtension(selectedFile) : "";
+
+  // Handle line selection from the library
+  const handleLineSelected = useCallback(
+    (range: SelectedLineRange | null) => {
+      if (range) {
+        lineSelection.handleLineSelected({
+          start: range.start,
+          end: range.end,
+        });
+      } else {
+        lineSelection.clearSelection();
+      }
+    },
+    [lineSelection],
+  );
 
   return (
     <ResizablePanelGroup direction="horizontal" className="h-full min-h-0">
@@ -295,13 +405,7 @@ export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
                       </Button>
                     </>
                   )}
-                  <FileActionsDropdown
-                    filePath={
-                      selectedFile.startsWith(repositoryPath)
-                        ? selectedFile.slice(repositoryPath.length + 1)
-                        : selectedFile
-                    }
-                  />
+                  <FileActionsDropdown filePath={relativeFilePath} />
                 </div>
               )}
               <div ref={fileViewerRef} className="flex-1 min-h-0 overflow-auto">
@@ -314,23 +418,61 @@ export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
                     {fileError}
                   </div>
                 ) : fileContent !== null ? (
-                  <File
-                    file={{
-                      name: selectedFile.startsWith(repositoryPath)
-                        ? selectedFile.slice(repositoryPath.length + 1)
-                        : selectedFile,
-                      contents: fileContent,
-                      lang: fileExtension as never,
-                    }}
-                    options={{
-                      themeType: theme,
-                      overflow: "scroll",
-                      unsafeCSS: searchHighlightCSS,
-                    }}
-                    selectedLines={selectedLines}
-                    className="font-mono text-xs"
-                  />
+                  <ContextMenu>
+                    <ContextMenuTrigger asChild>
+                      <div className="h-full">
+                        <File
+                          file={{
+                            name: relativeFilePath,
+                            contents: fileContent,
+                            lang: fileExtension as never,
+                          }}
+                          options={{
+                            themeType: theme,
+                            overflow: "scroll",
+                            unsafeCSS: searchHighlightCSS,
+                            enableLineSelection: !searchQuery,
+                            onLineSelected: handleLineSelected,
+                          }}
+                          selectedLines={selectedLines}
+                          className="font-mono text-xs"
+                        />
+                      </div>
+                    </ContextMenuTrigger>
+                    {lineSelection.selectedRange && (
+                      <ContextMenuContent>
+                        <ContextMenuItem
+                          onClick={() => setContextMenuDialogOpen(true)}
+                        >
+                          <MessageSquarePlus className="h-4 w-4" />
+                          Request changes...
+                        </ContextMenuItem>
+                      </ContextMenuContent>
+                    )}
+                  </ContextMenu>
                 ) : null}
+
+                {/* Floating line selection actions */}
+                {lineSelection.selectedRange &&
+                  lineSelection.anchorElement &&
+                  !searchQuery && (
+                    <LineSelectionActions
+                      filePath={relativeFilePath}
+                      lineRange={lineSelection.selectedRange}
+                      anchorElement={lineSelection.anchorElement}
+                      onDismiss={lineSelection.clearSelection}
+                      preventDismiss={lineSelection.preventNextClear}
+                    />
+                  )}
+
+                {/* Context menu dialog */}
+                <RequestChangesDialog
+                  filePath={relativeFilePath}
+                  lineRange={lineSelection.selectedRange}
+                  open={contextMenuDialogOpen}
+                  onOpenChange={setContextMenuDialogOpen}
+                  onSubmit={handleContextMenuRequestChanges}
+                />
               </div>
             </>
           ) : (
