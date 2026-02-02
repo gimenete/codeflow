@@ -1,3 +1,4 @@
+import { CommandPalette } from "@/components/command-palette";
 import { Scrollable } from "@/components/flex-layout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,10 @@ import {
   type BreadcrumbItem,
 } from "@/lib/breadcrumbs";
 import {
+  CommandPaletteProvider,
+  useOpenCommandPalette,
+} from "@/lib/command-palette";
+import {
   useHideOnScroll,
   useIsLargeScreen,
   useNavigationHistory,
@@ -24,13 +29,15 @@ import {
 import { isElectron, isTauri } from "@/lib/platform";
 import { cn } from "@/lib/utils";
 import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
-import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Command } from "lucide-react";
 import { useHotkeys } from "react-hotkeys-hook";
 
 function RootLayout() {
   return (
     <BreadcrumbProvider>
-      <RootLayoutContent />
+      <CommandPaletteProvider>
+        <RootLayoutContent />
+      </CommandPaletteProvider>
     </BreadcrumbProvider>
   );
 }
@@ -131,9 +138,15 @@ function RootLayoutContent() {
   const shouldHideOnScroll = useHideOnScroll();
   const isLargeScreen = useIsLargeScreen();
   const { canGoBack, canGoForward, goBack, goForward } = useNavigationHistory();
+  const { toggle: toggleCommandPalette } = useOpenCommandPalette();
 
   // Only hide on mobile, always show on large screens
   const isNavbarHidden = !isLargeScreen && shouldHideOnScroll;
+
+  // Detect if running on macOS for keyboard shortcut display
+  const isMac =
+    typeof navigator !== "undefined" &&
+    navigator.userAgent.toLowerCase().includes("mac");
 
   // Keyboard shortcuts for navigation (Tauri only)
   // macOS: Cmd+[ and Cmd+]
@@ -144,6 +157,11 @@ function RootLayoutContent() {
   });
   useHotkeys("meta+], alt+right", goForward, {
     enabled: isTauri(),
+    preventDefault: true,
+  });
+
+  // Command palette shortcut: Cmd+K (macOS) / Ctrl+K (Windows/Linux)
+  useHotkeys("mod+k", toggleCommandPalette, {
     preventDefault: true,
   });
 
@@ -203,6 +221,20 @@ function RootLayoutContent() {
           </nav>
 
           <div className="flex-1" />
+
+          {/* Command palette button */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 app-region-no-drag"
+            onClick={toggleCommandPalette}
+            title={`Command palette (${isMac ? "⌘K" : "Ctrl+K"})`}
+          >
+            <Command className="h-4 w-4" />
+            <span className="text-xs text-muted-foreground">
+              {isMac ? "⌘K" : "Ctrl+K"}
+            </span>
+          </Button>
         </div>
       </header>
 
@@ -211,6 +243,8 @@ function RootLayoutContent() {
       </Scrollable.Layout>
 
       <Toaster />
+
+      <CommandPalette />
 
       {/* {import.meta.env.DEV && <TanStackRouterDevtools />} */}
     </div>

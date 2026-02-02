@@ -5,6 +5,7 @@ import { BranchFilesView } from "@/components/repositories/branch-files-view";
 import { BranchCommitsView } from "@/components/repositories/branch-commits-view";
 import { BranchCodeView } from "@/components/repositories/branch-code-view";
 import { useBranchById, useBranchesStore } from "@/lib/branches-store";
+import { useCommandPalette, type CommandItem } from "@/lib/command-palette";
 import { useRepositoriesStore } from "@/lib/repositories-store";
 import {
   createFileRoute,
@@ -21,7 +22,7 @@ import {
   TerminalSquare,
 } from "lucide-react";
 import { ClaudeIcon } from "@/components/ui/claude-icon";
-import { Activity, useEffect, useState } from "react";
+import { Activity, useCallback, useEffect, useMemo, useState } from "react";
 import type { AgentType } from "@/lib/github-types";
 
 type TabType = "agent" | "diff" | "commits" | "code" | "terminal";
@@ -70,6 +71,66 @@ function BranchDetailPage() {
   const [visitedTabs, setVisitedTabs] = useState<Set<TabType>>(
     () => new Set([activeTab]),
   );
+
+  // Navigation helpers for command palette
+  const navigateToTab = useCallback(
+    (tab: TabType) => {
+      void navigate({
+        to: `/repositories/$repository/branches/$branch/${tab === "agent" ? "agent" : tab === "diff" ? "diff" : tab === "commits" ? "commits" : tab === "code" ? "code" : "terminal"}`,
+        params: { repository: repositorySlug, branch: branchId },
+      });
+    },
+    [navigate, repositorySlug, branchId],
+  );
+
+  // Register command palette commands for tab switching
+  const commands = useMemo<CommandItem[]>(
+    () => [
+      {
+        id: "tab-agent",
+        label: AGENT_NAMES[repository.agent],
+        group: "Tabs",
+        shortcut: "⌘1",
+        icon: <ClaudeIcon className="h-4 w-4" />,
+        onSelect: () => navigateToTab("agent"),
+      },
+      {
+        id: "tab-changes",
+        label: "Changes",
+        group: "Tabs",
+        shortcut: "⌘2",
+        icon: <FileText className="h-4 w-4" />,
+        onSelect: () => navigateToTab("diff"),
+      },
+      {
+        id: "tab-commits",
+        label: "Commits",
+        group: "Tabs",
+        shortcut: "⌘3",
+        icon: <GitCommitHorizontal className="h-4 w-4" />,
+        onSelect: () => navigateToTab("commits"),
+      },
+      {
+        id: "tab-code",
+        label: "Code",
+        group: "Tabs",
+        shortcut: "⌘4",
+        icon: <Code className="h-4 w-4" />,
+        onSelect: () => navigateToTab("code"),
+      },
+      {
+        id: "tab-terminal",
+        label: "Terminal",
+        group: "Tabs",
+        shortcut: "⌘5",
+        icon: <TerminalSquare className="h-4 w-4" />,
+        onSelect: () => navigateToTab("terminal"),
+      },
+    ],
+    [repository.agent, navigateToTab],
+  );
+
+  useCommandPalette(commands);
 
   // Add current tab to visited set when it changes
   useEffect(() => {

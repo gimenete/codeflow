@@ -1,5 +1,6 @@
 import { Scrollable } from "@/components/flex-layout";
 import { LazyDiffViewer } from "@/components/lazy-diff-viewer";
+import { File } from "@pierre/diffs/react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,6 +51,7 @@ import type { HunkAnnotation } from "@/components/diff-viewer";
 import type { DiffLineAnnotation } from "@pierre/diffs";
 import type { GitFileStatus, TrackedBranch } from "@/lib/github-types";
 import { isElectron } from "@/lib/platform";
+import { useDiffTheme } from "@/lib/use-diff-theme";
 import { cn, fuzzyFilter } from "@/lib/utils";
 import {
   ArrowDownUp,
@@ -66,6 +68,14 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useLocation, useNavigate } from "@tanstack/react-router";
+
+function getFileExtension(filePath: string): string {
+  const parts = filePath.split("/");
+  const fileName = parts[parts.length - 1];
+  const dotIndex = fileName.lastIndexOf(".");
+  if (dotIndex === -1) return "";
+  return fileName.substring(dotIndex + 1).toLowerCase();
+}
 
 interface CommitFormProps {
   repositoryPath: string;
@@ -205,6 +215,12 @@ export function BranchFilesView({
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [diffStyle, setDiffStyle] = useState<"unified" | "split">("unified");
 
+  // State for file contents (for files with no diff - new untracked files)
+  const [fileContents, setFileContents] = useState<Record<string, string>>({});
+
+  // Theme for the File component
+  const theme = useDiffTheme();
+
   // State for discard confirmation dialogs
   const [pendingFileDiscard, setPendingFileDiscard] = useState<string | null>(
     null,
@@ -302,12 +318,25 @@ export function BranchFilesView({
   );
   const hasChanges = stagedFiles.length > 0 || unstagedFiles.length > 0;
 
-  // Get all unique file paths for the diff view
+  // Get all unique file paths for the diff view (same order as file list: staged first, then unstaged)
   const allFilePaths = useMemo(() => {
-    const paths = new Set<string>();
-    stagedFiles.forEach((f) => paths.add(f.path));
-    unstagedFiles.forEach((f) => paths.add(f.path));
-    return Array.from(paths).sort();
+    const seen = new Set<string>();
+    const paths: string[] = [];
+    // Add staged files first
+    for (const f of stagedFiles) {
+      if (!seen.has(f.path)) {
+        seen.add(f.path);
+        paths.push(f.path);
+      }
+    }
+    // Then add unstaged files (excluding duplicates)
+    for (const f of unstagedFiles) {
+      if (!seen.has(f.path)) {
+        seen.add(f.path);
+        paths.push(f.path);
+      }
+    }
+    return paths;
   }, [stagedFiles, unstagedFiles]);
 
   // Filter files based on search query
@@ -362,12 +391,14 @@ export function BranchFilesView({
       setStagedDiffs({});
       setUnstagedDiffs({});
       setLoadedFilePaths(new Set());
+      setFileContents({});
       return;
     }
 
     async function fetchDiffs() {
       const newStagedDiffs: Record<string, string> = {};
       const newUnstagedDiffs: Record<string, string> = {};
+      const newFileContents: Record<string, string> = {};
 
       for (const filePath of allFilePaths) {
         try {
@@ -382,6 +413,23 @@ export function BranchFilesView({
             repositoryPath,
             filePath,
           );
+
+          // If both diffs are empty, read the file content directly
+          // This handles new untracked files that git doesn't diff
+          if (
+            !newStagedDiffs[filePath]?.trim() &&
+            !newUnstagedDiffs[filePath]?.trim() &&
+            window.fsAPI
+          ) {
+            try {
+              const fullPath = `${repositoryPath}/${filePath}`;
+              const content = await window.fsAPI.readFile(fullPath);
+              newFileContents[filePath] = content;
+            } catch {
+              // File might be binary or unreadable - leave as empty
+              newFileContents[filePath] = "";
+            }
+          }
         } catch {
           newStagedDiffs[filePath] = "";
           newUnstagedDiffs[filePath] = "";
@@ -390,6 +438,7 @@ export function BranchFilesView({
 
       setStagedDiffs(newStagedDiffs);
       setUnstagedDiffs(newUnstagedDiffs);
+      setFileContents(newFileContents);
       setLoadedFilePaths(new Set(allFilePaths));
     }
 
@@ -701,8 +750,9 @@ export function BranchFilesView({
   const scrollToFile = useCallback(
     (path: string, section: "staged" | "unstaged") => {
       setSelectedFile({ path, section });
-      const elementId = `branch-file-${section}-${path.replace(/[^a-zA-Z0-9]/g, "-")}`;
-      const element = document.getElementById(elementId);
+      // Use data attributes for reliable matching - CSS.escape handles special characters
+      const selector = `[data-file-section="${section}"][data-file-path="${CSS.escape(path)}"]`;
+      const element = document.querySelector(selector);
       if (element) {
         element.scrollIntoView({ behavior: "smooth", block: "start" });
       }
@@ -1068,7 +1118,8 @@ export function BranchFilesView({
                         {/* Staged changes */}
                         {hasStaged && (
                           <div
-                            id={`branch-file-staged-${filePath.replace(/[^a-zA-Z0-9]/g, "-")}`}
+                            data-file-section="staged"
+                            data-file-path={filePath}
                           >
                             {hasBoth && (
                               <div className="text-sm font-medium text-muted-foreground mb-2">
@@ -1120,7 +1171,8 @@ export function BranchFilesView({
                         {/* Unstaged changes */}
                         {hasUnstaged && (
                           <div
-                            id={`branch-file-unstaged-${filePath.replace(/[^a-zA-Z0-9]/g, "-")}`}
+                            data-file-section="unstaged"
+                            data-file-path={filePath}
                           >
                             {hasBoth && (
                               <div className="text-sm font-medium text-muted-foreground mb-2">
@@ -1191,12 +1243,36 @@ export function BranchFilesView({
                             </div>
                           )}
 
-                        {/* Show message for loaded files with no diff content (binary files, etc.) */}
+                        {/* Show file content for new files or message for binary files */}
                         {!hasUnstaged &&
                           !hasStaged &&
                           loadedFilePaths.has(filePath) && (
-                            <div className="text-muted-foreground text-sm">
-                              Binary file or no textual changes
+                            <div
+                              data-file-section={
+                                unstagedFiles.some((f) => f.path === filePath)
+                                  ? "unstaged"
+                                  : "staged"
+                              }
+                              data-file-path={filePath}
+                            >
+                              {fileContents[filePath] ? (
+                                <File
+                                  file={{
+                                    name: filePath,
+                                    contents: fileContents[filePath],
+                                    lang: getFileExtension(filePath) as never,
+                                  }}
+                                  options={{
+                                    themeType: theme,
+                                    overflow: "scroll",
+                                  }}
+                                  className="font-mono text-xs border rounded"
+                                />
+                              ) : (
+                                <div className="text-muted-foreground text-sm p-4 border rounded">
+                                  Binary file
+                                </div>
+                              )}
                             </div>
                           )}
                       </div>
