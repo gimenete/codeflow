@@ -13,18 +13,15 @@ export interface UseLineSelectionOptions {
 
 export interface UseLineSelectionReturn {
   selectedRange: LineRange | null;
-  anchorElement: HTMLElement | null;
   clearSelection: () => void;
   handleLineSelected: (range: LineRange | null) => void;
   preventNextClear: () => void;
 }
 
 export function useLineSelection({
-  containerRef,
   enabled = true,
 }: UseLineSelectionOptions): UseLineSelectionReturn {
   const [selectedRange, setSelectedRange] = useState<LineRange | null>(null);
-  const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null);
   const ignoreNextClear = useRef(false);
 
   const clearSelection = useCallback(() => {
@@ -33,7 +30,6 @@ export function useLineSelection({
       return;
     }
     setSelectedRange(null);
-    setAnchorElement(null);
   }, []);
 
   const handleLineSelected = useCallback(
@@ -52,18 +48,8 @@ export function useLineSelection({
       };
 
       setSelectedRange(normalizedRange);
-
-      // Find the line element to anchor the floating button
-      // The @pierre/diffs library uses Shadow DOM
-      const shadowHost = containerRef.current?.querySelector("diffs-container");
-      const shadowRoot = shadowHost?.shadowRoot;
-      const lineElement = shadowRoot?.querySelector(
-        `[data-line="${normalizedRange.end}"]`,
-      ) as HTMLElement | null;
-
-      setAnchorElement(lineElement);
     },
-    [enabled, containerRef, clearSelection],
+    [enabled, clearSelection],
   );
 
   // Clear selection on Escape key
@@ -87,7 +73,6 @@ export function useLineSelection({
 
   return {
     selectedRange,
-    anchorElement,
     clearSelection,
     handleLineSelected,
     preventNextClear,

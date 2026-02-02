@@ -32,7 +32,6 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { LineSelectionActions } from "@/components/line-selection-actions";
 import { RequestChangesDialog } from "@/components/request-changes-dialog";
 import { formatLineReference, type LineRange } from "@/lib/use-line-selection";
 import { useClaudeStore } from "@/lib/claude-store";
@@ -219,7 +218,6 @@ export function BranchFilesView({
   // Line selection state for diffs
   const [lineSelection, setLineSelection] = useState<DiffLineSelection>(null);
   const [contextMenuDialogOpen, setContextMenuDialogOpen] = useState(false);
-  const lineSelectionAnchorRef = useRef<HTMLElement | null>(null);
 
   const contentRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -247,20 +245,8 @@ export function BranchFilesView({
       (range: LineRange | null) => {
         if (range) {
           setLineSelection({ filePath, section, lineRange: range });
-          // Find anchor element for floating button (via Shadow DOM)
-          setTimeout(() => {
-            const elementId = `branch-file-${section}-${filePath.replace(/[^a-zA-Z0-9]/g, "-")}`;
-            const container = document.getElementById(elementId);
-            const shadowHost = container?.querySelector("diffs-container");
-            const shadowRoot = shadowHost?.shadowRoot;
-            const lineElement = shadowRoot?.querySelector(
-              `[data-line="${range.end}"]`,
-            ) as HTMLElement | null;
-            lineSelectionAnchorRef.current = lineElement;
-          }, 0);
         } else {
           setLineSelection(null);
-          lineSelectionAnchorRef.current = null;
         }
       },
     [],
@@ -269,7 +255,6 @@ export function BranchFilesView({
   // Clear line selection
   const clearLineSelection = useCallback(() => {
     setLineSelection(null);
-    lineSelectionAnchorRef.current = null;
   }, []);
 
   // Handle context menu request changes
@@ -1223,17 +1208,6 @@ export function BranchFilesView({
           </Scrollable.Vertical>
         </div>
       </ResizablePanel>
-
-      {/* Line selection floating actions */}
-      {lineSelection && lineSelectionAnchorRef.current && (
-        <LineSelectionActions
-          filePath={lineSelection.filePath}
-          lineRange={lineSelection.lineRange}
-          anchorElement={lineSelectionAnchorRef.current}
-          onDismiss={clearLineSelection}
-          preventDismiss={() => {}}
-        />
-      )}
 
       {/* Request changes dialog for line selection */}
       <RequestChangesDialog

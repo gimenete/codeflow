@@ -25,7 +25,6 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { LineSelectionActions } from "@/components/line-selection-actions";
 import { RequestChangesDialog } from "@/components/request-changes-dialog";
 import {
   useLineSelection,
@@ -451,19 +450,6 @@ export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
                     )}
                   </ContextMenu>
                 ) : null}
-
-                {/* Floating line selection actions */}
-                {lineSelection.selectedRange &&
-                  lineSelection.anchorElement &&
-                  !searchQuery && (
-                    <LineSelectionActions
-                      filePath={relativeFilePath}
-                      lineRange={lineSelection.selectedRange}
-                      anchorElement={lineSelection.anchorElement}
-                      onDismiss={lineSelection.clearSelection}
-                      preventDismiss={lineSelection.preventNextClear}
-                    />
-                  )}
 
                 {/* Context menu dialog */}
                 <RequestChangesDialog
