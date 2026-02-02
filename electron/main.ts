@@ -535,10 +535,9 @@ ipcMain.handle(
 
 ipcMain.handle(
   "git:commit",
-  async (_event, repoPath: string, files: string[], message: string) => {
+  async (_event, repoPath: string, _files: string[], message: string) => {
     try {
       const git = getGit(repoPath);
-      await git.add(files);
       const result = await git.commit(message);
       return result.commit;
     } catch (error) {
