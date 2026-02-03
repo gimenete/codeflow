@@ -13,7 +13,6 @@ import {
   CircleDot,
   GitBranch,
   GitPullRequest,
-  ListTodo,
   Plus,
   Search,
 } from "lucide-react";
@@ -169,20 +168,6 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
             </Button>
           </div>
           <div className="space-y-1">
-            <Link
-              to="/repositories/$repository/branches"
-              params={{ repository: repositorySlug! }}
-              className={cn(
-                "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
-                location.pathname.includes("/branches")
-                  ? "bg-accent text-accent-foreground"
-                  : "hover:bg-accent/50 text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <ListTodo className="h-4 w-4" />
-              Overview
-            </Link>
-
             {trackedBranches.length === 0 ? (
               <p className="px-3 py-2 text-xs text-muted-foreground">
                 No branches tracked
