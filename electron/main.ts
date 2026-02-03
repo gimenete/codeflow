@@ -95,6 +95,17 @@ function getGit(repoPath: string): SimpleGit {
   return simpleGit(repoPath);
 }
 
+// Helper to get the subdirectory prefix when cwd is inside a monorepo subfolder.
+// Returns e.g. "packages/app/" when cwd is a subfolder, or "" at the git root.
+async function getSubdirPrefix(git: SimpleGit): Promise<string> {
+  try {
+    const prefix = await git.revparse(["--show-prefix"]);
+    return prefix.trim();
+  } catch {
+    return "";
+  }
+}
+
 // Helper to apply patch content (writes to temp file since simple-git expects file paths)
 async function applyPatchContent(
   git: SimpleGit,
@@ -225,18 +236,30 @@ ipcMain.handle("git:status", async (_event, repoPath: string) => {
       return "modified"; // fallback
     };
 
+    // When cwd is a subfolder in a monorepo, git status returns paths relative
+    // to the git root. We filter to only files in our subfolder and strip the prefix
+    // so paths are cwd-relative (consistent with how diff/stage/unstage resolve paths).
+    const prefix = await getSubdirPrefix(git);
+
     // Process files into staged and unstaged arrays
     // A file can appear in BOTH arrays if it has both staged and unstaged changes
     const stagedFiles: GitFileStatus[] = [];
     const unstagedFiles: GitFileStatus[] = [];
 
     for (const file of status.files) {
+      // Filter to files within the subdirectory prefix
+      if (prefix && !file.path.startsWith(prefix)) {
+        continue;
+      }
+      // Strip prefix to make paths cwd-relative
+      const filePath = prefix ? file.path.slice(prefix.length) : file.path;
+
       const { index, working_dir } = file;
 
       // Staged: index is not ' ' (unmodified) and not '?' (untracked)
       if (index !== " " && index !== "?") {
         stagedFiles.push({
-          path: file.path,
+          path: filePath,
           status: mapStagedStatusCode(index),
         });
       }
@@ -244,7 +267,7 @@ ipcMain.handle("git:status", async (_event, repoPath: string) => {
       // Unstaged: working_dir is not ' ' (unmodified)
       if (working_dir !== " ") {
         unstagedFiles.push({
-          path: file.path,
+          path: filePath,
           status: mapUnstagedStatusCode(working_dir),
         });
       }
@@ -731,7 +754,7 @@ ipcMain.handle(
     try {
       const git = getGit(repoPath);
       // Get diff between current HEAD and the base branch
-      const diff = await git.diff([`${baseBranch}...HEAD`]);
+      const diff = await git.diff([`${baseBranch}...HEAD`, "--", "."]);
       return diff;
     } catch (error) {
       console.error("git:diff-base error:", error);
@@ -743,7 +766,7 @@ ipcMain.handle(
 ipcMain.handle("git:diff-summary", async (_event, repoPath: string) => {
   try {
     const git = getGit(repoPath);
-    const summary = await git.diffSummary();
+    const summary = await git.diffSummary(["--", "."]);
     return {
       insertions: summary.insertions,
       deletions: summary.deletions,
