@@ -1,3 +1,5 @@
+// hello world
+
 import { Scrollable } from "@/components/flex-layout";
 import { LazyDiffViewer } from "@/components/lazy-diff-viewer";
 import { File } from "@pierre/diffs/react";

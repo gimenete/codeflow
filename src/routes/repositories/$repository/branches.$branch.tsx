@@ -24,6 +24,9 @@ import {
 import { ClaudeIcon } from "@/components/ui/claude-icon";
 import { Activity, useCallback, useEffect, useMemo, useState } from "react";
 import type { AgentType } from "@/lib/github-types";
+import { useAgentStatus } from "@/lib/agent-status";
+import { useDiffStats } from "@/lib/git";
+import { cn } from "@/lib/utils";
 
 type TabType = "agent" | "diff" | "commits" | "code" | "terminal";
 
@@ -159,6 +162,10 @@ function BranchDetailPage() {
     }
   }, [branch, branchId, repository, navigate]);
 
+  const cwd = branch?.worktreePath || repository.path;
+  const agentStatus = useAgentStatus(branchId);
+  const { stats: diffStats } = useDiffStats(cwd ?? undefined);
+
   if (!branch) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -166,8 +173,6 @@ function BranchDetailPage() {
       </div>
     );
   }
-
-  const cwd = branch.worktreePath || repository.path;
 
   // Show message if no local path is configured
   if (!cwd) {
@@ -199,6 +204,16 @@ function BranchDetailPage() {
               >
                 <ClaudeIcon className="h-4 w-4" />
                 {AGENT_NAMES[repository.agent]}
+                {agentStatus !== "idle" && (
+                  <span
+                    className={cn(
+                      "h-2 w-2 rounded-full",
+                      agentStatus === "working" &&
+                        "bg-yellow-500 animate-pulse",
+                      agentStatus === "waiting" && "bg-blue-500",
+                    )}
+                  />
+                )}
               </TabsTrigger>
             </Link>
             <Link
@@ -211,6 +226,21 @@ function BranchDetailPage() {
               >
                 <FileText className="h-4 w-4" />
                 Changes
+                {diffStats &&
+                  (diffStats.insertions > 0 || diffStats.deletions > 0) && (
+                    <span className="flex items-center gap-1 text-xs">
+                      {diffStats.insertions > 0 && (
+                        <span className="text-green-600">
+                          +{diffStats.insertions}
+                        </span>
+                      )}
+                      {diffStats.deletions > 0 && (
+                        <span className="text-red-600">
+                          -{diffStats.deletions}
+                        </span>
+                      )}
+                    </span>
+                  )}
               </TabsTrigger>
             </Link>
             <Link
@@ -259,7 +289,11 @@ function BranchDetailPage() {
         {visitedTabs.has("agent") && (
           <Activity mode={activeTab === "agent" ? "visible" : "hidden"}>
             <div className="absolute inset-0">
-              <BranchChat branch={branch} cwd={cwd} />
+              <BranchChat
+                branch={branch}
+                cwd={cwd}
+                isAgentTabActive={activeTab === "agent"}
+              />
             </div>
           </Activity>
         )}

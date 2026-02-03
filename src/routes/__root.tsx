@@ -27,9 +27,12 @@ import {
   useNavigationHistory,
 } from "@/lib/hooks";
 import { isElectron, isTauri } from "@/lib/platform";
+import { setupClaudeChatIPC } from "@/lib/claude-ipc";
+import { requestNotificationPermission } from "@/lib/notifications";
 import { cn } from "@/lib/utils";
 import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
 import { ChevronDown, ChevronLeft, ChevronRight, Command } from "lucide-react";
+import { useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
 function RootLayout() {
@@ -139,6 +142,12 @@ function RootLayoutContent() {
   const isLargeScreen = useIsLargeScreen();
   const { canGoBack, canGoForward, goBack, goForward } = useNavigationHistory();
   const { toggle: toggleCommandPalette } = useOpenCommandPalette();
+
+  // Request notification permission and setup IPC listeners on mount
+  useEffect(() => {
+    requestNotificationPermission();
+    setupClaudeChatIPC();
+  }, []);
 
   // Only hide on mobile, always show on large screens
   const isNavbarHidden = !isLargeScreen && shouldHideOnScroll;

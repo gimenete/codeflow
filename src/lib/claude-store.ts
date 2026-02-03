@@ -28,6 +28,13 @@ export interface ClaudeSettings {
   permissionMode: PermissionMode;
 }
 
+export interface StreamingContext {
+  conversationId: string;
+  branchId: string;
+  branchName: string;
+  repositorySlug: string;
+}
+
 interface ClaudeState {
   // Conversations
   conversations: Conversation[];
@@ -36,10 +43,16 @@ interface ClaudeState {
   // Settings
   settings: ClaudeSettings;
 
-  // Streaming state
-  isStreaming: boolean;
+  // Streaming state (per-branch)
+  streamingBranchIds: Set<string>;
+  isStreaming: boolean; // Derived: streamingBranchIds.size > 0
   streamingContent: string;
   currentAssistantTurnId: string | null; // Track current assistant turn for streaming
+
+  // Streaming context (ephemeral, not persisted) - tracks active streaming session
+  streamingContext: StreamingContext | null;
+  streamingError: string | null;
+  agentTabVisible: boolean;
 
   // Prompt text (ephemeral, not persisted) - for external components to add text to chat input
   promptText: string | null;
@@ -62,13 +75,22 @@ interface ClaudeState {
   appendSDKMessage: (conversationId: string, message: SDKMessage) => void;
   setConversationSessionId: (conversationId: string, sessionId: string) => void;
 
-  // Actions - Streaming
+  // Actions - Streaming (per-branch)
+  startStreaming: (branchId: string) => void;
+  stopStreaming: (branchId: string) => void;
+  isBranchStreaming: (branchId: string) => boolean;
   setStreaming: (isStreaming: boolean) => void;
   setStreamingContent: (content: string) => void;
   appendStreamingContent: (chunk: string) => void;
 
   // Actions - Settings
   updateSettings: (settings: Partial<ClaudeSettings>) => void;
+
+  // Actions - Streaming context
+  setStreamingContext: (ctx: StreamingContext) => void;
+  clearStreamingContext: () => void;
+  setStreamingError: (error: string | null) => void;
+  setAgentTabVisible: (visible: boolean) => void;
 
   // Actions - Prompt text
   appendToPrompt: (text: string) => void;
@@ -104,9 +126,13 @@ export const useClaudeStore = create<ClaudeState>()(
         systemPrompt: "",
         permissionMode: "acceptEdits",
       },
+      streamingBranchIds: new Set<string>(),
       isStreaming: false,
       streamingContent: "",
       currentAssistantTurnId: null,
+      streamingContext: null,
+      streamingError: null,
+      agentTabVisible: true,
       promptText: null,
       shouldFocusInput: false,
 
@@ -264,6 +290,36 @@ export const useClaudeStore = create<ClaudeState>()(
         }));
       },
 
+      startStreaming: (branchId) => {
+        set((state) => {
+          const next = new Set(state.streamingBranchIds);
+          next.add(branchId);
+          return {
+            streamingBranchIds: next,
+            isStreaming: true,
+            streamingContent: "",
+            currentAssistantTurnId: `turn-${Date.now()}`,
+          };
+        });
+      },
+
+      stopStreaming: (branchId) => {
+        set((state) => {
+          const next = new Set(state.streamingBranchIds);
+          next.delete(branchId);
+          return {
+            streamingBranchIds: next,
+            isStreaming: next.size > 0,
+            streamingContent: "",
+            currentAssistantTurnId: null,
+          };
+        });
+      },
+
+      isBranchStreaming: (branchId) => {
+        return get().streamingBranchIds.has(branchId);
+      },
+
       setStreaming: (isStreaming) => {
         set({ isStreaming });
         if (!isStreaming) {
@@ -285,6 +341,22 @@ export const useClaudeStore = create<ClaudeState>()(
         set((state) => ({
           settings: { ...state.settings, ...settings },
         }));
+      },
+
+      setStreamingContext: (ctx) => {
+        set({ streamingContext: ctx });
+      },
+
+      clearStreamingContext: () => {
+        set({ streamingContext: null });
+      },
+
+      setStreamingError: (error) => {
+        set({ streamingError: error });
+      },
+
+      setAgentTabVisible: (visible) => {
+        set({ agentTabVisible: visible });
       },
 
       appendToPrompt: (text) => {
@@ -429,4 +501,12 @@ export function useConversationByBranchId(
   return useClaudeStore(
     (state) => state.conversations.find((c) => c.branchId === branchId) ?? null,
   );
+}
+
+export function useIsBranchStreaming(branchId: string): boolean {
+  return useClaudeStore((state) => state.streamingBranchIds.has(branchId));
+}
+
+export function useStreamingError(): string | null {
+  return useClaudeStore((state) => state.streamingError);
 }

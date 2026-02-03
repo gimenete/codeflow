@@ -175,6 +175,16 @@ const gitAPI = {
   getDiffBase: (path: string, baseBranch?: string): Promise<string> => {
     return ipcRenderer.invoke("git:diff-base", path, baseBranch);
   },
+
+  getDiffSummary: (
+    path: string,
+  ): Promise<{
+    insertions: number;
+    deletions: number;
+    filesChanged: number;
+  }> => {
+    return ipcRenderer.invoke("git:diff-summary", path);
+  },
 };
 
 // Credential API

@@ -1,9 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { useBranchesByRepositoryId } from "@/lib/branches-store";
-import type { Repository } from "@/lib/github-types";
+import type { Repository, TrackedBranch } from "@/lib/github-types";
 import { getIconById } from "@/lib/query-icons";
 import { getOwnerRepo, parseRemoteUrl } from "@/lib/remote-url";
 import { useSavedQueries } from "@/lib/saved-queries-store";
+import { useAgentStatus } from "@/lib/agent-status";
+import { useDiffStats } from "@/lib/git";
 import { cn } from "@/lib/utils";
 import { Link, useLocation, useParams } from "@tanstack/react-router";
 import {
@@ -18,6 +20,42 @@ import {
 import { useState } from "react";
 import { Scrollable } from "../flex-layout";
 import { TrackBranchDialog } from "./track-branch-dialog";
+
+function BranchStatusIndicator({ branchId }: { branchId: string }) {
+  const status = useAgentStatus(branchId);
+  if (status === "idle") return null;
+  return (
+    <span
+      className={cn(
+        "h-2 w-2 rounded-full shrink-0",
+        status === "working" && "bg-yellow-500 animate-pulse",
+        status === "waiting" && "bg-blue-500",
+      )}
+    />
+  );
+}
+
+function BranchDiffStatsIndicator({
+  branch,
+  repositoryPath,
+}: {
+  branch: TrackedBranch;
+  repositoryPath: string | null;
+}) {
+  const cwd = branch.worktreePath || repositoryPath;
+  const { stats } = useDiffStats(cwd ?? undefined);
+  if (!stats || (stats.insertions === 0 && stats.deletions === 0)) return null;
+  return (
+    <span className="flex items-center gap-1 text-xs shrink-0">
+      {stats.insertions > 0 && (
+        <span className="text-green-600">+{stats.insertions}</span>
+      )}
+      {stats.deletions > 0 && (
+        <span className="text-red-600">-{stats.deletions}</span>
+      )}
+    </span>
+  );
+}
 
 interface RepositorySidebarProps {
   repository: Repository;
@@ -164,6 +202,11 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
                 >
                   <GitBranch className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{b.branch}</span>
+                  <BranchStatusIndicator branchId={b.id} />
+                  <BranchDiffStatsIndicator
+                    branch={b}
+                    repositoryPath={repository.path}
+                  />
                   <ChevronRight className="h-3.5 w-3.5 ml-auto shrink-0 opacity-50" />
                 </Link>
               ))

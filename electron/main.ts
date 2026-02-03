@@ -740,6 +740,21 @@ ipcMain.handle(
   },
 );
 
+ipcMain.handle("git:diff-summary", async (_event, repoPath: string) => {
+  try {
+    const git = getGit(repoPath);
+    const summary = await git.diffSummary();
+    return {
+      insertions: summary.insertions,
+      deletions: summary.deletions,
+      filesChanged: summary.changed,
+    };
+  } catch (error) {
+    console.error("git:diff-summary error:", error);
+    return { insertions: 0, deletions: 0, filesChanged: 0 };
+  }
+});
+
 // ==================== Credential IPC Handlers ====================
 
 ipcMain.handle("credential:get", async (_event, key: string) => {

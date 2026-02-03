@@ -178,6 +178,9 @@ interface GitAPI {
     host: string | null;
   }>;
   getDiffBase(path: string, baseBranch?: string): Promise<string>;
+  getDiffSummary(
+    path: string,
+  ): Promise<{ insertions: number; deletions: number; filesChanged: number }>;
 }
 
 interface DialogAPI {
@@ -634,6 +637,38 @@ export async function getDiffBase(
   } catch {
     return "";
   }
+}
+
+// Diff stats
+export interface DiffStats {
+  insertions: number;
+  deletions: number;
+  filesChanged: number;
+}
+
+export function useDiffStats(path: string | undefined) {
+  const [stats, setStats] = useState<DiffStats | null>(null);
+
+  const refresh = useCallback(async () => {
+    if (!path || !isElectron() || !window.gitAPI) {
+      setStats(null);
+      return;
+    }
+
+    try {
+      const result = await window.gitAPI.getDiffSummary(path);
+      setStats(result);
+    } catch (error) {
+      console.error("Failed to get diff summary:", error);
+      setStats(null);
+    }
+  }, [path]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  return { stats, refresh };
 }
 
 // File watcher utilities
