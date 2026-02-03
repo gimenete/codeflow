@@ -40,6 +40,7 @@ import { formatLineReference, type LineRange } from "@/lib/use-line-selection";
 import { useClaudeStore } from "@/lib/claude-store";
 import {
   commitChanges,
+  emitGitChanged,
   gitPull,
   gitPush,
   onWatcherChange,
@@ -108,6 +109,7 @@ function CommitForm({ repositoryPath, stagedFiles, refresh }: CommitFormProps) {
         setCommitSummary("");
         setCommitDescription("");
         await refresh();
+        emitGitChanged();
       } else {
         setCommitError(result.error || "Commit failed");
       }
@@ -377,7 +379,7 @@ export function BranchFilesView({
 
     onWatcherChange(({ id }) => {
       if (id === watcherId) {
-        void refresh();
+        void refresh().then(emitGitChanged);
       }
     });
 
@@ -450,6 +452,7 @@ export function BranchFilesView({
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     await refresh();
+    emitGitChanged();
     setIsRefreshing(false);
   }, [refresh]);
 
@@ -495,6 +498,7 @@ export function BranchFilesView({
       }
 
       await refresh();
+      emitGitChanged();
     } finally {
       setIsSyncing(false);
     }
@@ -538,6 +542,7 @@ export function BranchFilesView({
       if (!window.gitAPI) return;
       await window.gitAPI.stage(repositoryPath, filePath);
       await refresh();
+      emitGitChanged();
     },
     [repositoryPath, refresh],
   );
@@ -548,6 +553,7 @@ export function BranchFilesView({
       if (!window.gitAPI) return;
       await window.gitAPI.unstage(repositoryPath, filePath);
       await refresh();
+      emitGitChanged();
     },
     [repositoryPath, refresh],
   );
@@ -560,6 +566,7 @@ export function BranchFilesView({
         await window.gitAPI.stage(repositoryPath, file.path);
       }
       await refresh();
+      emitGitChanged();
     },
     [repositoryPath, unstagedFiles, refresh],
   );
@@ -574,6 +581,7 @@ export function BranchFilesView({
     await window.gitAPI.discard(repositoryPath, pendingFileDiscard);
     setPendingFileDiscard(null);
     await refresh();
+    emitGitChanged();
   }, [repositoryPath, pendingFileDiscard, refresh]);
 
   // Create annotations for unstaged change groups (from unstaged diff)
@@ -664,6 +672,7 @@ export function BranchFilesView({
         const result = await window.gitAPI.stageHunk(repositoryPath, patch);
         if (result.success) {
           await refresh();
+          emitGitChanged();
         } else {
           console.error("Failed to stage change group:", result.error);
         }
@@ -694,6 +703,7 @@ export function BranchFilesView({
         const result = await window.gitAPI.unstageHunk(repositoryPath, patch);
         if (result.success) {
           await refresh();
+          emitGitChanged();
         } else {
           console.error("Failed to unstage change group:", result.error);
         }
@@ -740,6 +750,7 @@ export function BranchFilesView({
       const result = await window.gitAPI.discardHunk(repositoryPath, patch);
       if (result.success) {
         await refresh();
+        emitGitChanged();
       } else {
         console.error("Failed to discard change group:", result.error);
       }

@@ -646,6 +646,10 @@ export interface DiffStats {
   filesChanged: number;
 }
 
+export function emitGitChanged() {
+  window.dispatchEvent(new Event("git-changed"));
+}
+
 export function useDiffStats(path: string | undefined) {
   const [stats, setStats] = useState<DiffStats | null>(null);
 
@@ -666,6 +670,13 @@ export function useDiffStats(path: string | undefined) {
 
   useEffect(() => {
     void refresh();
+  }, [refresh]);
+
+  // Re-fetch when any git operation happens
+  useEffect(() => {
+    const handler = () => void refresh();
+    window.addEventListener("git-changed", handler);
+    return () => window.removeEventListener("git-changed", handler);
   }, [refresh]);
 
   return { stats, refresh };
