@@ -887,16 +887,31 @@ ipcMain.handle(
   ) => {
     try {
       const git = getGit(repoPath);
-      await git.checkout(targetBranch);
+      const worktreeList = await git.raw(["worktree", "list", "--porcelain"]);
+      const targetWorktreePath = parseWorktreeForBranch(
+        worktreeList,
+        targetBranch,
+      );
+
+      let targetGit: SimpleGit;
+      if (targetWorktreePath) {
+        // Target branch is already checked out in another worktree — operate from there
+        targetGit = getGit(targetWorktreePath);
+      } else {
+        // Normal path — checkout target branch first
+        await git.checkout(targetBranch);
+        targetGit = git;
+      }
+
       if (strategy === "merge") {
-        await git.merge([sourceBranch]);
+        await targetGit.merge([sourceBranch]);
       } else if (strategy === "squash") {
-        await git.merge([sourceBranch, "--squash"]);
-        await git.commit(
+        await targetGit.merge([sourceBranch, "--squash"]);
+        await targetGit.commit(
           `Squash merge branch '${sourceBranch}' into ${targetBranch}`,
         );
       } else {
-        await git.rebase([sourceBranch]);
+        await targetGit.rebase([sourceBranch]);
       }
       return { success: true };
     } catch (error) {

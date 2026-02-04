@@ -148,7 +148,11 @@ export function MergeBranchDialog({
             </Button>
             <Button type="submit" disabled={isLoading || !targetBranch}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Merge
+              {strategy === "squash"
+                ? "Squash and merge"
+                : strategy === "rebase"
+                  ? "Rebase"
+                  : "Merge"}
             </Button>
           </DialogFooter>
         </form>
