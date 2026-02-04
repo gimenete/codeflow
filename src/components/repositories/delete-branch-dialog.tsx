@@ -18,7 +18,7 @@ interface DeleteBranchDialogProps {
   onOpenChange: (open: boolean) => void;
   branch: TrackedBranch;
   repositoryPath: string;
-  onNavigateAway: () => void;
+  onDeleted: () => void;
 }
 
 export function DeleteBranchDialog({
@@ -26,7 +26,7 @@ export function DeleteBranchDialog({
   onOpenChange,
   branch,
   repositoryPath,
-  onNavigateAway,
+  onDeleted,
 }: DeleteBranchDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,23 +38,12 @@ export function DeleteBranchDialog({
     onOpenChange(nextOpen);
   };
 
-  const handleStopTracking = () => {
-    useBranchesStore.getState().deleteBranch(branch.id);
-    onOpenChange(false);
-    onNavigateAway();
-  };
-
   const handleDeleteBranch = async () => {
     setError(null);
     setIsLoading(true);
 
     try {
-      const result = await deleteBranch(
-        repositoryPath,
-        branch.branch,
-        true,
-        branch.worktreePath ?? undefined,
-      );
+      const result = await deleteBranch(repositoryPath, branch.branch, true);
       if (!result.success) {
         setError(result.error ?? "Failed to delete branch");
         return;
@@ -62,7 +51,7 @@ export function DeleteBranchDialog({
       useBranchesStore.getState().deleteBranch(branch.id);
       emitGitChanged();
       onOpenChange(false);
-      onNavigateAway();
+      onDeleted();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete branch");
     } finally {
@@ -76,16 +65,11 @@ export function DeleteBranchDialog({
         <DialogHeader>
           <DialogTitle>Delete Branch</DialogTitle>
           <DialogDescription>
-            What would you like to do with the branch{" "}
-            <strong>{branch.branch}</strong>?
+            Are you sure you want to permanently delete the branch{" "}
+            <strong>{branch.branch}</strong>? This will remove the git branch
+            and cannot be undone.
           </DialogDescription>
         </DialogHeader>
-
-        <p className="text-sm text-muted-foreground">
-          <strong>Stop Tracking</strong> will remove the branch from the sidebar
-          but keep it in git. <strong>Delete Branch</strong> will permanently
-          delete the git branch.
-        </p>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
@@ -96,14 +80,6 @@ export function DeleteBranchDialog({
             onClick={() => handleOpenChange(false)}
           >
             Cancel
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={handleStopTracking}
-            disabled={isLoading}
-          >
-            Stop Tracking
           </Button>
           <Button
             type="button"

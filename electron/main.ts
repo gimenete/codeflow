@@ -811,20 +811,40 @@ ipcMain.handle(
   },
 );
 
+function parseWorktreeForBranch(
+  porcelainOutput: string,
+  branchName: string,
+): string | null {
+  // Porcelain format: blocks separated by blank lines, each block has:
+  //   worktree <path>
+  //   HEAD <sha>
+  //   branch refs/heads/<name>
+  const entries = porcelainOutput.split("\n\n");
+  for (const entry of entries) {
+    const lines = entry.trim().split("\n");
+    const worktreeLine = lines.find((l) => l.startsWith("worktree "));
+    const branchLine = lines.find((l) => l.startsWith("branch "));
+    if (
+      worktreeLine &&
+      branchLine &&
+      branchLine === `branch refs/heads/${branchName}`
+    ) {
+      return worktreeLine.replace("worktree ", "");
+    }
+  }
+  return null;
+}
+
 ipcMain.handle(
   "git:delete-branch",
-  async (
-    _event,
-    repoPath: string,
-    branch: string,
-    force: boolean,
-    worktreePath?: string,
-  ) => {
+  async (_event, repoPath: string, branch: string, force: boolean) => {
     try {
       const git = getGit(repoPath);
-      // If the branch is checked out in a worktree, remove the worktree first
-      if (worktreePath) {
-        await git.raw(["worktree", "remove", worktreePath, "--force"]);
+      // Auto-detect if the branch is checked out in a worktree and remove it
+      const worktreeList = await git.raw(["worktree", "list", "--porcelain"]);
+      const worktreeRoot = parseWorktreeForBranch(worktreeList, branch);
+      if (worktreeRoot) {
+        await git.raw(["worktree", "remove", worktreeRoot, "--force"]);
       }
       const options = force ? ["-D", branch] : ["-d", branch];
       await git.branch(options);

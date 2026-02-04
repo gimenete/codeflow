@@ -170,15 +170,8 @@ const gitAPI = {
     path: string,
     branch: string,
     force: boolean,
-    worktreePath?: string,
   ): Promise<OperationResult> => {
-    return ipcRenderer.invoke(
-      "git:delete-branch",
-      path,
-      branch,
-      force,
-      worktreePath,
-    );
+    return ipcRenderer.invoke("git:delete-branch", path, branch, force);
   },
 
   renameBranch: (

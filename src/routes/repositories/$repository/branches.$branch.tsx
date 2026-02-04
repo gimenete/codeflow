@@ -19,6 +19,7 @@ import {
   Code,
   FileText,
   GitCommitHorizontal,
+  EyeOff,
   GitMerge,
   GitPullRequest,
   MoreHorizontal,
@@ -37,6 +38,7 @@ import {
 import { RenameBranchDialog } from "@/components/repositories/rename-branch-dialog";
 import { MergeBranchDialog } from "@/components/repositories/merge-branch-dialog";
 import { DeleteBranchDialog } from "@/components/repositories/delete-branch-dialog";
+import { StopTrackingDialog } from "@/components/repositories/stop-tracking-dialog";
 import { ClaudeIcon } from "@/components/ui/claude-icon";
 import { Activity, useCallback, useEffect, useMemo, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
@@ -204,10 +206,11 @@ function BranchDetailPage() {
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [stopTrackingDialogOpen, setStopTrackingDialogOpen] = useState(false);
 
   const handleNavigateAway = useCallback(() => {
     void navigate({
-      to: "/repositories/$repository/branches",
+      to: "/repositories/$repository",
       params: { repository: repositorySlug },
     });
   }, [navigate, repositorySlug]);
@@ -354,6 +357,12 @@ function BranchDetailPage() {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
+                  onClick={() => setStopTrackingDialogOpen(true)}
+                >
+                  <EyeOff className="h-4 w-4" />
+                  Stop Tracking
+                </DropdownMenuItem>
+                <DropdownMenuItem
                   variant="destructive"
                   onClick={() => setDeleteDialogOpen(true)}
                 >
@@ -442,7 +451,13 @@ function BranchDetailPage() {
         onOpenChange={setDeleteDialogOpen}
         branch={branch}
         repositoryPath={repository.path!}
-        onNavigateAway={handleNavigateAway}
+        onDeleted={handleNavigateAway}
+      />
+      <StopTrackingDialog
+        open={stopTrackingDialogOpen}
+        onOpenChange={setStopTrackingDialogOpen}
+        branch={branch}
+        onConfirmed={handleNavigateAway}
       />
     </div>
   );

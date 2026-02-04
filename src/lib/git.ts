@@ -173,7 +173,6 @@ interface GitAPI {
     path: string,
     branch: string,
     force: boolean,
-    worktreePath?: string,
   ): Promise<{ success: boolean; error?: string }>;
   renameBranch(
     path: string,
@@ -634,14 +633,13 @@ export async function deleteBranch(
   path: string,
   branch: string,
   force: boolean = false,
-  worktreePath?: string,
 ): Promise<{ success: boolean; error?: string }> {
   if (!isElectron() || !window.gitAPI) {
     return { success: false, error: "Not available in web mode" };
   }
 
   try {
-    return await window.gitAPI.deleteBranch(path, branch, force, worktreePath);
+    return await window.gitAPI.deleteBranch(path, branch, force);
   } catch (error) {
     return {
       success: false,
