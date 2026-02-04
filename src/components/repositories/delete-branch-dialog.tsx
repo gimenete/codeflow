@@ -49,7 +49,12 @@ export function DeleteBranchDialog({
     setIsLoading(true);
 
     try {
-      const result = await deleteBranch(repositoryPath, branch.branch, true);
+      const result = await deleteBranch(
+        repositoryPath,
+        branch.branch,
+        true,
+        branch.worktreePath ?? undefined,
+      );
       if (!result.success) {
         setError(result.error ?? "Failed to delete branch");
         return;

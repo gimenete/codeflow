@@ -441,7 +441,7 @@ function BranchDetailPage() {
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         branch={branch}
-        repositoryPath={cwd}
+        repositoryPath={repository.path!}
         onNavigateAway={handleNavigateAway}
       />
     </div>

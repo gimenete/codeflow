@@ -813,9 +813,19 @@ ipcMain.handle(
 
 ipcMain.handle(
   "git:delete-branch",
-  async (_event, repoPath: string, branch: string, force: boolean) => {
+  async (
+    _event,
+    repoPath: string,
+    branch: string,
+    force: boolean,
+    worktreePath?: string,
+  ) => {
     try {
       const git = getGit(repoPath);
+      // If the branch is checked out in a worktree, remove the worktree first
+      if (worktreePath) {
+        await git.raw(["worktree", "remove", worktreePath, "--force"]);
+      }
       const options = force ? ["-D", branch] : ["-d", branch];
       await git.branch(options);
       return { success: true };
