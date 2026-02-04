@@ -368,7 +368,12 @@ export const useClaudeStore = create<ClaudeState>()(
       },
 
       appendToPrompt: (text) => {
-        set({ promptText: text });
+        const current = get().promptText;
+        if (current) {
+          set({ promptText: current + "\n" + text });
+        } else {
+          set({ promptText: text });
+        }
       },
 
       clearPromptText: () => {

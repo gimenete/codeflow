@@ -35,6 +35,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { FileActionsDropdown } from "@/components/file-actions-dropdown";
 import { RequestChangesDialog } from "@/components/request-changes-dialog";
 import { formatLineReference, type LineRange } from "@/lib/use-line-selection";
 import { useClaudeStore } from "@/lib/claude-store";
@@ -1168,7 +1169,7 @@ export function BranchFilesView({
                                       }
                                     >
                                       <MessageSquarePlus className="h-4 w-4" />
-                                      Request changes...
+                                      Ask or request changes...
                                     </ContextMenuItem>
                                   </ContextMenuContent>
                                 )}
@@ -1222,7 +1223,7 @@ export function BranchFilesView({
                                       }
                                     >
                                       <MessageSquarePlus className="h-4 w-4" />
-                                      Request changes...
+                                      Ask or request changes...
                                     </ContextMenuItem>
                                   </ContextMenuContent>
                                 )}
@@ -1254,35 +1255,77 @@ export function BranchFilesView({
                         {/* Show file content for new files or message for binary files */}
                         {!hasUnstaged &&
                           !hasStaged &&
-                          loadedFilePaths.has(filePath) && (
-                            <div
-                              data-file-section={
-                                unstagedFiles.some((f) => f.path === filePath)
-                                  ? "unstaged"
-                                  : "staged"
-                              }
-                              data-file-path={filePath}
-                            >
-                              {fileContents[filePath] ? (
-                                <File
-                                  file={{
-                                    name: filePath,
-                                    contents: fileContents[filePath],
-                                    lang: getFiletypeFromFileName(filePath),
-                                  }}
-                                  options={{
-                                    themeType: theme,
-                                    overflow: "scroll",
-                                  }}
-                                  className="font-mono text-xs border rounded"
-                                />
-                              ) : (
-                                <div className="text-muted-foreground text-sm p-4 border rounded">
-                                  Binary file
-                                </div>
-                              )}
-                            </div>
-                          )}
+                          loadedFilePaths.has(filePath) &&
+                          (() => {
+                            const section = unstagedFiles.some(
+                              (f) => f.path === filePath,
+                            )
+                              ? ("unstaged" as const)
+                              : ("staged" as const);
+                            return (
+                              <div
+                                data-file-section={section}
+                                data-file-path={filePath}
+                              >
+                                {fileContents[filePath] ? (
+                                  <ContextMenu>
+                                    <ContextMenuTrigger asChild>
+                                      <div className="overflow-x-auto max-w-full border rounded">
+                                        <File
+                                          file={{
+                                            name: filePath,
+                                            contents: fileContents[filePath],
+                                            lang: getFiletypeFromFileName(
+                                              filePath,
+                                            ),
+                                          }}
+                                          options={{
+                                            themeType: theme,
+                                            overflow: "scroll",
+                                            enableLineSelection: true,
+                                            onLineSelected: handleLineSelected(
+                                              filePath,
+                                              section,
+                                            ),
+                                          }}
+                                          selectedLines={
+                                            lineSelection?.filePath ===
+                                              filePath &&
+                                            lineSelection?.section === section
+                                              ? lineSelection.lineRange
+                                              : null
+                                          }
+                                          renderHeaderMetadata={() => (
+                                            <FileActionsDropdown
+                                              filePath={filePath}
+                                            />
+                                          )}
+                                          className="font-mono text-xs"
+                                        />
+                                      </div>
+                                    </ContextMenuTrigger>
+                                    {lineSelection?.filePath === filePath &&
+                                      lineSelection?.section === section && (
+                                        <ContextMenuContent>
+                                          <ContextMenuItem
+                                            onClick={() =>
+                                              setContextMenuDialogOpen(true)
+                                            }
+                                          >
+                                            <MessageSquarePlus className="h-4 w-4" />
+                                            Ask or request changes...
+                                          </ContextMenuItem>
+                                        </ContextMenuContent>
+                                      )}
+                                  </ContextMenu>
+                                ) : (
+                                  <div className="text-muted-foreground text-sm p-4 border rounded">
+                                    Binary file
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                       </div>
                     </div>
                   );

@@ -107,8 +107,10 @@ export function BranchChat({
   useEffect(() => {
     if (promptText) {
       setInputValue((prev) => {
-        const needsSpace = prev.trim().length > 0 && !prev.endsWith(" ");
-        return prev + (needsSpace ? " " : "") + promptText;
+        if (prev.trim().length > 0) {
+          return prev.trimEnd() + "\n" + promptText;
+        }
+        return promptText;
       });
       clearPromptText();
     }

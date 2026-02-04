@@ -87,7 +87,7 @@ export function FileActionsDropdown({ filePath }: FileActionsDropdownProps) {
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setDialogOpen(true)}>
             <MessageSquarePlus className="h-4 w-4" />
-            Request changes
+            Ask or request changes
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

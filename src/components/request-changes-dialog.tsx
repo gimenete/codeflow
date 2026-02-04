@@ -69,7 +69,7 @@ export function RequestChangesDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Request changes</DialogTitle>
+          <DialogTitle>Ask or request changes</DialogTitle>
           <DialogDescription>
             Enter instructions for changes to{" "}
             <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">
@@ -91,7 +91,7 @@ export function RequestChangesDialog({
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={!instructions.trim()}>
-            Request changes
+            Ask or request changes
           </Button>
         </DialogFooter>
       </DialogContent>

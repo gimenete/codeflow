@@ -254,6 +254,7 @@ export function TrackBranchDialog({
                 <Label htmlFor="newBranch">Branch Name</Label>
                 <Input
                   id="newBranch"
+                  autoFocus
                   value={newBranchName}
                   onChange={(e) => setNewBranchName(e.target.value)}
                   placeholder={username ? `${username}-` : "feature/my-feature"}

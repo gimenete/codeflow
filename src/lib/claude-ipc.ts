@@ -19,14 +19,13 @@ let initialized = false;
  */
 export function setupClaudeChatIPC(): void {
   if (!isElectronWithChatAPI()) return;
+  if (initialized) return;
+  initialized = true;
 
   const chatAPI = getClaudeChatAPI();
 
   // Remove any stale listeners (e.g., from Vite HMR re-evaluation)
   chatAPI.removeAllListeners();
-
-  if (initialized) return;
-  initialized = true;
 
   chatAPI.onMessage((message: SDKMessage) => {
     console.log("[Claude SDK Message]", message);

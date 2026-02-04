@@ -434,7 +434,7 @@ export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
                           onClick={() => setContextMenuDialogOpen(true)}
                         >
                           <MessageSquarePlus className="h-4 w-4" />
-                          Request changes...
+                          Ask or request changes...
                         </ContextMenuItem>
                       </ContextMenuContent>
                     )}

@@ -33,8 +33,10 @@ export function RenameBranchDialog({
   const [error, setError] = useState<string | null>(null);
 
   const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen) {
+    if (nextOpen) {
       setNewName(branch.branch);
+    }
+    if (!nextOpen) {
       setError(null);
     }
     onOpenChange(nextOpen);
