@@ -151,6 +151,8 @@ export function AddRepositoryDialog({
         remoteUrl,
         agent: "claude",
         issueTracker,
+        worktreesDirectory: null,
+        branchPrefix: null,
       });
 
       setPath("");

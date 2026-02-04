@@ -665,6 +665,28 @@ ipcMain.handle(
 );
 
 ipcMain.handle(
+  "git:create-worktree",
+  async (
+    _event,
+    repoPath: string,
+    worktreePath: string,
+    branchName: string,
+  ) => {
+    try {
+      const git = getGit(repoPath);
+      await git.raw(["worktree", "add", worktreePath, "-b", branchName]);
+      return { success: true };
+    } catch (error) {
+      console.error("git:create-worktree error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  },
+);
+
+ipcMain.handle(
   "git:checkout",
   async (_event, repoPath: string, branch: string) => {
     try {
@@ -886,8 +908,8 @@ ipcMain.handle("dialog:open-folder", async () => {
   if (!mainWindow) return null;
 
   const result = await dialog.showOpenDialog(mainWindow, {
-    properties: ["openDirectory"],
-    title: "Select Git Repository",
+    properties: ["openDirectory", "createDirectory"],
+    title: "Select Folder",
   });
 
   if (result.canceled || result.filePaths.length === 0) {
@@ -1642,6 +1664,10 @@ ipcMain.handle(
 );
 
 // ==================== App Info IPC Handlers ====================
+
+ipcMain.handle("app:get-username", () => {
+  return os.userInfo().username;
+});
 
 ipcMain.handle("app:get-info", async () => {
   // Get Claude CLI version

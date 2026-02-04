@@ -1,5 +1,8 @@
 import { createFileRoute, redirect, Outlet } from "@tanstack/react-router";
-import { useRepositoriesStore } from "@/lib/repositories-store";
+import {
+  useRepositoriesStore,
+  useRepositoryBySlug,
+} from "@/lib/repositories-store";
 import { RepositorySidebar } from "@/components/repositories/repository-sidebar";
 import { Scrollable } from "@/components/flex-layout";
 
@@ -18,7 +21,12 @@ export const Route = createFileRoute("/repositories/$repository")({
 });
 
 function RepositoryLayout() {
-  const { repository } = Route.useRouteContext();
+  const { repository: contextRepository } = Route.useRouteContext();
+  const repository = useRepositoryBySlug(contextRepository.slug);
+
+  if (!repository) {
+    return null;
+  }
 
   return (
     <Scrollable.Layout direction="horizontal">

@@ -307,6 +307,8 @@ export interface Repository {
   remoteUrl: string | null; // Replaces githubOwner/githubRepo
   agent: AgentType; // AI agent selection
   issueTracker: IssueTracker | null; // Issue tracker integration
+  worktreesDirectory: string | null; // Directory for git worktrees
+  branchPrefix: string | null; // Default prefix for new branch names
   createdAt: string;
   updatedAt: string;
 }

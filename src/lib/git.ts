@@ -160,6 +160,11 @@ interface GitAPI {
     branchName: string,
     checkout: boolean,
   ): Promise<{ success: boolean; error?: string }>;
+  createWorktree(
+    path: string,
+    worktreePath: string,
+    branchName: string,
+  ): Promise<{ success: boolean; error?: string }>;
   checkout(
     path: string,
     branch: string,
@@ -564,6 +569,29 @@ export async function createBranch(
 
   try {
     return await window.gitAPI.createBranch(path, name, checkout);
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+export async function createWorktree(
+  repoPath: string,
+  worktreePath: string,
+  branchName: string,
+): Promise<{ success: boolean; error?: string }> {
+  if (!isElectron() || !window.gitAPI) {
+    return { success: false, error: "Not available in web mode" };
+  }
+
+  try {
+    return await window.gitAPI.createWorktree(
+      repoPath,
+      worktreePath,
+      branchName,
+    );
   } catch (error) {
     return {
       success: false,

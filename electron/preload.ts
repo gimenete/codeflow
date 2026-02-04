@@ -149,6 +149,19 @@ const gitAPI = {
     return ipcRenderer.invoke("git:create-branch", path, branchName, checkout);
   },
 
+  createWorktree: (
+    path: string,
+    worktreePath: string,
+    branchName: string,
+  ): Promise<OperationResult> => {
+    return ipcRenderer.invoke(
+      "git:create-worktree",
+      path,
+      worktreePath,
+      branchName,
+    );
+  },
+
   checkout: (path: string, branch: string): Promise<OperationResult> => {
     return ipcRenderer.invoke("git:checkout", path, branch);
   },
@@ -474,6 +487,10 @@ interface AppInfo {
 const appAPI = {
   getInfo: (): Promise<AppInfo> => {
     return ipcRenderer.invoke("app:get-info");
+  },
+
+  getUsername: (): Promise<string> => {
+    return ipcRenderer.invoke("app:get-username");
   },
 };
 

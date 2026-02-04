@@ -120,7 +120,7 @@ export const useRepositoriesStore = create<RepositoriesState>()(
     }),
     {
       name: "codeflow:repositories",
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => localStorage),
       migrate: (persistedState, version) => {
         // Migration from version 1 (old "codeflow:projects" format)
@@ -170,6 +170,8 @@ export const useRepositoriesStore = create<RepositoriesState>()(
                 remoteUrl,
                 agent: "claude" as AgentType,
                 issueTracker,
+                worktreesDirectory: null,
+                branchPrefix: null,
                 createdAt: repo.createdAt,
                 updatedAt: repo.updatedAt,
               };
@@ -177,6 +179,18 @@ export const useRepositoriesStore = create<RepositoriesState>()(
           );
 
           return { repositories: migratedRepositories };
+        }
+
+        // Migration from version 3: add worktreesDirectory and branchPrefix
+        if (version < 4) {
+          const state = persistedState as { repositories: Repository[] };
+          return {
+            repositories: state.repositories.map((repo) => ({
+              ...repo,
+              worktreesDirectory: repo.worktreesDirectory ?? null,
+              branchPrefix: repo.branchPrefix ?? null,
+            })),
+          };
         }
 
         return persistedState as RepositoriesState;

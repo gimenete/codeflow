@@ -15,6 +15,7 @@ import {
   GitPullRequest,
   Plus,
   Search,
+  Settings,
 } from "lucide-react";
 import { useState } from "react";
 import { Scrollable } from "../flex-layout";
@@ -200,9 +201,24 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
         </div>
       </Scrollable.Vertical>
 
+      <div className="p-2 border-t">
+        <Link
+          to="/repositories/$repository/settings"
+          params={{ repository: repositorySlug! }}
+          className={cn(
+            "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
+            location.pathname.endsWith("/settings")
+              ? "bg-accent text-accent-foreground"
+              : "hover:bg-accent/50 text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <Settings className="h-4 w-4" />
+          Settings
+        </Link>
+      </div>
+
       <TrackBranchDialog
-        repositoryId={repository.id}
-        repositoryPath={repository.path}
+        repository={repository}
         open={trackBranchOpen}
         onOpenChange={setTrackBranchOpen}
       />

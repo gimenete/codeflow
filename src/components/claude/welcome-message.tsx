@@ -12,6 +12,7 @@ declare global {
   interface Window {
     appAPI?: {
       getInfo: () => Promise<AppInfo>;
+      getUsername: () => Promise<string>;
     };
   }
 }
