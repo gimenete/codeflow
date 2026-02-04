@@ -153,7 +153,7 @@ const gitAPI = {
     path: string,
     worktreePath: string,
     branchName: string,
-  ): Promise<OperationResult> => {
+  ): Promise<OperationResult & { subdirPrefix?: string }> => {
     return ipcRenderer.invoke(
       "git:create-worktree",
       path,

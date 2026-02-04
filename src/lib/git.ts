@@ -581,7 +581,7 @@ export async function createWorktree(
   repoPath: string,
   worktreePath: string,
   branchName: string,
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; subdirPrefix?: string }> {
   if (!isElectron() || !window.gitAPI) {
     return { success: false, error: "Not available in web mode" };
   }

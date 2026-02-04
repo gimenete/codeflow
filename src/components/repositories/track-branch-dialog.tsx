@@ -167,6 +167,10 @@ export function TrackBranchDialog({
             setIsLoading(false);
             return;
           }
+          // Adjust for monorepo subfolder
+          if (result.subdirPrefix) {
+            worktreePath = `${worktreePath}/${result.subdirPrefix.replace(/\/+$/, "")}`;
+          }
         } else {
           const result = await createBranch(repositoryPath, branchName, true);
           if (!result.success) {

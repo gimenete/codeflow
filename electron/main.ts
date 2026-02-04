@@ -674,8 +674,9 @@ ipcMain.handle(
   ) => {
     try {
       const git = getGit(repoPath);
+      const subdirPrefix = await getSubdirPrefix(git);
       await git.raw(["worktree", "add", worktreePath, "-b", branchName]);
-      return { success: true };
+      return { success: true, subdirPrefix: subdirPrefix || undefined };
     } catch (error) {
       console.error("git:create-worktree error:", error);
       return {
