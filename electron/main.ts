@@ -27,6 +27,122 @@ let currentQuery: ReturnType<typeof query> | null = null;
 let chatAbortController: AbortController | null = null;
 let chatQuery: ReturnType<typeof query> | null = null;
 
+// Map of requestId -> { resolve, reject } for pending permission requests
+const pendingPermissionResolvers = new Map<
+  string,
+  {
+    resolve: (result: {
+      behavior: string;
+      message?: string;
+      updatedPermissions?: unknown[];
+    }) => void;
+    reject: (error: Error) => void;
+  }
+>();
+
+// Creates a canUseTool callback that bridges permission requests to the renderer via IPC
+function createCanUseToolCallback(): (
+  toolName: string,
+  input: Record<string, unknown>,
+  options: {
+    signal: AbortSignal;
+    suggestions?: unknown[];
+    blockedPath?: string;
+    decisionReason?: string;
+    toolUseID: string;
+    agentID?: string;
+  },
+) => Promise<
+  | {
+      behavior: "allow";
+      updatedInput?: Record<string, unknown>;
+      updatedPermissions?: unknown[];
+      toolUseID?: string;
+    }
+  | {
+      behavior: "deny";
+      message: string;
+      interrupt?: boolean;
+      toolUseID?: string;
+    }
+> {
+  return (toolName, input, options) => {
+    return new Promise((resolve, reject) => {
+      const requestId = crypto.randomUUID();
+
+      // If already aborted, deny immediately
+      if (options.signal.aborted) {
+        resolve({
+          behavior: "deny",
+          message: "Request was cancelled",
+          toolUseID: options.toolUseID,
+        });
+        return;
+      }
+
+      // Listen for abort
+      const onAbort = () => {
+        pendingPermissionResolvers.delete(requestId);
+        resolve({
+          behavior: "deny",
+          message: "Request was cancelled by user",
+          toolUseID: options.toolUseID,
+        });
+      };
+      options.signal.addEventListener("abort", onAbort, { once: true });
+
+      // Store the resolver
+      pendingPermissionResolvers.set(requestId, {
+        resolve: (result) => {
+          options.signal.removeEventListener("abort", onAbort);
+          pendingPermissionResolvers.delete(requestId);
+          if (result.behavior === "allow") {
+            resolve({
+              behavior: "allow",
+              updatedPermissions: result.updatedPermissions,
+              toolUseID: options.toolUseID,
+            });
+          } else {
+            resolve({
+              behavior: "deny",
+              message: result.message || "Permission denied by user",
+              toolUseID: options.toolUseID,
+            });
+          }
+        },
+        reject: (error) => {
+          options.signal.removeEventListener("abort", onAbort);
+          pendingPermissionResolvers.delete(requestId);
+          reject(error);
+        },
+      });
+
+      // Send permission request to renderer
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("claude:chat:permission-request", {
+          requestId,
+          toolName,
+          input,
+          decisionReason: options.decisionReason,
+          blockedPath: options.blockedPath,
+          toolUseID: options.toolUseID,
+          agentID: options.agentID,
+          suggestions: options.suggestions,
+        });
+      } else {
+        // No window available, deny
+        pendingPermissionResolvers.delete(requestId);
+        options.signal.removeEventListener("abort", onAbort);
+        resolve({
+          behavior: "deny",
+          message: "Application window not available",
+          toolUseID: options.toolUseID,
+        });
+      }
+    });
+  };
+}
+
 // File watchers map (watcherId -> watcher instance)
 const fileWatchers = new Map<string, chokidar.FSWatcher>();
 
@@ -1083,6 +1199,13 @@ ipcMain.handle(
     }
 
     try {
+      const permMode =
+        (options?.permissionMode as
+          | "default"
+          | "acceptEdits"
+          | "plan"
+          | "dontAsk") || "acceptEdits";
+
       chatQuery = query({
         prompt: finalPrompt as string, // SDK accepts string or content blocks
         options: {
@@ -1094,15 +1217,13 @@ ipcMain.handle(
             "Grep",
             "Bash",
           ],
-          permissionMode:
-            (options?.permissionMode as
-              | "default"
-              | "acceptEdits"
-              | "plan"
-              | "dontAsk") || "acceptEdits",
+          permissionMode: permMode,
           cwd: options?.cwd || undefined,
           // Resume session if sessionId is provided
           resume: options?.sessionId || undefined,
+          // Only provide canUseTool for "default" mode where user approval is needed
+          canUseTool:
+            permMode === "default" ? createCanUseToolCallback() : undefined,
         },
       });
 
@@ -1128,6 +1249,30 @@ ipcMain.handle(
     } finally {
       chatAbortController = null;
       chatQuery = null;
+      // Clean up any pending permission requests
+      for (const [, resolver] of pendingPermissionResolvers) {
+        resolver.resolve({ behavior: "deny", message: "Query ended" });
+      }
+      pendingPermissionResolvers.clear();
+    }
+  },
+);
+
+// Handle permission responses from the renderer
+ipcMain.handle(
+  "claude:chat:permission-response",
+  async (
+    _event,
+    response: {
+      requestId: string;
+      behavior: string;
+      message?: string;
+      updatedPermissions?: unknown[];
+    },
+  ) => {
+    const resolver = pendingPermissionResolvers.get(response.requestId);
+    if (resolver) {
+      resolver.resolve(response);
     }
   },
 );

@@ -2,6 +2,7 @@ import {
   isElectronWithChatAPI,
   getClaudeChatAPI,
   type SDKMessage,
+  type ToolPermissionRequest,
 } from "./claude";
 import { useClaudeStore } from "./claude-store";
 import { showNotification } from "./notifications";
@@ -47,10 +48,38 @@ export function setupClaudeChatIPC(): void {
     useClaudeStore.getState().appendSDKMessage(conversationId, message);
   });
 
+  // Listen for permission requests from the main process
+  chatAPI.onPermissionRequest((request: ToolPermissionRequest) => {
+    console.log("[Claude Permission Request]", request);
+    useClaudeStore.getState().setPendingPermissionRequest(request);
+
+    // Notify user if agent tab is not visible
+    const { agentTabVisible, streamingContext } = useClaudeStore.getState();
+    if (!agentTabVisible || document.hidden) {
+      showNotification(
+        "Permission requested",
+        `Claude wants to use ${request.toolName}`,
+        () => {
+          window.focus();
+          if (streamingContext) {
+            void router.navigate({
+              to: "/repositories/$repository/branches/$branch/agent",
+              params: {
+                repository: streamingContext.repositorySlug,
+                branch: streamingContext.branchId,
+              },
+            });
+          }
+        },
+      );
+    }
+  });
+
   chatAPI.onDone(() => {
     const { streamingContext, agentTabVisible } = useClaudeStore.getState();
     if (!streamingContext) return;
 
+    useClaudeStore.getState().setPendingPermissionRequest(null);
     const { branchId, branchName, repositorySlug } = streamingContext;
     useClaudeStore.getState().stopStreaming(branchId);
     useClaudeStore.getState().clearStreamingContext();
@@ -74,6 +103,7 @@ export function setupClaudeChatIPC(): void {
     const { streamingContext } = useClaudeStore.getState();
     if (!streamingContext) return;
 
+    useClaudeStore.getState().setPendingPermissionRequest(null);
     useClaudeStore.getState().stopStreaming(streamingContext.branchId);
     useClaudeStore.getState().clearStreamingContext();
   });
@@ -81,6 +111,7 @@ export function setupClaudeChatIPC(): void {
   chatAPI.onError((errorMsg: string) => {
     const { streamingContext } = useClaudeStore.getState();
 
+    useClaudeStore.getState().setPendingPermissionRequest(null);
     useClaudeStore.getState().setStreamingError(errorMsg);
 
     if (streamingContext) {

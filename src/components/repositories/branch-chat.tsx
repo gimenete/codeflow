@@ -5,6 +5,7 @@ import { ChatMessage } from "@/components/claude/chat-message";
 import { ChatInput, type ChatInputRef } from "@/components/claude/chat-input";
 import { ActiveToolIndicator } from "@/components/claude/active-tool-indicator";
 import { QuestionAnswerer } from "@/components/claude/question-answerer";
+import { PermissionRequestDialog } from "@/components/claude/permission-request-dialog";
 import { WelcomeMessage } from "@/components/claude/welcome-message";
 import type { ImageAttachment } from "@/components/claude/attachment-preview";
 import {
@@ -15,6 +16,7 @@ import {
   CLAUDE_MODELS,
   type ModelId,
   type ToolUseBlock,
+  type ToolPermissionResponse,
 } from "@/lib/claude";
 import { COMMANDS } from "@/lib/commands";
 import {
@@ -23,6 +25,7 @@ import {
   useIsBranchStreaming,
   useConversationByBranchId,
   useStreamingError,
+  usePendingPermissionRequest,
   type PermissionMode,
 } from "@/lib/claude-store";
 import { useBranchesStore } from "@/lib/branches-store";
@@ -81,6 +84,11 @@ export function BranchChat({
     setStreamingError,
     setAgentTabVisible,
   } = useClaudeStore();
+
+  const pendingPermissionRequest = usePendingPermissionRequest();
+  const setPendingPermissionRequest = useClaudeStore(
+    (s) => s.setPendingPermissionRequest,
+  );
 
   const promptText = useClaudeStore((s) => s.promptText);
   const clearPromptText = useClaudeStore((s) => s.clearPromptText);
@@ -334,7 +342,9 @@ export function BranchChat({
       const chatAPI = getClaudeChatAPI();
       void chatAPI.interrupt();
     }
-  }, []);
+    // Clear any pending permission request (will be auto-denied via abort signal)
+    setPendingPermissionRequest(null);
+  }, [setPendingPermissionRequest]);
 
   // Get messages to display
   const displayMessages = conversation?.messages ?? [];
@@ -516,6 +526,20 @@ export function BranchChat({
     }
   }, [pendingQuestion]);
 
+  // Handle SDK-level tool permission responses
+  const handlePermissionResponse = useCallback(
+    async (response: ToolPermissionResponse) => {
+      if (!isElectronWithChatAPI()) return;
+
+      const chatAPI = getClaudeChatAPI();
+      await chatAPI.respondToPermission(response);
+
+      // Clear the pending request from the store
+      setPendingPermissionRequest(null);
+    },
+    [setPendingPermissionRequest],
+  );
+
   // Notify when a new pending question appears and the agent tab is not active
   const lastNotifiedQuestionRef = useRef<string | null>(null);
   useEffect(() => {
@@ -598,7 +622,12 @@ export function BranchChat({
 
       {/* Input */}
       <div className="border-t p-4">
-        {pendingQuestion && !isStreaming ? (
+        {pendingPermissionRequest && isStreaming ? (
+          <PermissionRequestDialog
+            request={pendingPermissionRequest}
+            onRespond={handlePermissionResponse}
+          />
+        ) : pendingQuestion && !isStreaming ? (
           <QuestionAnswerer
             questions={pendingQuestion.input.questions}
             onSubmit={handleQuestionSubmit}

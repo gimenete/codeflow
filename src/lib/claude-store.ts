@@ -6,6 +6,7 @@ import type {
   UserChatMessage,
   AssistantChatMessage,
   SDKMessage,
+  ToolPermissionRequest,
 } from "./claude";
 
 export interface Conversation {
@@ -60,6 +61,9 @@ interface ClaudeState {
   // Focus request (ephemeral, not persisted) - for triggering input focus from external components
   shouldFocusInput: boolean;
 
+  // Permission request (ephemeral, not persisted) - pending SDK-level tool permission request
+  pendingPermissionRequest: ToolPermissionRequest | null;
+
   // Actions - Conversations
   createConversation: () => string;
   createConversationForBranch: (branchId: string, cwd: string) => string;
@@ -99,6 +103,9 @@ interface ClaudeState {
   // Actions - Focus
   requestInputFocus: () => void;
   clearInputFocus: () => void;
+
+  // Actions - Permission requests
+  setPendingPermissionRequest: (request: ToolPermissionRequest | null) => void;
 }
 
 function generateId(): string {
@@ -135,6 +142,7 @@ export const useClaudeStore = create<ClaudeState>()(
       agentTabVisible: true,
       promptText: null,
       shouldFocusInput: false,
+      pendingPermissionRequest: null,
 
       createConversation: () => {
         const id = generateId();
@@ -374,6 +382,10 @@ export const useClaudeStore = create<ClaudeState>()(
       clearInputFocus: () => {
         set({ shouldFocusInput: false });
       },
+
+      setPendingPermissionRequest: (request) => {
+        set({ pendingPermissionRequest: request });
+      },
     }),
     {
       name: "codeflow:claude-chat",
@@ -509,4 +521,8 @@ export function useIsBranchStreaming(branchId: string): boolean {
 
 export function useStreamingError(): string | null {
   return useClaudeStore((state) => state.streamingError);
+}
+
+export function usePendingPermissionRequest(): ToolPermissionRequest | null {
+  return useClaudeStore((state) => state.pendingPermissionRequest);
 }

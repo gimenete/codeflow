@@ -343,6 +343,31 @@ export interface ImageContent {
   data: string;
 }
 
+// ==================== Tool Permission Types ====================
+
+export interface ToolPermissionRequest {
+  requestId: string;
+  toolName: string;
+  input: Record<string, unknown>;
+  decisionReason?: string;
+  blockedPath?: string;
+  toolUseID: string;
+  agentID?: string;
+  suggestions?: unknown[];
+}
+
+export type ToolPermissionResponse =
+  | {
+      requestId: string;
+      behavior: "allow";
+      updatedPermissions?: unknown[];
+    }
+  | {
+      requestId: string;
+      behavior: "deny";
+      message: string;
+    };
+
 // Type declarations for the IPC-exposed chat API
 export interface ClaudeChatAPI {
   sendMessage: (
@@ -361,6 +386,10 @@ export interface ClaudeChatAPI {
   onDone: (callback: () => void) => void;
   onInterrupted: (callback: () => void) => void;
   onError: (callback: (error: string) => void) => void;
+  onPermissionRequest: (
+    callback: (request: ToolPermissionRequest) => void,
+  ) => void;
+  respondToPermission: (response: ToolPermissionResponse) => Promise<void>;
   removeAllListeners: () => void;
 }
 

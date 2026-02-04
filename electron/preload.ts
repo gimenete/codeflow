@@ -440,11 +440,27 @@ const claudeChatAPI = {
     ipcRenderer.on("claude:chat:error", (_event, error) => callback(error));
   },
 
+  onPermissionRequest: (callback: (request: unknown) => void): void => {
+    ipcRenderer.on("claude:chat:permission-request", (_event, request) =>
+      callback(request),
+    );
+  },
+
+  respondToPermission: (response: {
+    requestId: string;
+    behavior: string;
+    message?: string;
+    updatedPermissions?: unknown[];
+  }): Promise<void> => {
+    return ipcRenderer.invoke("claude:chat:permission-response", response);
+  },
+
   removeAllListeners: (): void => {
     ipcRenderer.removeAllListeners("claude:chat:message");
     ipcRenderer.removeAllListeners("claude:chat:done");
     ipcRenderer.removeAllListeners("claude:chat:interrupted");
     ipcRenderer.removeAllListeners("claude:chat:error");
+    ipcRenderer.removeAllListeners("claude:chat:permission-request");
   },
 };
 
