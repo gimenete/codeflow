@@ -172,6 +172,7 @@ function RootLayoutContent() {
   // Command palette shortcut: Cmd+K (macOS) / Ctrl+K (Windows/Linux)
   useHotkeys("mod+k", toggleCommandPalette, {
     preventDefault: true,
+    enableOnFormTags: true,
   });
 
   return (

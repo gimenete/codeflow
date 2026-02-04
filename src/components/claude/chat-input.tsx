@@ -449,7 +449,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             className={cn(
               "relative rounded-lg border bg-background transition-colors",
               isDragOver && "border-primary ring-2 ring-primary/20",
-              "focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2",
+              "focus-within:ring-2 focus-within:ring-ring",
             )}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}

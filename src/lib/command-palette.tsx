@@ -20,7 +20,7 @@ interface CommandPaletteContextValue {
   commands: CommandItem[];
   setCommands: (commands: CommandItem[]) => void;
   isOpen: boolean;
-  setIsOpen: (open: boolean) => void;
+  setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const CommandPaletteContext = createContext<CommandPaletteContextValue | null>(
@@ -85,7 +85,7 @@ export function useOpenCommandPalette() {
     );
   }
 
-  const { isOpen, setIsOpen } = context;
+  const { setIsOpen } = context;
 
   const open = useCallback(() => {
     setIsOpen(true);
@@ -96,8 +96,8 @@ export function useOpenCommandPalette() {
   }, [setIsOpen]);
 
   const toggle = useCallback(() => {
-    setIsOpen(!isOpen);
-  }, [isOpen, setIsOpen]);
+    setIsOpen((prev) => !prev);
+  }, [setIsOpen]);
 
   return { open, close, toggle };
 }

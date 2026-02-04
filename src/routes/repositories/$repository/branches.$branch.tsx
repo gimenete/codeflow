@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { ClaudeIcon } from "@/components/ui/claude-icon";
 import { Activity, useCallback, useEffect, useMemo, useState } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 import type { AgentType } from "@/lib/github-types";
 import { useAgentStatus } from "@/lib/agent-status";
 import { useDiffStats } from "@/lib/git";
@@ -134,6 +135,28 @@ function BranchDetailPage() {
   );
 
   useCommandPalette(commands);
+
+  // Keyboard shortcuts for tab switching (⌘1–⌘5)
+  useHotkeys("mod+1", () => navigateToTab("agent"), {
+    enableOnFormTags: true,
+    preventDefault: true,
+  });
+  useHotkeys("mod+2", () => navigateToTab("diff"), {
+    enableOnFormTags: true,
+    preventDefault: true,
+  });
+  useHotkeys("mod+3", () => navigateToTab("commits"), {
+    enableOnFormTags: true,
+    preventDefault: true,
+  });
+  useHotkeys("mod+4", () => navigateToTab("code"), {
+    enableOnFormTags: true,
+    preventDefault: true,
+  });
+  useHotkeys("mod+5", () => navigateToTab("terminal"), {
+    enableOnFormTags: true,
+    preventDefault: true,
+  });
 
   // Add current tab to visited set when it changes
   useEffect(() => {
