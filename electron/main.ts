@@ -888,30 +888,69 @@ ipcMain.handle(
     try {
       const git = getGit(repoPath);
       const worktreeList = await git.raw(["worktree", "list", "--porcelain"]);
-      const targetWorktreePath = parseWorktreeForBranch(
-        worktreeList,
-        targetBranch,
-      );
-
-      let targetGit: SimpleGit;
-      if (targetWorktreePath) {
-        // Target branch is already checked out in another worktree — operate from there
-        targetGit = getGit(targetWorktreePath);
-      } else {
-        // Normal path — checkout target branch first
-        await git.checkout(targetBranch);
-        targetGit = git;
-      }
-
-      if (strategy === "merge") {
-        await targetGit.merge([sourceBranch]);
-      } else if (strategy === "squash") {
-        await targetGit.merge([sourceBranch, "--squash"]);
-        await targetGit.commit(
-          `Squash merge branch '${sourceBranch}' into ${targetBranch}`,
+      if (strategy === "rebase") {
+        // Rebase: replay source's commits on top of target, then fast-forward target
+        const sourceWorktreePath = parseWorktreeForBranch(
+          worktreeList,
+          sourceBranch,
         );
+        const targetWorktreePath = parseWorktreeForBranch(
+          worktreeList,
+          targetBranch,
+        );
+
+        // Save original source ref so we can restore it after rebase
+        const originalSourceRef = (await git.revparse([sourceBranch])).trim();
+
+        // Step 1: rebase sourceBranch onto targetBranch
+        if (sourceWorktreePath) {
+          const sourceGit = getGit(sourceWorktreePath);
+          await sourceGit.rebase([targetBranch]);
+        } else {
+          // Two-arg form: rebases sourceBranch onto targetBranch without needing it checked out
+          await git.raw(["rebase", targetBranch, sourceBranch]);
+        }
+
+        // Step 2: fast-forward targetBranch to sourceBranch
+        if (targetWorktreePath) {
+          const targetGit = getGit(targetWorktreePath);
+          await targetGit.merge([sourceBranch, "--ff-only"]);
+        } else {
+          // Target isn't checked out — just move the ref pointer
+          await git.raw(["branch", "-f", targetBranch, sourceBranch]);
+        }
+
+        // Step 3: restore source branch to its original ref
+        // This matches GitHub's "Rebase and merge" behavior where the PR branch is untouched
+        if (sourceWorktreePath) {
+          const sourceGit = getGit(sourceWorktreePath);
+          await sourceGit.reset(["--hard", originalSourceRef]);
+        } else {
+          await git.raw(["branch", "-f", sourceBranch, originalSourceRef]);
+        }
       } else {
-        await targetGit.rebase([sourceBranch]);
+        // Merge or squash: operate from target branch
+        const targetWorktreePath = parseWorktreeForBranch(
+          worktreeList,
+          targetBranch,
+        );
+
+        let targetGit: SimpleGit;
+        if (targetWorktreePath) {
+          targetGit = getGit(targetWorktreePath);
+        } else {
+          await git.checkout(targetBranch);
+          targetGit = git;
+        }
+
+        if (strategy === "merge") {
+          await targetGit.merge([sourceBranch]);
+        } else {
+          await targetGit.merge([sourceBranch, "--squash"]);
+          await targetGit.commit(
+            `Squash merge branch '${sourceBranch}' into ${targetBranch}`,
+          );
+        }
       }
       return { success: true };
     } catch (error) {
