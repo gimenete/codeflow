@@ -1,5 +1,5 @@
 import { File } from "@pierre/diffs/react";
-import type { SelectedLineRange } from "@pierre/diffs";
+import { getFiletypeFromFileName, type SelectedLineRange } from "@pierre/diffs";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -56,14 +56,6 @@ interface SearchMatch {
 interface BranchCodeViewProps {
   branch: TrackedBranch;
   repositoryPath: string;
-}
-
-function getFileExtension(filePath: string): string {
-  const parts = filePath.split("/");
-  const fileName = parts[parts.length - 1];
-  const dotIndex = fileName.lastIndexOf(".");
-  if (dotIndex === -1) return "";
-  return fileName.substring(dotIndex + 1).toLowerCase();
 }
 
 export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
@@ -305,8 +297,6 @@ export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
     `;
   }, [searchResults, selectedLines?.start]);
 
-  const fileExtension = selectedFile ? getFileExtension(selectedFile) : "";
-
   // Handle line selection from the library
   const handleLineSelected = useCallback(
     (range: SelectedLineRange | null) => {
@@ -424,7 +414,7 @@ export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
                           file={{
                             name: relativeFilePath,
                             contents: fileContent,
-                            lang: fileExtension as never,
+                            lang: getFiletypeFromFileName(relativeFilePath),
                           }}
                           options={{
                             themeType: theme,

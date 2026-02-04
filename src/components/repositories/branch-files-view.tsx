@@ -51,7 +51,10 @@ import {
 } from "@/lib/git";
 import { parseHunks, createChangeGroupPatch } from "@/lib/diff";
 import type { HunkAnnotation } from "@/components/diff-viewer";
-import type { DiffLineAnnotation } from "@pierre/diffs";
+import {
+  getFiletypeFromFileName,
+  type DiffLineAnnotation,
+} from "@pierre/diffs";
 import type { GitFileStatus, TrackedBranch } from "@/lib/github-types";
 import { isElectron } from "@/lib/platform";
 import { useDiffTheme } from "@/lib/use-diff-theme";
@@ -71,14 +74,6 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useLocation, useNavigate } from "@tanstack/react-router";
-
-function getFileExtension(filePath: string): string {
-  const parts = filePath.split("/");
-  const fileName = parts[parts.length - 1];
-  const dotIndex = fileName.lastIndexOf(".");
-  if (dotIndex === -1) return "";
-  return fileName.substring(dotIndex + 1).toLowerCase();
-}
 
 interface CommitFormProps {
   repositoryPath: string;
@@ -1273,7 +1268,7 @@ export function BranchFilesView({
                                   file={{
                                     name: filePath,
                                     contents: fileContents[filePath],
-                                    lang: getFileExtension(filePath) as never,
+                                    lang: getFiletypeFromFileName(filePath),
                                   }}
                                   options={{
                                     themeType: theme,
