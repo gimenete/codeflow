@@ -976,11 +976,42 @@ ipcMain.handle(
 ipcMain.handle("git:diff-summary", async (_event, repoPath: string) => {
   try {
     const git = getGit(repoPath);
-    const summary = await git.diffSummary(["--", "."]);
+
+    // Run all git queries in parallel
+    const [unstaged, staged, prefix, status] = await Promise.all([
+      git.diffSummary(["--", "."]),
+      git.diffSummary(["--cached", "--", "."]),
+      getSubdirPrefix(git),
+      git.status(),
+    ]);
+
+    // Untracked files: count lines as insertions
+    let untrackedInsertions = 0;
+    let untrackedCount = 0;
+
+    for (const file of status.files) {
+      if (file.working_dir !== "?") continue;
+      if (prefix && !file.path.startsWith(prefix)) continue;
+      untrackedCount++;
+      try {
+        const filePath = path.join(
+          repoPath,
+          prefix ? file.path.slice(prefix.length) : file.path,
+        );
+        const content = fs.readFileSync(filePath, "utf-8");
+        untrackedInsertions +=
+          content.length === 0
+            ? 0
+            : content.split("\n").length - (content.endsWith("\n") ? 1 : 0);
+      } catch {
+        // Skip binary/unreadable files
+      }
+    }
+
     return {
-      insertions: summary.insertions,
-      deletions: summary.deletions,
-      filesChanged: summary.changed,
+      insertions: unstaged.insertions + staged.insertions + untrackedInsertions,
+      deletions: unstaged.deletions + staged.deletions,
+      filesChanged: unstaged.changed + staged.changed + untrackedCount,
     };
   } catch (error) {
     console.error("git:diff-summary error:", error);

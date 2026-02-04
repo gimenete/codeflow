@@ -18,11 +18,15 @@ let initialized = false;
  * decoupled from any React component lifecycle.
  */
 export function setupClaudeChatIPC(): void {
-  if (initialized) return;
   if (!isElectronWithChatAPI()) return;
 
-  initialized = true;
   const chatAPI = getClaudeChatAPI();
+
+  // Remove any stale listeners (e.g., from Vite HMR re-evaluation)
+  chatAPI.removeAllListeners();
+
+  if (initialized) return;
+  initialized = true;
 
   chatAPI.onMessage((message: SDKMessage) => {
     console.log("[Claude SDK Message]", message);
