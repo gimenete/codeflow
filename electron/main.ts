@@ -1,5 +1,9 @@
 import { app, BrowserWindow, ipcMain, dialog } from "electron";
-import { query } from "@anthropic-ai/claude-agent-sdk";
+import {
+  query,
+  type PermissionResult,
+  type PermissionUpdate,
+} from "@anthropic-ai/claude-agent-sdk";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
@@ -34,7 +38,7 @@ const pendingPermissionResolvers = new Map<
     resolve: (result: {
       behavior: string;
       message?: string;
-      updatedPermissions?: unknown[];
+      updatedPermissions?: PermissionUpdate[];
     }) => void;
     reject: (error: Error) => void;
   }
@@ -46,26 +50,13 @@ function createCanUseToolCallback(): (
   input: Record<string, unknown>,
   options: {
     signal: AbortSignal;
-    suggestions?: unknown[];
+    suggestions?: PermissionUpdate[];
     blockedPath?: string;
     decisionReason?: string;
     toolUseID: string;
     agentID?: string;
   },
-) => Promise<
-  | {
-      behavior: "allow";
-      updatedInput?: Record<string, unknown>;
-      updatedPermissions?: unknown[];
-      toolUseID?: string;
-    }
-  | {
-      behavior: "deny";
-      message: string;
-      interrupt?: boolean;
-      toolUseID?: string;
-    }
-> {
+) => Promise<PermissionResult> {
   return (toolName, input, options) => {
     return new Promise((resolve, reject) => {
       const requestId = crypto.randomUUID();
@@ -1267,7 +1258,7 @@ ipcMain.handle(
       requestId: string;
       behavior: string;
       message?: string;
-      updatedPermissions?: unknown[];
+      updatedPermissions?: PermissionUpdate[];
     },
   ) => {
     const resolver = pendingPermissionResolvers.get(response.requestId);
