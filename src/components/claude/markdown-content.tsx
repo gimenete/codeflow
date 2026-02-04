@@ -46,14 +46,14 @@ const components: Components = {
   },
   ul({ children, ...props }) {
     return (
-      <ul className="list-disc list-inside my-2 space-y-1" {...props}>
+      <ul className="list-disc list-outside pl-5 my-2 space-y-1" {...props}>
         {children}
       </ul>
     );
   },
   ol({ children, ...props }) {
     return (
-      <ol className="list-decimal list-inside my-2 space-y-1" {...props}>
+      <ol className="list-decimal list-outside pl-5 my-2 space-y-1" {...props}>
         {children}
       </ol>
     );

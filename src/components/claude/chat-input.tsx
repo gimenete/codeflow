@@ -60,8 +60,8 @@ interface ChatInputProps {
   onModeChange: (mode: PermissionMode) => void;
   attachments?: ImageAttachment[];
   onAttachmentsChange?: (attachments: ImageAttachment[]) => void;
-  onCommand?: (command: string) => void;
   cwd?: string;
+  modelName?: string;
 }
 
 export interface ChatInputRef {
@@ -96,8 +96,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
       onModeChange,
       attachments = [],
       onAttachmentsChange,
-      onCommand,
       cwd,
+      modelName,
     },
     ref,
   ) {
@@ -122,9 +122,11 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
     const [selectedFileIndex, setSelectedFileIndex] = useState(0);
 
     // Detect / commands and @ file mentions
+    // Only show autocomplete when there's no space (i.e., still typing command name)
     useEffect(() => {
       const startsWithSlash = value.startsWith("/");
-      if (startsWithSlash && !isStreaming) {
+      const hasSpace = value.includes(" ");
+      if (startsWithSlash && !hasSpace && !isStreaming) {
         setShowCommands(true);
         setCommandFilter(value.slice(1));
       } else {
@@ -197,7 +199,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             return;
           }
 
-          // Handle Enter when autocomplete is open - select highlighted item
+          // Handle Enter when autocomplete is open - insert command text
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             if (showCommands) {
@@ -206,11 +208,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 commands.length > 0 &&
                 selectedCommandIndex < commands.length
               ) {
+                const cmd = commands[selectedCommandIndex];
+                onChange("/" + cmd.name + " ");
                 setShowCommands(false);
-                if (onCommand) {
-                  onCommand(commands[selectedCommandIndex].name);
-                }
-                onChange("");
               } else {
                 setShowCommands(false);
               }
@@ -243,7 +243,6 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         showCommands,
         showFilePicker,
         commandFilter,
-        onCommand,
         onChange,
         selectedCommandIndex,
       ],
@@ -385,16 +384,13 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
       [attachments, onAttachmentsChange, processFile],
     );
 
-    // Command selection
+    // Command selection — insert command text into input
     const handleCommandSelect = useCallback(
       (command: Command) => {
+        onChange("/" + command.name + " ");
         setShowCommands(false);
-        if (onCommand) {
-          onCommand(command.name);
-        }
-        onChange("");
       },
-      [onCommand, onChange],
+      [onChange],
     );
 
     // File selection
@@ -495,17 +491,26 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
 
             {/* Footer */}
             <div className="flex items-center justify-between px-3 py-2 border-t">
-              {/* Permission mode indicator */}
-              {(() => {
-                const { label, color, Icon } = MODE_CONFIG[permissionMode];
-                return (
-                  <div className={cn("text-xs flex items-center gap-1", color)}>
-                    <Icon className="h-3 w-3" />
-                    <span className="font-medium">{label}</span>
-                    <span className="ml-1 opacity-60">(Shift+Tab)</span>
-                  </div>
-                );
-              })()}
+              {/* Permission mode + model indicator */}
+              <div className="flex items-center gap-3">
+                {(() => {
+                  const { label, color, Icon } = MODE_CONFIG[permissionMode];
+                  return (
+                    <div
+                      className={cn("text-xs flex items-center gap-1", color)}
+                    >
+                      <Icon className="h-3 w-3" />
+                      <span className="font-medium">{label}</span>
+                      <span className="ml-1 opacity-60">(Shift+Tab)</span>
+                    </div>
+                  );
+                })()}
+                {modelName && (
+                  <span className="text-xs text-muted-foreground">
+                    {modelName}
+                  </span>
+                )}
+              </div>
 
               {/* Send/Stop button */}
               {isStreaming ? (

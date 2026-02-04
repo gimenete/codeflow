@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { X } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "@/components/claude/chat-message";
 import { ChatInput, type ChatInputRef } from "@/components/claude/chat-input";
@@ -11,8 +12,11 @@ import {
   getClaudeChatAPI,
   isAssistantMessage,
   isToolUseBlock,
+  CLAUDE_MODELS,
+  type ModelId,
   type ToolUseBlock,
 } from "@/lib/claude";
+import { COMMANDS } from "@/lib/commands";
 import {
   useClaudeStore,
   useClaudeSettings,
@@ -27,6 +31,13 @@ import { getPendingQuestion } from "@/lib/agent-status";
 import { showNotification } from "@/lib/notifications";
 import { router } from "@/main";
 import type { TrackedBranch } from "@/lib/github-types";
+
+// Model shorthand mapping
+const MODEL_ALIASES: Record<string, ModelId> = {
+  sonnet: "claude-sonnet-4-20250514",
+  opus: "claude-opus-4-20250514",
+  haiku: "claude-3-5-haiku-20241022",
+};
 
 interface BranchChatProps {
   branch: TrackedBranch;
@@ -140,7 +151,13 @@ export function BranchChat({
   // Handle slash commands locally
   const handleCommand = useCallback(
     (command: string): boolean => {
-      const cmd = command.toLowerCase().trim();
+      const trimmed = command.trim();
+      const spaceIndex = trimmed.indexOf(" ");
+      const cmd = (
+        spaceIndex === -1 ? trimmed : trimmed.slice(0, spaceIndex)
+      ).toLowerCase();
+      const args =
+        spaceIndex === -1 ? "" : trimmed.slice(spaceIndex + 1).trim();
 
       if (cmd === "/clear") {
         if (conversation?.id) {
@@ -153,15 +170,48 @@ export function BranchChat({
       }
 
       if (cmd === "/help") {
-        setInfo("Available commands: /clear (clear conversation), /help");
+        const lines = COMMANDS.map((c) => `/${c.name} — ${c.description}`);
+        setInfo(lines.join("\n"));
         setError(null);
         setInputValue("");
         return true;
       }
 
+      if (cmd === "/model") {
+        if (!args) {
+          // Show current model
+          const currentModel = settings.model;
+          const displayName = CLAUDE_MODELS[currentModel] ?? currentModel;
+          setInfo(`Current model: ${displayName} (${currentModel})`);
+          setError(null);
+          setInputValue("");
+          return true;
+        }
+        const alias = args.toLowerCase();
+        const modelId = MODEL_ALIASES[alias];
+        if (modelId) {
+          updateSettings({ model: modelId });
+          const displayName = CLAUDE_MODELS[modelId];
+          setInfo(`Model switched to ${displayName}`);
+          setError(null);
+          setInputValue("");
+          return true;
+        }
+        // Invalid model name
+        const validOptions = Object.keys(MODEL_ALIASES).join(", ");
+        setError(`Unknown model "${args}". Valid options: ${validOptions}`);
+        setInputValue("");
+        return true;
+      }
+
+      if (cmd === "/compact") {
+        // Send as a regular message to Claude (triggers SDK compaction)
+        return false;
+      }
+
       return false;
     },
-    [conversation?.id, clearConversation],
+    [conversation, clearConversation, settings.model, updateSettings],
   );
 
   const handleSend = useCallback(async () => {
@@ -172,12 +222,18 @@ export function BranchChat({
 
     // Check for slash commands first
     if (userMessage.startsWith("/")) {
-      if (handleCommand(userMessage)) {
+      const handled = handleCommand(userMessage);
+      if (handled) {
         return;
       }
-      // Unknown command - show error but don't send to Claude
-      setError(`Unknown command: ${userMessage.split(" ")[0]}`);
-      return;
+      // Commands that return false are sent to Claude (e.g. /compact)
+      // But truly unknown commands should show an error
+      const cmdName = userMessage.split(" ")[0].toLowerCase();
+      const isKnownCommand = COMMANDS.some((c) => "/" + c.name === cmdName);
+      if (!isKnownCommand) {
+        setError(`Unknown command: ${cmdName}`);
+        return;
+      }
     }
 
     if (!isElectronWithChatAPI()) {
@@ -272,14 +328,6 @@ export function BranchChat({
     setStreamingError,
     repository?.slug,
   ]);
-
-  // Handle command from autocomplete
-  const handleCommandFromAutocomplete = useCallback(
-    (commandName: string) => {
-      handleCommand(`/${commandName}`);
-    },
-    [handleCommand],
-  );
 
   const handleStop = useCallback(() => {
     if (isElectronWithChatAPI()) {
@@ -520,8 +568,14 @@ export function BranchChat({
 
       {/* Info message */}
       {info && (
-        <div className="px-4 py-2 text-sm text-muted-foreground bg-muted/50 border-t">
-          {info}
+        <div className="flex items-start gap-2 px-4 py-2 text-sm text-muted-foreground bg-muted/50 border-t">
+          <span className="flex-1 whitespace-pre-line">{info}</span>
+          <button
+            onClick={() => setInfo(null)}
+            className="shrink-0 p-0.5 hover:text-foreground rounded"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
         </div>
       )}
 
@@ -562,8 +616,8 @@ export function BranchChat({
             onModeChange={handleModeChange}
             attachments={attachments}
             onAttachmentsChange={setAttachments}
-            onCommand={handleCommandFromAutocomplete}
             cwd={cwd}
+            modelName={CLAUDE_MODELS[settings.model] ?? settings.model}
           />
         )}
       </div>

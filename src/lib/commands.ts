@@ -1,4 +1,10 @@
-import { Trash2, HelpCircle, type LucideIcon } from "lucide-react";
+import {
+  Trash2,
+  HelpCircle,
+  Cpu,
+  Minimize2,
+  type LucideIcon,
+} from "lucide-react";
 
 export interface Command {
   name: string;
@@ -13,9 +19,19 @@ export const COMMANDS: Command[] = [
     Icon: Trash2,
   },
   {
+    name: "compact",
+    description: "Compact conversation with optional focus instructions",
+    Icon: Minimize2,
+  },
+  {
     name: "help",
     description: "Show available commands",
     Icon: HelpCircle,
+  },
+  {
+    name: "model",
+    description: "Select or change the AI model",
+    Icon: Cpu,
   },
 ];
 
