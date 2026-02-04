@@ -19,8 +19,24 @@ import {
   Code,
   FileText,
   GitCommitHorizontal,
+  GitMerge,
+  GitPullRequest,
+  MoreHorizontal,
+  Pencil,
   TerminalSquare,
+  Trash2,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { RenameBranchDialog } from "@/components/repositories/rename-branch-dialog";
+import { MergeBranchDialog } from "@/components/repositories/merge-branch-dialog";
+import { DeleteBranchDialog } from "@/components/repositories/delete-branch-dialog";
 import { ClaudeIcon } from "@/components/ui/claude-icon";
 import { Activity, useCallback, useEffect, useMemo, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
@@ -185,6 +201,17 @@ function BranchDetailPage() {
     }
   }, [branch, branchId, repository, navigate]);
 
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  const handleNavigateAway = useCallback(() => {
+    void navigate({
+      to: "/repositories/$repository/branches",
+      params: { repository: repositorySlug },
+    });
+  }, [navigate, repositorySlug]);
+
   const cwd = branch?.worktreePath || repository.path;
   const agentStatus = useAgentStatus(branchId);
   const { stats: diffStats } = useDiffStats(cwd ?? undefined);
@@ -302,6 +329,39 @@ function BranchDetailPage() {
                 Terminal
               </TabsTrigger>
             </Link>
+
+            <div className="flex-1" />
+
+            <Button variant="outline" size="sm" disabled className="my-1 mr-1">
+              <GitPullRequest className="h-4 w-4" />
+              Pull Request
+            </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon-sm" className="my-1 mr-1">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setRenameDialogOpen(true)}>
+                  <Pencil className="h-4 w-4" />
+                  Rename Branch
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setMergeDialogOpen(true)}>
+                  <GitMerge className="h-4 w-4" />
+                  Merge Branch
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => setDeleteDialogOpen(true)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete Branch
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </TabsList>
         </Tabs>
       </div>
@@ -364,6 +424,26 @@ function BranchDetailPage() {
 
       {/* Keep Outlet for route matching (renders null) */}
       <Outlet />
+
+      <RenameBranchDialog
+        open={renameDialogOpen}
+        onOpenChange={setRenameDialogOpen}
+        branch={branch}
+        repositoryPath={cwd}
+      />
+      <MergeBranchDialog
+        open={mergeDialogOpen}
+        onOpenChange={setMergeDialogOpen}
+        branch={branch}
+        repositoryPath={cwd}
+      />
+      <DeleteBranchDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        branch={branch}
+        repositoryPath={cwd}
+        onNavigateAway={handleNavigateAway}
+      />
     </div>
   );
 }

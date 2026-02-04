@@ -174,6 +174,17 @@ interface GitAPI {
     branch: string,
     force: boolean,
   ): Promise<{ success: boolean; error?: string }>;
+  renameBranch(
+    path: string,
+    oldName: string,
+    newName: string,
+  ): Promise<{ success: boolean; error?: string }>;
+  mergeBranch(
+    path: string,
+    sourceBranch: string,
+    targetBranch: string,
+    strategy: "merge" | "squash" | "rebase",
+  ): Promise<{ success: boolean; error?: string }>;
   parseRemoteUrl(
     path: string,
     remoteName?: string,
@@ -629,6 +640,50 @@ export async function deleteBranch(
 
   try {
     return await window.gitAPI.deleteBranch(path, branch, force);
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+export async function renameBranch(
+  path: string,
+  oldName: string,
+  newName: string,
+): Promise<{ success: boolean; error?: string }> {
+  if (!isElectron() || !window.gitAPI) {
+    return { success: false, error: "Not available in web mode" };
+  }
+
+  try {
+    return await window.gitAPI.renameBranch(path, oldName, newName);
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+export async function mergeBranch(
+  path: string,
+  sourceBranch: string,
+  targetBranch: string,
+  strategy: "merge" | "squash" | "rebase",
+): Promise<{ success: boolean; error?: string }> {
+  if (!isElectron() || !window.gitAPI) {
+    return { success: false, error: "Not available in web mode" };
+  }
+
+  try {
+    return await window.gitAPI.mergeBranch(
+      path,
+      sourceBranch,
+      targetBranch,
+      strategy,
+    );
   } catch (error) {
     return {
       success: false,

@@ -722,6 +722,56 @@ ipcMain.handle(
   },
 );
 
+ipcMain.handle(
+  "git:rename-branch",
+  async (_event, repoPath: string, oldName: string, newName: string) => {
+    try {
+      const git = getGit(repoPath);
+      await git.branch(["-m", oldName, newName]);
+      return { success: true };
+    } catch (error) {
+      console.error("git:rename-branch error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  },
+);
+
+ipcMain.handle(
+  "git:merge-branch",
+  async (
+    _event,
+    repoPath: string,
+    sourceBranch: string,
+    targetBranch: string,
+    strategy: "merge" | "squash" | "rebase",
+  ) => {
+    try {
+      const git = getGit(repoPath);
+      await git.checkout(targetBranch);
+      if (strategy === "merge") {
+        await git.merge([sourceBranch]);
+      } else if (strategy === "squash") {
+        await git.merge([sourceBranch, "--squash"]);
+        await git.commit(
+          `Squash merge branch '${sourceBranch}' into ${targetBranch}`,
+        );
+      } else {
+        await git.rebase([sourceBranch]);
+      }
+      return { success: true };
+    } catch (error) {
+      console.error("git:merge-branch error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  },
+);
+
 interface ParsedRemoteUrl {
   owner: string | null;
   repo: string | null;

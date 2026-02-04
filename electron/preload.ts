@@ -174,6 +174,29 @@ const gitAPI = {
     return ipcRenderer.invoke("git:delete-branch", path, branch, force);
   },
 
+  renameBranch: (
+    path: string,
+    oldName: string,
+    newName: string,
+  ): Promise<OperationResult> => {
+    return ipcRenderer.invoke("git:rename-branch", path, oldName, newName);
+  },
+
+  mergeBranch: (
+    path: string,
+    sourceBranch: string,
+    targetBranch: string,
+    strategy: "merge" | "squash" | "rebase",
+  ): Promise<OperationResult> => {
+    return ipcRenderer.invoke(
+      "git:merge-branch",
+      path,
+      sourceBranch,
+      targetBranch,
+      strategy,
+    );
+  },
+
   parseRemoteUrl: (
     path: string,
     remoteName?: string,
