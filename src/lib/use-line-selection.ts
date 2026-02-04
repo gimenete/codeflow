@@ -85,7 +85,7 @@ export function formatLineReference(
   lineRange: LineRange,
 ): string {
   if (lineRange.start === lineRange.end) {
-    return `@${filePath}:L${lineRange.start}`;
+    return `@${filePath}#L${lineRange.start}`;
   }
-  return `@${filePath}:L${lineRange.start}-L${lineRange.end}`;
+  return `@${filePath}#L${lineRange.start}-${lineRange.end}`;
 }
