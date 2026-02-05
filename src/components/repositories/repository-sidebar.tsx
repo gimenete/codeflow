@@ -57,6 +57,31 @@ function BranchDiffStatsIndicator({
   );
 }
 
+// Valid branch tab routes for type-safe navigation
+type BranchTab =
+  | "/repositories/$repository/branches/$branch/agent"
+  | "/repositories/$repository/branches/$branch/diff"
+  | "/repositories/$repository/branches/$branch/history"
+  | "/repositories/$repository/branches/$branch/code"
+  | "/repositories/$repository/branches/$branch/terminal"
+  | "/repositories/$repository/branches/$branch/pull";
+
+// Extract current tab from URL and return the corresponding typed route
+function getCurrentBranchTabRoute(pathname: string): BranchTab {
+  const tabPatterns = ["/terminal", "/diff", "/history", "/code", "/agent"];
+  for (const tab of tabPatterns) {
+    if (pathname.includes("/branches/") && pathname.endsWith(tab)) {
+      return `/repositories/$repository/branches/$branch${tab}` as BranchTab;
+    }
+  }
+  // Check for /pull and its sub-routes (e.g., /pull/commits, /pull/files)
+  if (pathname.includes("/branches/") && pathname.includes("/pull")) {
+    return "/repositories/$repository/branches/$branch/pull";
+  }
+  // Default to agent tab
+  return "/repositories/$repository/branches/$branch/agent";
+}
+
 interface RepositorySidebarProps {
   repository: Repository;
 }
@@ -174,28 +199,31 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
                 No branches tracked
               </p>
             ) : (
-              trackedBranches.map((b) => (
-                <Link
-                  key={b.id}
-                  to="/repositories/$repository/branches/$branch"
-                  params={{ repository: repositorySlug!, branch: b.id }}
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
-                    branch === b.id
-                      ? "bg-accent text-accent-foreground"
-                      : "hover:bg-accent/50 text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <GitBranch className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{b.branch}</span>
-                  <BranchStatusIndicator branchId={b.id} />
-                  <BranchDiffStatsIndicator
-                    branch={b}
-                    repositoryPath={repository.path}
-                  />
-                  <ChevronRight className="h-3.5 w-3.5 ml-auto shrink-0 opacity-50" />
-                </Link>
-              ))
+              trackedBranches.map((b) => {
+                const tabRoute = getCurrentBranchTabRoute(location.pathname);
+                return (
+                  <Link
+                    key={b.id}
+                    to={tabRoute}
+                    params={{ repository: repositorySlug!, branch: b.id }}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
+                      branch === b.id
+                        ? "bg-accent text-accent-foreground"
+                        : "hover:bg-accent/50 text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <GitBranch className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{b.branch}</span>
+                    <BranchStatusIndicator branchId={b.id} />
+                    <BranchDiffStatsIndicator
+                      branch={b}
+                      repositoryPath={repository.path}
+                    />
+                    <ChevronRight className="h-3.5 w-3.5 ml-auto shrink-0 opacity-50" />
+                  </Link>
+                );
+              })
             )}
           </div>
         </div>

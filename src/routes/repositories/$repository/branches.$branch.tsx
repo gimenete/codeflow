@@ -50,7 +50,7 @@ import { useAgentStatus } from "@/lib/agent-status";
 import { useDiffStats } from "@/lib/git";
 import { cn } from "@/lib/utils";
 
-type TabType = "agent" | "diff" | "commits" | "code" | "terminal" | "pull";
+type TabType = "agent" | "diff" | "history" | "code" | "terminal" | "pull";
 
 const AGENT_NAMES: Record<AgentType, string> = {
   claude: "Claude",
@@ -86,8 +86,8 @@ function BranchDetailPage() {
     ? "terminal"
     : location.pathname.endsWith("/diff")
       ? "diff"
-      : location.pathname.endsWith("/commits")
-        ? "commits"
+      : location.pathname.endsWith("/history")
+        ? "history"
         : location.pathname.endsWith("/code")
           ? "code"
           : location.pathname.includes("/pull")
@@ -114,8 +114,8 @@ function BranchDetailPage() {
           ? "agent"
           : tab === "diff"
             ? "diff"
-            : tab === "commits"
-              ? "commits"
+            : tab === "history"
+              ? "history"
               : tab === "code"
                 ? "code"
                 : tab === "pull"
@@ -149,12 +149,12 @@ function BranchDetailPage() {
         onSelect: () => navigateToTab("diff"),
       },
       {
-        id: "tab-commits",
+        id: "tab-history",
         label: "Commits",
         group: "Tabs",
         shortcut: "⌘3",
         icon: <GitCommitHorizontal className="h-4 w-4" />,
-        onSelect: () => navigateToTab("commits"),
+        onSelect: () => navigateToTab("history"),
       },
       {
         id: "tab-code",
@@ -199,7 +199,7 @@ function BranchDetailPage() {
     enableOnFormTags: true,
     preventDefault: true,
   });
-  useHotkeys("mod+3", () => navigateToTab("commits"), {
+  useHotkeys("mod+3", () => navigateToTab("history"), {
     enableOnFormTags: true,
     preventDefault: true,
   });
@@ -343,11 +343,11 @@ function BranchDetailPage() {
               </TabsTrigger>
             </Link>
             <Link
-              to="/repositories/$repository/branches/$branch/commits"
+              to="/repositories/$repository/branches/$branch/history"
               params={{ repository: repositorySlug, branch: branchId }}
             >
               <TabsTrigger
-                value="commits"
+                value="history"
                 className="gap-1 rounded-none border-0 data-[state=active]:bg-muted data-[state=active]:shadow-none px-3 py-2"
               >
                 <GitCommitHorizontal className="h-4 w-4" />
@@ -457,8 +457,8 @@ function BranchDetailPage() {
         )}
 
         {/* Commits Tab */}
-        {visitedTabs.has("commits") && (
-          <Activity mode={activeTab === "commits" ? "visible" : "hidden"}>
+        {visitedTabs.has("history") && (
+          <Activity mode={activeTab === "history" ? "visible" : "hidden"}>
             <div className="absolute inset-0">
               <BranchCommitsView branch={branch} repositoryPath={cwd} />
             </div>

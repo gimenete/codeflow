@@ -34,7 +34,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 
 const searchSchema = z.object({
-  type: z.enum(["pulls", "issues"]).optional(),
   state: z.enum(["open", "closed", "merged", "draft", "all"]).optional(),
   author: z.string().optional(),
   assignee: z.string().optional(),
@@ -99,7 +98,6 @@ function SavedQueryResults() {
       repo: `${owner}/${repo}`, // Always scope to this repo
     };
     // Override with URL filters
-    if (urlFilters.type !== undefined) base.type = urlFilters.type;
     if (urlFilters.state !== undefined) base.state = urlFilters.state;
     if (urlFilters.author !== undefined)
       base.author = urlFilters.author || undefined;
@@ -291,41 +289,6 @@ function SavedQueryResults() {
 
         <div className="flex items-center gap-2 flex-wrap">
           <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
-
-          {/* Type filter */}
-          <Select
-            value={filters.type ?? "pulls"}
-            onValueChange={(v) => {
-              const newType = v as "pulls" | "issues";
-              const newFilters = { ...urlFilters, type: newType };
-              // Clear PR-only filters when switching to issues
-              if (newType === "issues") {
-                delete newFilters.reviewRequested;
-                if (
-                  newFilters.state === "merged" ||
-                  newFilters.state === "draft"
-                ) {
-                  newFilters.state = "open";
-                }
-              }
-              void navigate({
-                to: "/repositories/$repository/queries/$query",
-                params: { repository: repositorySlug, query: queryId },
-                search: newFilters,
-                replace: true,
-              });
-            }}
-          >
-            <SelectTrigger size="sm" className="w-36">
-              <SelectValue>
-                {filters.type === "issues" ? "Issues" : "Pull Requests"}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="pulls">Pull Requests</SelectItem>
-              <SelectItem value="issues">Issues</SelectItem>
-            </SelectContent>
-          </Select>
 
           {/* State filter */}
           <Select

@@ -169,6 +169,11 @@ export async function searchIssuesAndPulls(
 
     const items = response.data.items.map((item) => {
       const isPullRequest = "pull_request" in item;
+      const pullRequest = isPullRequest
+        ? (item.pull_request as { merged_at?: string | null })
+        : null;
+      const isMerged = pullRequest?.merged_at != null;
+
       const baseResult = {
         id: String(item.id),
         number: item.number,
@@ -194,6 +199,7 @@ export async function searchIssuesAndPulls(
       if (isPullRequest) {
         return {
           ...baseResult,
+          state: isMerged ? "merged" : (item.state as "open" | "closed"),
           isDraft: item.draft ?? false,
         } as PullRequest;
       }
