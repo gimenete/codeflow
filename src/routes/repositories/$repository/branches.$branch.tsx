@@ -496,6 +496,7 @@ function BranchDetailPage() {
                 accountId={account.id}
                 owner={remoteInfo.owner}
                 repo={remoteInfo.repo}
+                repositoryPath={cwd}
                 basePath={`/repositories/${repositorySlug}/branches/${branchId}/pull`}
               />
             </div>

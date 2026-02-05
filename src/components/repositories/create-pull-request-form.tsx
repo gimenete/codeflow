@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getAccount } from "@/lib/auth";
+import { gitPush } from "@/lib/git";
 import {
   useRepositoryInfo,
   useRemoteBranches,
@@ -24,6 +25,7 @@ interface CreatePullRequestFormProps {
   owner: string;
   repo: string;
   branch: TrackedBranch;
+  repositoryPath: string;
   onPullRequestCreated: (
     pullNumber: number,
     pullOwner: string,
@@ -54,6 +56,7 @@ export function CreatePullRequestForm({
   owner,
   repo,
   branch,
+  repositoryPath,
   onPullRequestCreated,
 }: CreatePullRequestFormProps) {
   const account = getAccount(accountId);
@@ -127,10 +130,21 @@ export function CreatePullRequestForm({
     setError(null);
 
     try {
-      // For forks, head needs to be "username:branch"
-      // For same repo, head is just "branch"
-      const head =
-        targetRepo === "parent" ? `${owner}:${branch.branch}` : branch.branch;
+      // First, push the branch to the remote
+      const pushResult = await gitPush(
+        repositoryPath,
+        "origin",
+        branch.branch,
+        false,
+      );
+      if (!pushResult.success) {
+        throw new Error(pushResult.error ?? "Failed to push branch to remote");
+      }
+
+      // Head always needs to be "owner:branch" format to be explicit about
+      // where the branch lives. For same-repo PRs, owner is the repo owner.
+      // For fork PRs to parent, owner is the fork owner.
+      const head = `${owner}:${branch.branch}`;
 
       const result = await createPullRequest(account, {
         owner: targetOwner,

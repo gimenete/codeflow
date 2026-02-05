@@ -8,6 +8,7 @@ interface BranchPullRequestViewProps {
   accountId: string;
   owner: string;
   repo: string;
+  repositoryPath: string;
   basePath: string; // e.g., "/repositories/my-repo/branches/branch-id/pull"
 }
 
@@ -16,6 +17,7 @@ export function BranchPullRequestView({
   accountId,
   owner,
   repo,
+  repositoryPath,
   basePath,
 }: BranchPullRequestViewProps) {
   const { associatePullRequest } = useBranchesStore();
@@ -48,6 +50,7 @@ export function BranchPullRequestView({
       owner={owner}
       repo={repo}
       branch={branch}
+      repositoryPath={repositoryPath}
       onPullRequestCreated={handlePullRequestCreated}
     />
   );
