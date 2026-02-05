@@ -109,6 +109,22 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
       },
     }));
     const containerRef = useRef<HTMLDivElement>(null);
+
+    // Auto-resize textarea based on content
+    useEffect(() => {
+      const textarea = textareaRef.current;
+      if (textarea) {
+        // Reset height to auto to get the actual scrollHeight
+        textarea.style.height = "auto";
+        // Set height to scrollHeight, capped at max
+        const maxHeight = 500;
+        const newHeight = Math.min(textarea.scrollHeight, maxHeight);
+        textarea.style.height = `${newHeight}px`;
+        // Show scrollbar only when at max height
+        textarea.style.overflowY =
+          textarea.scrollHeight > maxHeight ? "auto" : "hidden";
+      }
+    }, [value]);
     const [isDragOver, setIsDragOver] = useState(false);
     const [showCommands, setShowCommands] = useState(false);
     const [commandFilter, setCommandFilter] = useState("");
@@ -482,7 +498,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
               placeholder="Send a message... (Enter to send, Shift+Enter for newline)"
               disabled={disabled}
               className={cn(
-                "w-full min-h-[44px] max-h-[200px] resize-none px-3 py-2.5",
+                "w-full min-h-[44px] resize-none px-3 py-2.5 overflow-hidden",
                 "bg-transparent border-0 focus:outline-none focus:ring-0",
                 "placeholder:text-muted-foreground text-sm",
               )}
