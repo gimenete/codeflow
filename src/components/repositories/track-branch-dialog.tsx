@@ -187,6 +187,9 @@ export function TrackBranchDialog({
         branch: branchName,
         worktreePath,
         conversationId: null,
+        pullNumber: null,
+        pullOwner: null,
+        pullRepo: null,
       });
 
       // Reset and close

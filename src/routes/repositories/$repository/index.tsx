@@ -33,6 +33,9 @@ function RepositoryIndexRedirect() {
               branch: branchName,
               worktreePath: null,
               conversationId: null,
+              pullNumber: null,
+              pullOwner: null,
+              pullRepo: null,
             });
           }
           void navigate({

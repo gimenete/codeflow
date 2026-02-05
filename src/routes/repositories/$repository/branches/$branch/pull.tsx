@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 // This route exists for URL matching.
-// The parent route renders GitHubPull which handles all content.
+// The parent route (branches.$branch.tsx) renders the content.
 export const Route = createFileRoute(
-  "/repositories/$repository/pulls/$number/",
+  "/repositories/$repository/branches/$branch/pull",
 )({
   component: () => null,
 });

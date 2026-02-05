@@ -4,9 +4,12 @@ import { BranchChat } from "@/components/repositories/branch-chat";
 import { BranchFilesView } from "@/components/repositories/branch-files-view";
 import { BranchCommitsView } from "@/components/repositories/branch-commits-view";
 import { BranchCodeView } from "@/components/repositories/branch-code-view";
+import { BranchPullRequestView } from "@/components/repositories/branch-pull-request-view";
 import { useBranchById, useBranchesStore } from "@/lib/branches-store";
 import { useCommandPalette, type CommandItem } from "@/lib/command-palette";
 import { useRepositoriesStore } from "@/lib/repositories-store";
+import { parseRemoteUrl, isGitHubUrl } from "@/lib/remote-url";
+import { getAccount } from "@/lib/auth";
 import {
   createFileRoute,
   Link,
@@ -47,7 +50,7 @@ import { useAgentStatus } from "@/lib/agent-status";
 import { useDiffStats } from "@/lib/git";
 import { cn } from "@/lib/utils";
 
-type TabType = "agent" | "diff" | "commits" | "code" | "terminal";
+type TabType = "agent" | "diff" | "commits" | "code" | "terminal" | "pull";
 
 const AGENT_NAMES: Record<AgentType, string> = {
   claude: "Claude",
@@ -87,7 +90,16 @@ function BranchDetailPage() {
         ? "commits"
         : location.pathname.endsWith("/code")
           ? "code"
-          : "agent";
+          : location.pathname.includes("/pull")
+            ? "pull"
+            : "agent";
+
+  // Check if this is a GitHub repository (for showing Pull Request tab)
+  const remoteInfo = parseRemoteUrl(repository.remoteUrl);
+  const isGitHub = isGitHubUrl(repository.remoteUrl);
+  const account = repository.accountId
+    ? getAccount(repository.accountId)
+    : null;
 
   // Track visited tabs for lazy mounting - only mount tabs that have been visited
   const [visitedTabs, setVisitedTabs] = useState<Set<TabType>>(
@@ -97,8 +109,20 @@ function BranchDetailPage() {
   // Navigation helpers for command palette
   const navigateToTab = useCallback(
     (tab: TabType) => {
+      const tabPath =
+        tab === "agent"
+          ? "agent"
+          : tab === "diff"
+            ? "diff"
+            : tab === "commits"
+              ? "commits"
+              : tab === "code"
+                ? "code"
+                : tab === "pull"
+                  ? "pull"
+                  : "terminal";
       void navigate({
-        to: `/repositories/$repository/branches/$branch/${tab === "agent" ? "agent" : tab === "diff" ? "diff" : tab === "commits" ? "commits" : tab === "code" ? "code" : "terminal"}`,
+        to: `/repositories/$repository/branches/$branch/${tabPath}`,
         params: { repository: repositorySlug, branch: branchId },
       });
     },
@@ -148,8 +172,20 @@ function BranchDetailPage() {
         icon: <TerminalSquare className="h-4 w-4" />,
         onSelect: () => navigateToTab("terminal"),
       },
+      ...(isGitHub
+        ? [
+            {
+              id: "tab-pull",
+              label: "Pull Request",
+              group: "Tabs",
+              shortcut: "⌘6",
+              icon: <GitPullRequest className="h-4 w-4" />,
+              onSelect: () => navigateToTab("pull"),
+            },
+          ]
+        : []),
     ],
-    [repository.agent, navigateToTab],
+    [repository.agent, navigateToTab, isGitHub],
   );
 
   useCommandPalette(commands);
@@ -175,6 +211,16 @@ function BranchDetailPage() {
     enableOnFormTags: true,
     preventDefault: true,
   });
+  useHotkeys(
+    "mod+6",
+    () => {
+      if (isGitHub) navigateToTab("pull");
+    },
+    {
+      enableOnFormTags: true,
+      preventDefault: true,
+    },
+  );
 
   // Add current tab to visited set when it changes
   useEffect(() => {
@@ -333,12 +379,23 @@ function BranchDetailPage() {
               </TabsTrigger>
             </Link>
 
-            <div className="flex-1" />
+            {/* Pull Request tab - only show for GitHub repos */}
+            {isGitHub && remoteInfo && account && (
+              <Link
+                to="/repositories/$repository/branches/$branch/pull"
+                params={{ repository: repositorySlug, branch: branchId }}
+              >
+                <TabsTrigger
+                  value="pull"
+                  className="gap-1 rounded-none border-0 data-[state=active]:bg-muted data-[state=active]:shadow-none px-3 py-2"
+                >
+                  <GitPullRequest className="h-4 w-4" />
+                  Pull Request
+                </TabsTrigger>
+              </Link>
+            )}
 
-            <Button variant="outline" size="sm" disabled className="my-1 mr-1">
-              <GitPullRequest className="h-4 w-4" />
-              Pull Request
-            </Button>
+            <div className="flex-1" />
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -425,6 +482,21 @@ function BranchDetailPage() {
                 branchId={branchId}
                 cwd={cwd}
                 active={activeTab === "terminal"}
+              />
+            </div>
+          </Activity>
+        )}
+
+        {/* Pull Request Tab */}
+        {visitedTabs.has("pull") && isGitHub && remoteInfo && account && (
+          <Activity mode={activeTab === "pull" ? "visible" : "hidden"}>
+            <div className="absolute inset-0">
+              <BranchPullRequestView
+                branch={branch}
+                accountId={account.id}
+                owner={remoteInfo.owner}
+                repo={remoteInfo.repo}
+                basePath={`/repositories/${repositorySlug}/branches/${branchId}/pull`}
               />
             </div>
           </Activity>

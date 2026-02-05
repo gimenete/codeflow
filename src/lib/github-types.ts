@@ -319,6 +319,19 @@ export interface TrackedBranch {
   branch: string; // Git branch name
   worktreePath: string | null; // Optional separate worktree path
   conversationId: string | null;
+  pullNumber: number | null; // Associated PR number
+  pullOwner: string | null; // Owner of repo where PR lives (parent for forks)
+  pullRepo: string | null; // Repo name where PR lives
   createdAt: string;
   updatedAt: string;
+}
+
+export interface RepositoryForkInfo {
+  isFork: boolean;
+  defaultBranch: string;
+  parent: {
+    owner: string;
+    name: string;
+    defaultBranch: string;
+  } | null;
 }

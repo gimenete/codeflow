@@ -15,6 +15,10 @@ import {
   type SearchNavigationItem,
   type SearchNavigationResponse,
 } from "@/queries/search-navigation";
+import {
+  GET_REPOSITORY_INFO,
+  type RepositoryInfoResponse,
+} from "@/queries/repository-info";
 import type {
   Account,
   PullRequest,
@@ -33,6 +37,7 @@ import type {
   PRFilesPage,
   DiffSource,
   SearchResultsPage,
+  RepositoryForkInfo,
 } from "./github-types";
 import type {
   GetIssueOrPrMetadataQuery,
@@ -1272,5 +1277,139 @@ export async function searchWithCursors(
     items: resultItems,
     hasNextPage,
     endCursor,
+  };
+}
+
+// Repository info functions for fork detection and default branch
+
+export async function fetchRepositoryInfo(
+  account: Account,
+  owner: string,
+  repo: string,
+): Promise<RepositoryForkInfo> {
+  const client = getGraphQLClient(account);
+
+  const response = await client.request<RepositoryInfoResponse>(
+    GET_REPOSITORY_INFO,
+    { owner, repo },
+  );
+
+  const repository = response.repository;
+  if (!repository) {
+    throw new Error("Repository not found");
+  }
+
+  return {
+    isFork: repository.isFork,
+    defaultBranch: repository.defaultBranchRef?.name ?? "main",
+    parent: repository.parent
+      ? {
+          owner: repository.parent.owner.login,
+          name: repository.parent.name,
+          defaultBranch: repository.parent.defaultBranchRef?.name ?? "main",
+        }
+      : null,
+  };
+}
+
+export function useRepositoryInfo(
+  accountId: string,
+  owner: string,
+  repo: string,
+) {
+  const account = getAccount(accountId);
+
+  return useQuery({
+    queryKey: ["github-repo-info", accountId, owner, repo],
+    queryFn: async () => {
+      if (!account) throw new Error("Account not found");
+      return fetchRepositoryInfo(account, owner, repo);
+    },
+    staleTime: 60000, // Cache for 1 minute
+    enabled: !!account && !!owner && !!repo,
+  });
+}
+
+// Fetch remote branches via REST API
+
+export interface RemoteBranch {
+  name: string;
+  protected: boolean;
+}
+
+export async function fetchRemoteBranches(
+  account: Account,
+  owner: string,
+  repo: string,
+): Promise<RemoteBranch[]> {
+  const octokit = getOctokit(account);
+
+  const response = await octokit.repos.listBranches({
+    owner,
+    repo,
+    per_page: 100,
+  });
+
+  return response.data.map((branch) => ({
+    name: branch.name,
+    protected: branch.protected,
+  }));
+}
+
+export function useRemoteBranches(
+  accountId: string,
+  owner: string | undefined,
+  repo: string | undefined,
+) {
+  const account = getAccount(accountId);
+
+  return useQuery({
+    queryKey: ["github-remote-branches", accountId, owner, repo],
+    queryFn: async () => {
+      if (!account) throw new Error("Account not found");
+      if (!owner || !repo) throw new Error("Owner and repo required");
+      return fetchRemoteBranches(account, owner, repo);
+    },
+    staleTime: 30000,
+    enabled: !!account && !!owner && !!repo,
+  });
+}
+
+// Create pull request via REST API
+
+export interface CreatePullRequestParams {
+  owner: string;
+  repo: string;
+  title: string;
+  body: string;
+  head: string; // For forks: "username:branch", for same repo: "branch"
+  base: string;
+}
+
+export interface CreatedPullRequest {
+  number: number;
+  url: string;
+  htmlUrl: string;
+}
+
+export async function createPullRequest(
+  account: Account,
+  params: CreatePullRequestParams,
+): Promise<CreatedPullRequest> {
+  const octokit = getOctokit(account);
+
+  const response = await octokit.pulls.create({
+    owner: params.owner,
+    repo: params.repo,
+    title: params.title,
+    body: params.body,
+    head: params.head,
+    base: params.base,
+  });
+
+  return {
+    number: response.data.number,
+    url: response.data.url,
+    htmlUrl: response.data.html_url,
   };
 }

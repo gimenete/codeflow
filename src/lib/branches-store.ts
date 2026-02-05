@@ -35,6 +35,12 @@ interface BranchesState {
   deleteBranch: (id: string) => void;
   deleteBranchesByRepositoryId: (repositoryId: string) => void;
   linkConversation: (branchId: string, conversationId: string) => void;
+  associatePullRequest: (
+    branchId: string,
+    pullNumber: number,
+    pullOwner: string,
+    pullRepo: string,
+  ) => void;
 }
 
 export const useBranchesStore = create<BranchesState>()(
@@ -120,12 +126,30 @@ export const useBranchesStore = create<BranchesState>()(
           ),
         }));
       },
+
+      associatePullRequest: (branchId, pullNumber, pullOwner, pullRepo) => {
+        set((state) => ({
+          branches: state.branches.map((b) =>
+            b.id === branchId
+              ? {
+                  ...b,
+                  pullNumber,
+                  pullOwner,
+                  pullRepo,
+                  updatedAt: new Date().toISOString(),
+                }
+              : b,
+          ),
+        }));
+      },
     }),
     {
       name: "codeflow:branches",
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
       migrate: (persistedState, version) => {
+        let state = persistedState as { branches: TrackedBranch[] };
+
         // Migration from version 1 (old "codeflow:tasks" format)
         if (version < 2) {
           // Check if we need to migrate from old tasks store
@@ -141,15 +165,29 @@ export const useBranchesStore = create<BranchesState>()(
                     repositoryId: task.projectId,
                   }),
                 );
-                return { branches };
+                state = { branches };
               }
             } catch {
               // Ignore parse errors
             }
+          } else {
+            state = { branches: [] };
           }
-          return { branches: [] };
         }
-        return persistedState as BranchesState;
+
+        // Migration from version 2 to 3: add PR association fields
+        if (version < 3) {
+          state = {
+            branches: (state.branches ?? []).map((branch) => ({
+              ...branch,
+              pullNumber: branch.pullNumber ?? null,
+              pullOwner: branch.pullOwner ?? null,
+              pullRepo: branch.pullRepo ?? null,
+            })),
+          };
+        }
+
+        return state as BranchesState;
       },
     },
   ),
