@@ -105,7 +105,7 @@ export function ReferencedEvent({
 
   return (
     <TimelineEventWrapper>
-      <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+      <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground py-2">
         <GitCommitIcon size={16} />
         <Avatar className="h-5 w-5">
           <AvatarImage src={avatarUrl} />

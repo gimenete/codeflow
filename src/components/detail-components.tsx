@@ -11,6 +11,7 @@ import {
 } from "@/components/timeline-events";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import type {
   IssueMetadata,
@@ -487,61 +488,126 @@ export function FilesList({ files }: FilesListProps) {
 
 export function DetailSkeleton() {
   return (
-    <div className="h-[calc(100vh-3rem)] flex flex-col">
-      <div className="border-b px-4 py-3 space-y-3">
-        <div className="flex items-start gap-3">
-          <Skeleton className="h-5 w-5 rounded-full mt-1" />
-          <div className="flex-1 min-w-0 space-y-2">
-            <Skeleton className="h-7 w-3/4" />
-            <div className="flex items-center gap-2">
-              <Skeleton className="h-5 w-16" />
-              <Skeleton className="h-5 w-12" />
-              <Skeleton className="h-5 w-14" />
-            </div>
-            <div className="flex items-center gap-3">
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-4 w-20" />
+    <div className="flex flex-col flex-1 h-full min-h-0">
+      {/* Header */}
+      <div className="bg-background shrink-0">
+        <div className="border-b px-4 py-3 space-y-3">
+          <div className="flex items-start gap-3">
+            <Skeleton className="h-5 w-5 rounded-full mt-1" />
+            <div className="flex-1 min-w-0 space-y-2">
+              <Skeleton className="h-7 w-3/4" />
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-5 w-16" />
+                <Skeleton className="h-5 w-12" />
+                <Skeleton className="h-5 w-14" />
+              </div>
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-4 w-20" />
+              </div>
             </div>
           </div>
+        </div>
+
+        {/* Tabs row */}
+        <div className="flex items-center gap-1 border-b px-2 h-9">
+          <Skeleton className="h-6 w-28 rounded-md" />
+          <Skeleton className="h-6 w-24 rounded-md" />
+          <Skeleton className="h-6 w-32 rounded-md" />
         </div>
       </div>
 
-      <div className="flex-1 p-4 space-y-4 max-w-4xl mx-auto w-full">
-        <div className="border rounded-lg p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <Skeleton className="h-8 w-8 rounded-full" />
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-4 w-32" />
+      {/* Content area: timeline + sidebar */}
+      <div className="flex flex-1 overflow-hidden h-full">
+        {/* Timeline area */}
+        <div className="flex-1 p-4 space-y-4 max-w-4xl overflow-hidden">
+          <div className="border rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-8 w-8 rounded-full" />
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-3/4" />
+
+          <div className="border rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-8 w-8 rounded-full" />
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-4 w-28" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-2/3" />
+            </div>
+          </div>
+
+          <div className="border rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-8 w-8 rounded-full" />
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-4 w-24" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-1/2" />
+            </div>
           </div>
         </div>
 
-        <div className="border rounded-lg p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <Skeleton className="h-8 w-8 rounded-full" />
-            <Skeleton className="h-4 w-20" />
-            <Skeleton className="h-4 w-28" />
+        {/* Sidebar area */}
+        <div className="w-64 border-l p-4 space-y-4 shrink-0 hidden lg:block">
+          {/* Assignees */}
+          <div>
+            <Skeleton className="h-4 w-20 mb-2" />
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-5 w-5 rounded-full" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-5 w-5 rounded-full" />
+                <Skeleton className="h-3 w-16" />
+              </div>
+            </div>
           </div>
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-2/3" />
-          </div>
-        </div>
+          <Separator />
 
-        <div className="border rounded-lg p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <Skeleton className="h-8 w-8 rounded-full" />
-            <Skeleton className="h-4 w-28" />
-            <Skeleton className="h-4 w-24" />
+          {/* Labels */}
+          <div>
+            <Skeleton className="h-4 w-14 mb-2" />
+            <div className="flex flex-wrap gap-1">
+              <Skeleton className="h-5 w-16 rounded-full" />
+              <Skeleton className="h-5 w-12 rounded-full" />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-1/2" />
+          <Separator />
+
+          {/* Reviewers */}
+          <div>
+            <Skeleton className="h-4 w-20 mb-2" />
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-5 w-5 rounded-full" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-5 w-5 rounded-full" />
+                <Skeleton className="h-3 w-18" />
+              </div>
+            </div>
+          </div>
+          <Separator />
+
+          {/* Milestone */}
+          <div>
+            <Skeleton className="h-4 w-18 mb-2" />
+            <Skeleton className="h-3 w-28" />
           </div>
         </div>
       </div>

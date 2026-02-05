@@ -302,14 +302,16 @@ function ConversationTab({
 
   return (
     <Scrollable.Layout direction="horizontal">
-      <Timeline
-        data={data}
-        timelineItems={timelineItems}
-        hasNextPage={hasNextPage ?? false}
-        isFetchingNextPage={isFetchingNextPage}
-        fetchNextPage={fetchNextPage}
-        isLoading={isTimelineLoading}
-      />
+      <div className="w-80 flex-1">
+        <Timeline
+          data={data}
+          timelineItems={timelineItems}
+          hasNextPage={hasNextPage ?? false}
+          isFetchingNextPage={isFetchingNextPage}
+          fetchNextPage={fetchNextPage}
+          isLoading={isTimelineLoading}
+        />
+      </div>
 
       {/* Mobile FAB to open sidebar sheet */}
       {!isLargeScreen && (

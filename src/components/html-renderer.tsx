@@ -1,6 +1,9 @@
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, useEffect, type ReactNode } from "react";
+import { codeToHtml } from "shiki";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
+import { CopyToClipboard } from "@/components/copy-to-clipboard";
+import { useDiffTheme } from "@/lib/use-diff-theme";
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -37,6 +40,77 @@ function getKey(): string {
   return `html-node-${keyCounter++}`;
 }
 
+function extractLanguage(preElement: Element): string | null {
+  const langAttr = preElement.getAttribute("lang");
+  if (langAttr) return langAttr;
+
+  const codeChild = preElement.querySelector("code");
+  if (codeChild) {
+    const codeClass = codeChild.getAttribute("class") ?? "";
+    const match = codeClass.match(/highlight-source-(\S+)/);
+    if (match) return match[1];
+  }
+  return null;
+}
+
+function HighlightedPre({
+  code,
+  language,
+}: {
+  code: string;
+  language: string;
+}) {
+  const theme = useDiffTheme();
+  const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    codeToHtml(code, {
+      lang: language,
+      theme: theme === "dark" ? "github-dark" : "github-light",
+    })
+      .then((html) => {
+        if (!cancelled) setHighlightedHtml(html);
+      })
+      .catch(() => {
+        if (!cancelled) setHighlightedHtml(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [code, language, theme]);
+
+  return (
+    <div className="relative group shiki-wrapper">
+      <CopyToClipboard
+        text={code}
+        className="absolute top-1 right-1 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+      />
+      {highlightedHtml ? (
+        <div dangerouslySetInnerHTML={{ __html: highlightedHtml }} />
+      ) : (
+        <pre>
+          <code>{code}</code>
+        </pre>
+      )}
+    </div>
+  );
+}
+
+function PlainPre({ code }: { code: string }) {
+  return (
+    <div className="relative group">
+      <CopyToClipboard
+        text={code}
+        className="absolute top-1 right-1 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+      />
+      <pre>
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+}
+
 function processNode(node: Node): ReactNode {
   if (node.nodeType === Node.TEXT_NODE) {
     return node.textContent;
@@ -48,8 +122,20 @@ function processNode(node: Node): ReactNode {
 
   const element = node as Element;
   const tagName = element.tagName.toLowerCase();
-  const children = Array.from(element.childNodes).map(processNode);
   const key = getKey();
+
+  // Short-circuit all <pre> blocks
+  if (tagName === "pre") {
+    const language = extractLanguage(element);
+    const code = element.textContent ?? "";
+    if (language) {
+      return <HighlightedPre key={key} code={code} language={language} />;
+    }
+    // Plain pre — still wrap with copy button
+    return <PlainPre key={key} code={code} />;
+  }
+
+  const children = Array.from(element.childNodes).map(processNode);
 
   switch (tagName) {
     case "body":
@@ -68,10 +154,6 @@ function processNode(node: Node): ReactNode {
       const src = element.getAttribute("src") ?? "";
       const alt = element.getAttribute("alt") ?? "";
       return <img key={key} src={src} alt={alt} loading="lazy" />;
-    }
-
-    case "pre": {
-      return <pre key={key}>{children}</pre>;
     }
 
     case "code": {

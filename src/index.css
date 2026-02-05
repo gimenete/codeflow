@@ -219,7 +219,16 @@ body {
 
   /* Code blocks */
   pre {
+    @apply bg-muted rounded-md p-4 overflow-x-auto text-foreground;
+  }
+
+  /* Shiki highlighted code blocks */
+  .shiki-wrapper pre {
     @apply bg-muted rounded-md p-4 overflow-x-auto;
+  }
+
+  .shiki-wrapper code {
+    @apply bg-transparent p-0;
   }
 
   /* Tables */
