@@ -1,26 +1,26 @@
-import {
-  Check,
-  X,
-  MessageSquare,
-  Clock,
-  Users,
-  Tag,
-  UserCheck,
-  Milestone as MilestoneIcon,
-} from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { GitHubLabel } from "@/components/github-label";
 import { RelativeTime } from "@/components/relative-time";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
 import type {
-  PullRequestMetadata,
+  Author,
   IssueMetadata,
   LatestReview,
-  ReviewRequest,
-  Author,
   Milestone,
+  PullRequestMetadata,
+  ReviewRequest,
 } from "@/lib/github-types";
+import {
+  Check,
+  Clock,
+  MessageSquare,
+  Milestone as MilestoneIcon,
+  Tag,
+  UserCheck,
+  Users,
+  X,
+} from "lucide-react";
+import { Scrollable } from "./flex-layout";
 
 interface MetadataSidebarProps {
   data: PullRequestMetadata | IssueMetadata;
@@ -34,10 +34,10 @@ export function MetadataSidebar({
   asSheet = false,
 }: MetadataSidebarProps) {
   const prData = isPR ? (data as PullRequestMetadata) : null;
-  const containerClasses = asSheet ? "h-full" : "w-64 border-l h-full";
+  const containerClasses = asSheet ? "h-full" : "border-l";
 
   return (
-    <ScrollArea className={containerClasses}>
+    <Scrollable.Vertical className={containerClasses}>
       <div className="p-4 space-y-4">
         {/* Assignees */}
         <SidebarSection title="Assignees" icon={<Users className="h-4 w-4" />}>
@@ -51,9 +51,7 @@ export function MetadataSidebar({
             </div>
           )}
         </SidebarSection>
-
         <Separator />
-
         {/* Labels */}
         <SidebarSection title="Labels" icon={<Tag className="h-4 w-4" />}>
           {data.labels.length === 0 ? (
@@ -70,7 +68,6 @@ export function MetadataSidebar({
             </div>
           )}
         </SidebarSection>
-
         {/* PR-only sections */}
         {isPR && prData && (
           <>
@@ -114,9 +111,7 @@ export function MetadataSidebar({
             </SidebarSection>
           </>
         )}
-
         <Separator />
-
         {/* Milestone */}
         <SidebarSection
           title="Milestone"
@@ -129,7 +124,7 @@ export function MetadataSidebar({
           )}
         </SidebarSection>
       </div>
-    </ScrollArea>
+    </Scrollable.Vertical>
   );
 }
 

@@ -15,6 +15,7 @@ import { parseRemoteUrl } from "@/lib/remote-url";
 import { RepoIcon } from "@primer/octicons-react";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { Copy, ExternalLink, MoreHorizontal } from "lucide-react";
+import { Scrollable } from "@/components/flex-layout";
 
 export const Route = createFileRoute(
   "/repositories/$repository/issues/$number",
@@ -57,7 +58,7 @@ function IssueDetail() {
   );
 
   return (
-    <>
+    <Scrollable.Layout direction="vertical">
       {isLoading ? (
         <DetailSkeleton />
       ) : error || !data ? (
@@ -67,63 +68,60 @@ function IssueDetail() {
           </p>
         </div>
       ) : (
-        <>
-          {/* Header for issue */}
-          <div className="bg-background shrink-0">
-            <div className="border-b px-4 py-3 space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="mt-1">
-                  <IssueStateIcon state={data.state} />
+        <div className="bg-background shrink-0">
+          <div className="border-b px-4 py-3 space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="mt-1">
+                <IssueStateIcon state={data.state} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h1 className="text-xl font-semibold">
+                  {data.title}{" "}
+                  <span className="text-muted-foreground font-normal">
+                    #{data.number}
+                  </span>
+                </h1>
+                <div className="flex items-center gap-1 mt-1 text-sm text-muted-foreground">
+                  <RepoIcon size={14} />
+                  <span>{data.repository}</span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h1 className="text-xl font-semibold">
-                    {data.title}{" "}
-                    <span className="text-muted-foreground font-normal">
-                      #{data.number}
-                    </span>
-                  </h1>
-                  <div className="flex items-center gap-1 mt-1 text-sm text-muted-foreground">
-                    <RepoIcon size={14} />
-                    <span>{data.repository}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1 self-start ml-auto">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon-sm">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() =>
-                          copyToClipboard(
-                            `https://${account.host}/${owner}/${repo}/issues/${number}`,
-                          )
-                        }
-                      >
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copy GitHub URL
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() =>
-                          openInBrowser(
-                            `https://${account.host}/${owner}/${repo}/issues/${number}`,
-                          )
-                        }
-                      >
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        Open in GitHub
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
+              </div>
+              <div className="flex items-center gap-1 self-start ml-auto">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon-sm">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() =>
+                        copyToClipboard(
+                          `https://${account.host}/${owner}/${repo}/issues/${number}`,
+                        )
+                      }
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy GitHub URL
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() =>
+                        openInBrowser(
+                          `https://${account.host}/${owner}/${repo}/issues/${number}`,
+                        )
+                      }
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Open in GitHub
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
       <Outlet />
-    </>
+    </Scrollable.Layout>
   );
 }

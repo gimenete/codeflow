@@ -113,7 +113,7 @@ export function GitHubPull({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 h-full min-h-0">
       {/* Sticky container for header + tabs */}
       <div className="bg-background shrink-0">
         <div className="border-b px-4 py-3 space-y-3">
@@ -216,7 +216,7 @@ export function GitHubPull({
       </div>
 
       {/* Tab content */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 h-full">
         {activeTab === "conversation" && (
           <ConversationTab
             accountId={accountId}
@@ -333,7 +333,11 @@ function ConversationTab({
       )}
 
       {/* Desktop sidebar */}
-      {isLargeScreen && <MetadataSidebar data={data} isPR={true} />}
+      {isLargeScreen && (
+        <div className="w-64">
+          <MetadataSidebar data={data} isPR={true} />
+        </div>
+      )}
     </Scrollable.Layout>
   );
 }
@@ -524,7 +528,7 @@ function FilesTab({
   }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0">
+    <Scrollable.Layout direction="vertical">
       <div className="border-b p-2 shrink-0">
         <CommitSelector
           commits={commits}
@@ -537,7 +541,7 @@ function FilesTab({
         />
       </div>
       <FilesList files={filesWithPatches} />
-    </div>
+    </Scrollable.Layout>
   );
 }
 

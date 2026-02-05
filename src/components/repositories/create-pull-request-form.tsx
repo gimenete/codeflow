@@ -178,7 +178,7 @@ export function CreatePullRequestForm({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="max-w-2xl mx-auto w-full p-6 flex flex-col flex-1 min-h-0">
+      <div className="w-full p-6 flex flex-col flex-1 min-h-0">
         <div className="mb-6 shrink-0">
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <GitPullRequest className="h-5 w-5" />

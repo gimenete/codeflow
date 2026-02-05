@@ -1,8 +1,9 @@
 import { GitHubLabel } from "@/components/github-label";
 import { RelativeTime } from "@/components/relative-time";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { TagIcon } from "@primer/octicons-react";
 import { TimelineEventWrapper } from "./timeline-event-wrapper";
-import { getActorLogin, getActorAvatarUrl, type Actor } from "./types";
+import { getActorAvatarUrl, getActorLogin, type Actor } from "./types";
 
 interface LabeledEventProps {
   actor: Actor;
@@ -23,6 +24,7 @@ export function LabeledEvent({
   return (
     <TimelineEventWrapper>
       <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+        <TagIcon size={16} />
         <Avatar className="h-5 w-5">
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
@@ -58,6 +60,7 @@ export function GroupedLabelsEvent({
   return (
     <TimelineEventWrapper>
       <div className="flex items-center gap-2 text-sm text-muted-foreground py-2 flex-wrap">
+        <TagIcon size={16} />
         <Avatar className="h-5 w-5">
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>

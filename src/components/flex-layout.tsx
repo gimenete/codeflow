@@ -22,7 +22,11 @@ const Layout = forwardRef<HTMLDivElement, FlexLayoutProps>(function Layout(
   return (
     <div
       ref={ref}
-      className={cn(className, "flex flex-1 overflow-hidden", flexDirection)}
+      className={cn(
+        className,
+        "flex flex-1 overflow-hidden h-full",
+        flexDirection,
+      )}
     >
       {children}
     </div>
@@ -34,7 +38,7 @@ const Vertical = forwardRef<HTMLDivElement, ScrollableProps>(function Vertical(
   ref,
 ) {
   return (
-    <ScrollArea ref={ref} className={cn(className, "flex-1 min-h-0")}>
+    <ScrollArea ref={ref} className={cn(className, "flex-1 min-h-0 h-full")}>
       {children}
     </ScrollArea>
   );
@@ -43,7 +47,7 @@ const Vertical = forwardRef<HTMLDivElement, ScrollableProps>(function Vertical(
 const Horizontal = forwardRef<HTMLDivElement, ScrollableProps>(
   function Horizontal({ children, className }, ref) {
     return (
-      <ScrollArea ref={ref} className={cn(className, "flex-1 min-w-0")}>
+      <ScrollArea ref={ref} className={cn(className, "flex-1 min-w-0 w-full")}>
         {children}
       </ScrollArea>
     );
