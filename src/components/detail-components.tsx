@@ -486,7 +486,7 @@ export function FilesList({ files }: FilesListProps) {
   );
 }
 
-export function DetailSkeleton() {
+export function DetailSkeleton({ type = "pull" }: { type?: "pull" | "issue" }) {
   return (
     <div className="flex flex-col flex-1 h-full min-h-0">
       {/* Header */}
@@ -496,25 +496,36 @@ export function DetailSkeleton() {
             <Skeleton className="h-5 w-5 rounded-full mt-1" />
             <div className="flex-1 min-w-0 space-y-2">
               <Skeleton className="h-7 w-3/4" />
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-5 w-16" />
-                <Skeleton className="h-5 w-12" />
-                <Skeleton className="h-5 w-14" />
-              </div>
-              <div className="flex items-center gap-3">
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-4 w-20" />
-              </div>
+              {type === "pull" ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-5 w-16" />
+                    <Skeleton className="h-5 w-12" />
+                    <Skeleton className="h-5 w-14" />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <Skeleton className="h-4 w-4 rounded" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         {/* Tabs row */}
-        <div className="flex items-center gap-1 border-b px-2 h-9">
-          <Skeleton className="h-6 w-28 rounded-md" />
-          <Skeleton className="h-6 w-24 rounded-md" />
-          <Skeleton className="h-6 w-32 rounded-md" />
-        </div>
+        {type === "pull" && (
+          <div className="flex items-center gap-1 border-b px-2 h-9">
+            <Skeleton className="h-6 w-28 rounded-md" />
+            <Skeleton className="h-6 w-24 rounded-md" />
+            <Skeleton className="h-6 w-32 rounded-md" />
+          </div>
+        )}
       </div>
 
       {/* Content area: timeline + sidebar */}
@@ -589,20 +600,24 @@ export function DetailSkeleton() {
           <Separator />
 
           {/* Reviewers */}
-          <div>
-            <Skeleton className="h-4 w-20 mb-2" />
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-5 w-5 rounded-full" />
-                <Skeleton className="h-3 w-24" />
+          {type === "pull" && (
+            <>
+              <div>
+                <Skeleton className="h-4 w-20 mb-2" />
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-5 w-5 rounded-full" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-5 w-5 rounded-full" />
+                    <Skeleton className="h-3 w-18" />
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-5 w-5 rounded-full" />
-                <Skeleton className="h-3 w-18" />
-              </div>
-            </div>
-          </div>
-          <Separator />
+              <Separator />
+            </>
+          )}
 
           {/* Milestone */}
           <div>

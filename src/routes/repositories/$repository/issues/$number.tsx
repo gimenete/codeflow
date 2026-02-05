@@ -60,7 +60,7 @@ function IssueDetail() {
   return (
     <Scrollable.Layout direction="vertical">
       {isLoading ? (
-        <DetailSkeleton />
+        <DetailSkeleton type="issue" />
       ) : error || !data ? (
         <div className="container mx-auto py-6 px-4">
           <p className="text-destructive">
