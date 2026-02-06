@@ -8,8 +8,6 @@ import {
   PinIcon,
   LinkIcon,
   TrashIcon,
-  BellIcon,
-  BellSlashIcon,
   MentionIcon,
   ArrowSwitchIcon,
 } from "@primer/octicons-react";
@@ -378,65 +376,6 @@ export function CommentDeletedEvent({
             <span className="font-medium">{deletedCommentAuthor.login}</span>
           </>
         )}
-        <span>
-          <RelativeTime date={createdAt} />
-        </span>
-      </div>
-    </TimelineEventWrapper>
-  );
-}
-
-// Subscribed Event
-interface SubscribedEventProps {
-  actor: Actor;
-  createdAt: string;
-}
-
-export function SubscribedEvent({ actor, createdAt }: SubscribedEventProps) {
-  const login = getActorLogin(actor);
-  const avatarUrl = getActorAvatarUrl(actor);
-
-  return (
-    <TimelineEventWrapper>
-      <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-        <BellIcon size={16} />
-        <Avatar className="h-5 w-5">
-          <AvatarImage src={avatarUrl} />
-          <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
-        </Avatar>
-        <span>{login}</span>
-        <span>subscribed to this thread</span>
-        <span>
-          <RelativeTime date={createdAt} />
-        </span>
-      </div>
-    </TimelineEventWrapper>
-  );
-}
-
-// Unsubscribed Event
-interface UnsubscribedEventProps {
-  actor: Actor;
-  createdAt: string;
-}
-
-export function UnsubscribedEvent({
-  actor,
-  createdAt,
-}: UnsubscribedEventProps) {
-  const login = getActorLogin(actor);
-  const avatarUrl = getActorAvatarUrl(actor);
-
-  return (
-    <TimelineEventWrapper>
-      <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-        <BellSlashIcon size={16} />
-        <Avatar className="h-5 w-5">
-          <AvatarImage src={avatarUrl} />
-          <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
-        </Avatar>
-        <span>{login}</span>
-        <span>unsubscribed from this thread</span>
         <span>
           <RelativeTime date={createdAt} />
         </span>
