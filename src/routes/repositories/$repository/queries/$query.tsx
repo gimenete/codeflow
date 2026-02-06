@@ -7,6 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MilestoneCombobox } from "@/components/milestone-combobox";
 import { UserCombobox } from "@/components/user-combobox";
 import { getAccount } from "@/lib/auth";
 import {
@@ -39,6 +40,7 @@ const searchSchema = z.object({
   assignee: z.string().optional(),
   reviewRequested: z.string().optional(),
   mentioned: z.string().optional(),
+  milestone: z.string().optional(),
 });
 
 type QuerySearchFilters = z.infer<typeof searchSchema>;
@@ -107,6 +109,8 @@ function SavedQueryResults() {
       base.reviewRequested = urlFilters.reviewRequested || undefined;
     if (urlFilters.mentioned !== undefined)
       base.mentioned = urlFilters.mentioned || undefined;
+    if (urlFilters.milestone !== undefined)
+      base.milestone = urlFilters.milestone || undefined;
     return base;
   }, [savedQuery?.filters, urlFilters, owner, repo]);
 
@@ -351,6 +355,18 @@ function SavedQueryResults() {
             accountId={account.id}
             placeholder="Mentioned"
             label="Mentioned"
+            className="w-40"
+          />
+
+          {/* Milestone filter */}
+          <MilestoneCombobox
+            value={filters.milestone}
+            onChange={(v) => updateFilter("milestone", v)}
+            accountId={account.id}
+            owner={owner}
+            repo={repo}
+            placeholder="Milestone"
+            label="Milestone"
             className="w-40"
           />
         </div>

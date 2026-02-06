@@ -1,8 +1,13 @@
 import { useState, useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Info } from "lucide-react";
-import { useIssueMetadata, useIssueTimeline } from "@/lib/github";
+import {
+  useIssueMetadata,
+  useIssueTimeline,
+  useTimelineMutations,
+} from "@/lib/github";
 import { useIsLargeScreen } from "@/lib/hooks";
+import { CommentForm } from "@/components/comment-form";
 import { Timeline } from "@/components/detail-components";
 import { MetadataSidebar } from "@/components/metadata-sidebar";
 import { Button } from "@/components/ui/button";
@@ -37,13 +42,23 @@ function IssueConversationTab() {
   const isLargeScreen = useIsLargeScreen();
   const [sheetOpen, setSheetOpen] = useState(false);
 
+  const issueNumber = parseInt(number);
+
   const {
     data: timelineData,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
     isLoading: isTimelineLoading,
-  } = useIssueTimeline(account.id, owner, repo, parseInt(number));
+  } = useIssueTimeline(account.id, owner, repo, issueNumber);
+
+  const mutations = useTimelineMutations(
+    account.id,
+    owner,
+    repo,
+    issueNumber,
+    false,
+  );
 
   const timelineItems = useMemo(() => {
     if (!timelineData?.pages) return [];
@@ -69,6 +84,20 @@ function IssueConversationTab() {
     );
   }
 
+  const commentFooter = (
+    <CommentForm
+      accountId={account.id}
+      owner={owner}
+      repo={repo}
+      state={data.state}
+      isPR={false}
+      viewerCanUpdate={data.viewerCanUpdate}
+      onSubmitComment={mutations.submitComment}
+      onChangeState={mutations.changeState}
+      onCommentAndChangeState={mutations.commentAndChangeState}
+    />
+  );
+
   return (
     <Scrollable.Layout direction="horizontal">
       <div className="w-80 flex-1">
@@ -79,6 +108,7 @@ function IssueConversationTab() {
           isFetchingNextPage={isFetchingNextPage}
           fetchNextPage={fetchNextPage}
           isLoading={isTimelineLoading}
+          footer={commentFooter}
         />
       </div>
 
@@ -98,7 +128,17 @@ function IssueConversationTab() {
             <SheetHeader>
               <SheetTitle>Details</SheetTitle>
             </SheetHeader>
-            <MetadataSidebar data={data} isPR={false} asSheet />
+            <MetadataSidebar
+              data={data}
+              isPR={false}
+              asSheet
+              accountId={account.id}
+              owner={owner}
+              repo={repo}
+              onLabelsChange={mutations.updateLabels}
+              onAssigneesChange={mutations.updateAssignees}
+              onMilestoneChange={mutations.updateMilestone}
+            />
           </SheetContent>
         </Sheet>
       )}
@@ -106,7 +146,16 @@ function IssueConversationTab() {
       {/* Desktop sidebar */}
       {isLargeScreen && (
         <div className="w-64">
-          <MetadataSidebar data={data} isPR={false} />
+          <MetadataSidebar
+            data={data}
+            isPR={false}
+            accountId={account.id}
+            owner={owner}
+            repo={repo}
+            onLabelsChange={mutations.updateLabels}
+            onAssigneesChange={mutations.updateAssignees}
+            onMilestoneChange={mutations.updateMilestone}
+          />
         </div>
       )}
     </Scrollable.Layout>

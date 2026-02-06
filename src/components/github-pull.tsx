@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { GitCommitIcon, RepoIcon } from "@primer/octicons-react";
 import { Branch } from "@/components/branch";
+import { CommentForm } from "@/components/comment-form";
 import {
   CommitsList,
   DetailSkeleton,
@@ -53,6 +54,7 @@ import {
   usePRCommits,
   usePRFilesREST,
   useDiff,
+  useTimelineMutations,
 } from "@/lib/github";
 import { useIsLargeScreen, useParseDiffAsync } from "@/lib/hooks";
 import type { DiffSource } from "@/lib/github-types";
@@ -276,6 +278,8 @@ function ConversationTab({
     isLoading: isTimelineLoading,
   } = usePullTimeline(accountId, owner, repo, number);
 
+  const mutations = useTimelineMutations(accountId, owner, repo, number, true);
+
   const timelineItems = useMemo(() => {
     if (!timelineData?.pages) return [];
     return timelineData.pages.flatMap((page) => page.items);
@@ -300,6 +304,21 @@ function ConversationTab({
     );
   }
 
+  const commentFooter = (
+    <CommentForm
+      accountId={accountId}
+      owner={owner}
+      repo={repo}
+      state={data.state}
+      merged={data.merged}
+      isPR={true}
+      viewerCanUpdate={data.viewerCanUpdate}
+      onSubmitComment={mutations.submitComment}
+      onChangeState={mutations.changeState}
+      onCommentAndChangeState={mutations.commentAndChangeState}
+    />
+  );
+
   return (
     <Scrollable.Layout direction="horizontal">
       <div className="w-80 flex-1">
@@ -310,6 +329,7 @@ function ConversationTab({
           isFetchingNextPage={isFetchingNextPage}
           fetchNextPage={fetchNextPage}
           isLoading={isTimelineLoading}
+          footer={commentFooter}
         />
       </div>
 
@@ -329,7 +349,18 @@ function ConversationTab({
             <SheetHeader>
               <SheetTitle>Details</SheetTitle>
             </SheetHeader>
-            <MetadataSidebar data={data} isPR={true} asSheet />
+            <MetadataSidebar
+              data={data}
+              isPR={true}
+              asSheet
+              accountId={accountId}
+              owner={owner}
+              repo={repo}
+              onLabelsChange={mutations.updateLabels}
+              onAssigneesChange={mutations.updateAssignees}
+              onReviewRequestsChange={mutations.updateReviewRequests}
+              onMilestoneChange={mutations.updateMilestone}
+            />
           </SheetContent>
         </Sheet>
       )}
@@ -337,7 +368,17 @@ function ConversationTab({
       {/* Desktop sidebar */}
       {isLargeScreen && (
         <div className="w-64">
-          <MetadataSidebar data={data} isPR={true} />
+          <MetadataSidebar
+            data={data}
+            isPR={true}
+            accountId={accountId}
+            owner={owner}
+            repo={repo}
+            onLabelsChange={mutations.updateLabels}
+            onAssigneesChange={mutations.updateAssignees}
+            onReviewRequestsChange={mutations.updateReviewRequests}
+            onMilestoneChange={mutations.updateMilestone}
+          />
         </div>
       )}
     </Scrollable.Layout>

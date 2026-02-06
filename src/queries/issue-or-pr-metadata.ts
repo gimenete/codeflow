@@ -10,6 +10,7 @@ export const GET_ISSUE_OR_PR_METADATA = gql`
           number
           title
           issueState: state
+          viewerCanUpdate
           bodyHTML
           createdAt
           updatedAt
@@ -30,6 +31,7 @@ export const GET_ISSUE_OR_PR_METADATA = gql`
             }
           }
           milestone {
+            number
             title
             url
             dueOn
@@ -42,6 +44,7 @@ export const GET_ISSUE_OR_PR_METADATA = gql`
           number
           title
           prState: state
+          viewerCanUpdate
           merged
           isDraft
           bodyHTML
@@ -102,6 +105,7 @@ export const GET_ISSUE_OR_PR_METADATA = gql`
             }
           }
           milestone {
+            number
             title
             url
             dueOn

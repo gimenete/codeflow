@@ -113,6 +113,7 @@ export interface TimelineProps {
   isFetchingNextPage: boolean;
   fetchNextPage: () => void;
   isLoading?: boolean;
+  footer?: React.ReactNode;
 }
 
 function TimelineEventSkeleton() {
@@ -138,6 +139,7 @@ export function Timeline({
   isFetchingNextPage,
   fetchNextPage,
   isLoading,
+  footer,
 }: TimelineProps) {
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
@@ -209,6 +211,8 @@ export function Timeline({
             </div>
           )}
         </div>
+
+        {footer}
       </div>
     </Scrollable.Vertical>
   );

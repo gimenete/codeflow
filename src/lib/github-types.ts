@@ -46,6 +46,7 @@ export type ReviewState =
   | "DISMISSED";
 
 export interface Milestone {
+  number: number;
   title: string;
   url: string;
   dueOn: string | null;
@@ -198,6 +199,7 @@ export interface QueryFilters {
   assignee?: string;
   reviewRequested?: string;
   mentioned?: string;
+  milestone?: string;
 }
 
 export interface PageInfo {
@@ -212,6 +214,7 @@ export interface PullRequestMetadata {
   state: "open" | "closed";
   merged: boolean;
   isDraft: boolean;
+  viewerCanUpdate: boolean;
   author: Author;
   labels: Label[];
   assignees: Author[];
@@ -239,6 +242,7 @@ export interface IssueMetadata {
   number: number;
   title: string;
   state: "open" | "closed";
+  viewerCanUpdate: boolean;
   author: Author;
   labels: Label[];
   assignees: Author[];

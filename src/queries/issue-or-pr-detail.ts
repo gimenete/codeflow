@@ -30,6 +30,7 @@ export const GET_ISSUE_OR_PR = gql`
             }
           }
           milestone {
+            number
             title
             url
             dueOn
@@ -140,6 +141,7 @@ export const GET_ISSUE_OR_PR = gql`
             }
           }
           milestone {
+            number
             title
             url
             dueOn

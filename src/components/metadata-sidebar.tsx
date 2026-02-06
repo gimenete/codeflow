@@ -1,5 +1,9 @@
+import { AssigneePicker } from "@/components/assignee-picker";
 import { GitHubLabel } from "@/components/github-label";
+import { LabelPicker } from "@/components/label-picker";
+import { MilestonePicker } from "@/components/milestone-picker";
 import { RelativeTime } from "@/components/relative-time";
+import { ReviewerPicker } from "@/components/reviewer-picker";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import type {
@@ -26,22 +30,61 @@ interface MetadataSidebarProps {
   data: PullRequestMetadata | IssueMetadata;
   isPR: boolean;
   asSheet?: boolean;
+  accountId?: string;
+  owner?: string;
+  repo?: string;
+  onLabelsChange?: (labels: string[]) => Promise<void>;
+  onAssigneesChange?: (add: string[], remove: string[]) => Promise<void>;
+  onReviewRequestsChange?: (add: string[], remove: string[]) => Promise<void>;
+  onMilestoneChange?: (milestoneNumber: number | null) => Promise<void>;
 }
 
 export function MetadataSidebar({
   data,
   isPR,
   asSheet = false,
+  accountId,
+  owner,
+  repo,
+  onLabelsChange,
+  onAssigneesChange,
+  onReviewRequestsChange,
+  onMilestoneChange,
 }: MetadataSidebarProps) {
   const prData = isPR ? (data as PullRequestMetadata) : null;
   const containerClasses = asSheet ? "h-full" : "border-l";
+  const canEdit = data.viewerCanUpdate && accountId && owner && repo;
 
   return (
     <Scrollable.Vertical className={containerClasses}>
       <div className="p-4 space-y-4">
         {/* Assignees */}
         <SidebarSection title="Assignees" icon={<Users className="h-4 w-4" />}>
-          {data.assignees.length === 0 ? (
+          {canEdit && onAssigneesChange ? (
+            <AssigneePicker
+              accountId={accountId}
+              owner={owner}
+              repo={repo}
+              currentAssignees={data.assignees}
+              onAssigneesChange={onAssigneesChange}
+            >
+              {(displayAssignees) => (
+                <button className="w-full text-left rounded-md p-1 -m-1 hover:bg-accent transition-colors cursor-pointer">
+                  {displayAssignees.length === 0 ? (
+                    <span className="text-sm text-muted-foreground">
+                      None — click to add
+                    </span>
+                  ) : (
+                    <div className="space-y-2">
+                      {displayAssignees.map((assignee) => (
+                        <UserItem key={assignee.login} user={assignee} />
+                      ))}
+                    </div>
+                  )}
+                </button>
+              )}
+            </AssigneePicker>
+          ) : data.assignees.length === 0 ? (
             <span className="text-sm text-muted-foreground">None</span>
           ) : (
             <div className="space-y-2">
@@ -54,7 +97,35 @@ export function MetadataSidebar({
         <Separator />
         {/* Labels */}
         <SidebarSection title="Labels" icon={<Tag className="h-4 w-4" />}>
-          {data.labels.length === 0 ? (
+          {canEdit && onLabelsChange ? (
+            <LabelPicker
+              accountId={accountId}
+              owner={owner}
+              repo={repo}
+              currentLabels={data.labels}
+              onLabelsChange={onLabelsChange}
+            >
+              {(displayLabels) => (
+                <button className="w-full text-left rounded-md p-1 -m-1 hover:bg-accent transition-colors cursor-pointer">
+                  {displayLabels.length === 0 ? (
+                    <span className="text-sm text-muted-foreground">
+                      None — click to add
+                    </span>
+                  ) : (
+                    <div className="flex flex-wrap gap-1">
+                      {displayLabels.map((label) => (
+                        <GitHubLabel
+                          key={label.name}
+                          name={label.name}
+                          color={label.color}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </button>
+              )}
+            </LabelPicker>
+          ) : data.labels.length === 0 ? (
             <span className="text-sm text-muted-foreground">None</span>
           ) : (
             <div className="flex flex-wrap gap-1">
@@ -96,7 +167,34 @@ export function MetadataSidebar({
               title="Review Requested"
               icon={<Clock className="h-4 w-4" />}
             >
-              {prData.reviewRequests.length === 0 ? (
+              {canEdit && onReviewRequestsChange ? (
+                <ReviewerPicker
+                  accountId={accountId}
+                  owner={owner}
+                  repo={repo}
+                  currentRequests={prData.reviewRequests}
+                  onReviewRequestsChange={onReviewRequestsChange}
+                >
+                  {(displayRequests) => (
+                    <button className="w-full text-left rounded-md p-1 -m-1 hover:bg-accent transition-colors cursor-pointer">
+                      {displayRequests.length === 0 ? (
+                        <span className="text-sm text-muted-foreground">
+                          None — click to add
+                        </span>
+                      ) : (
+                        <div className="space-y-2">
+                          {displayRequests.map((request, index) => (
+                            <ReviewRequestItem
+                              key={request.login ?? request.name ?? index}
+                              request={request}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </button>
+                  )}
+                </ReviewerPicker>
+              ) : prData.reviewRequests.length === 0 ? (
                 <span className="text-sm text-muted-foreground">None</span>
               ) : (
                 <div className="space-y-2">
@@ -117,7 +215,27 @@ export function MetadataSidebar({
           title="Milestone"
           icon={<MilestoneIcon className="h-4 w-4" />}
         >
-          {data.milestone ? (
+          {canEdit && onMilestoneChange ? (
+            <MilestonePicker
+              accountId={accountId}
+              owner={owner}
+              repo={repo}
+              currentMilestone={data.milestone}
+              onMilestoneChange={onMilestoneChange}
+            >
+              {(displayMilestone) => (
+                <button className="w-full text-left rounded-md p-1 -m-1 hover:bg-accent transition-colors cursor-pointer">
+                  {displayMilestone ? (
+                    <MilestoneItem milestone={displayMilestone} />
+                  ) : (
+                    <span className="text-sm text-muted-foreground">
+                      None — click to add
+                    </span>
+                  )}
+                </button>
+              )}
+            </MilestonePicker>
+          ) : data.milestone ? (
             <MilestoneItem milestone={data.milestone} />
           ) : (
             <span className="text-sm text-muted-foreground">None</span>

@@ -1,5 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
+import {
+  useQuery,
+  useInfiniteQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { GraphQLClient } from "graphql-request";
 import { Octokit } from "@octokit/rest";
 import { GET_ISSUE_OR_PR } from "@/queries/issue-or-pr-detail";
@@ -143,6 +147,10 @@ export function buildSearchQuery(
 
   if (filters.label && filters.label.length > 0) {
     filters.label.forEach((l) => parts.push(`label:"${l}"`));
+  }
+
+  if (filters.milestone) {
+    parts.push(`milestone:"${filters.milestone}"`);
   }
 
   return parts.join(" ");
@@ -371,6 +379,7 @@ export async function fetchIssueOrPRDetail(
         })),
       milestone: item.milestone
         ? {
+            number: item.milestone.number,
             title: item.milestone.title,
             url: item.milestone.url,
             dueOn: item.milestone.dueOn,
@@ -422,6 +431,7 @@ export async function fetchIssueOrPRDetail(
       })),
       milestone: item.milestone
         ? {
+            number: item.milestone.number,
             title: item.milestone.title,
             url: item.milestone.url,
             dueOn: item.milestone.dueOn,
@@ -491,6 +501,7 @@ export async function fetchIssueOrPullMetadata(
       state: pr.prState.toLowerCase() as "open" | "closed",
       merged: pr.merged,
       isDraft: pr.isDraft,
+      viewerCanUpdate: pr.viewerCanUpdate,
       author: pr.author ?? { login: "ghost", avatarUrl: "" },
       labels: (pr.labels?.nodes ?? [])
         .filter((l): l is NonNullable<typeof l> => l != null)
@@ -537,6 +548,7 @@ export async function fetchIssueOrPullMetadata(
         })),
       milestone: pr.milestone
         ? {
+            number: pr.milestone.number,
             title: pr.milestone.title,
             url: pr.milestone.url,
             dueOn: pr.milestone.dueOn ?? null,
@@ -566,6 +578,7 @@ export async function fetchIssueOrPullMetadata(
       number: issue.number,
       title: issue.title,
       state: issue.issueState.toLowerCase() as "open" | "closed",
+      viewerCanUpdate: issue.viewerCanUpdate,
       author: issue.author ?? { login: "ghost", avatarUrl: "" },
       labels: (issue.labels?.nodes ?? [])
         .filter((l): l is NonNullable<typeof l> => l != null)
@@ -581,6 +594,7 @@ export async function fetchIssueOrPullMetadata(
         })),
       milestone: issue.milestone
         ? {
+            number: issue.milestone.number,
             title: issue.milestone.title,
             url: issue.milestone.url,
             dueOn: issue.milestone.dueOn ?? null,
@@ -1513,5 +1527,302 @@ export async function createPullRequest(
     number: response.data.number,
     url: response.data.url,
     htmlUrl: response.data.html_url,
+  };
+}
+
+// Milestone functions
+
+export interface RepoMilestone {
+  number: number;
+  title: string;
+  state: string;
+  dueOn: string | null;
+  description: string | null;
+}
+
+export async function fetchRepoMilestones(
+  account: Account,
+  owner: string,
+  repo: string,
+): Promise<RepoMilestone[]> {
+  const octokit = getOctokit(account);
+  const response = await octokit.issues.listMilestones({
+    owner,
+    repo,
+    state: "open",
+    per_page: 100,
+  });
+  return response.data.map((m) => ({
+    number: m.number,
+    title: m.title,
+    state: m.state,
+    dueOn: m.due_on ?? null,
+    description: m.description ?? null,
+  }));
+}
+
+export function useRepoMilestones(
+  accountId: string,
+  owner: string,
+  repo: string,
+) {
+  const account = getAccount(accountId);
+
+  return useQuery({
+    queryKey: ["github-repo-milestones", accountId, owner, repo],
+    queryFn: async () => {
+      if (!account) throw new Error("Account not found");
+      return fetchRepoMilestones(account, owner, repo);
+    },
+    staleTime: 120_000,
+    enabled: !!account,
+  });
+}
+
+// Assignee / reviewer / milestone mutation functions
+
+export async function updateAssignees(
+  account: Account,
+  owner: string,
+  repo: string,
+  issueNumber: number,
+  addLogins: string[],
+  removeLogins: string[],
+): Promise<void> {
+  const octokit = getOctokit(account);
+  if (removeLogins.length > 0) {
+    await octokit.issues.removeAssignees({
+      owner,
+      repo,
+      issue_number: issueNumber,
+      assignees: removeLogins,
+    });
+  }
+  if (addLogins.length > 0) {
+    await octokit.issues.addAssignees({
+      owner,
+      repo,
+      issue_number: issueNumber,
+      assignees: addLogins,
+    });
+  }
+}
+
+export async function updateReviewRequests(
+  account: Account,
+  owner: string,
+  repo: string,
+  pullNumber: number,
+  addLogins: string[],
+  removeLogins: string[],
+): Promise<void> {
+  const octokit = getOctokit(account);
+  if (removeLogins.length > 0) {
+    await octokit.pulls.removeRequestedReviewers({
+      owner,
+      repo,
+      pull_number: pullNumber,
+      reviewers: removeLogins,
+    });
+  }
+  if (addLogins.length > 0) {
+    await octokit.pulls.requestReviewers({
+      owner,
+      repo,
+      pull_number: pullNumber,
+      reviewers: addLogins,
+    });
+  }
+}
+
+export async function updateMilestoneOnIssue(
+  account: Account,
+  owner: string,
+  repo: string,
+  issueNumber: number,
+  milestoneNumber: number | null,
+): Promise<void> {
+  const octokit = getOctokit(account);
+  await octokit.issues.update({
+    owner,
+    repo,
+    issue_number: issueNumber,
+    milestone: milestoneNumber ?? (null as unknown as undefined),
+  });
+}
+
+// Mutation functions for comments, state changes, and labels
+
+export async function createComment(
+  account: Account,
+  owner: string,
+  repo: string,
+  issueNumber: number,
+  body: string,
+): Promise<void> {
+  const octokit = getOctokit(account);
+  await octokit.issues.createComment({
+    owner,
+    repo,
+    issue_number: issueNumber,
+    body,
+  });
+}
+
+export async function updateIssueOrPullState(
+  account: Account,
+  owner: string,
+  repo: string,
+  number: number,
+  state: "open" | "closed",
+  isPR: boolean,
+): Promise<void> {
+  const octokit = getOctokit(account);
+  if (isPR) {
+    await octokit.pulls.update({
+      owner,
+      repo,
+      pull_number: number,
+      state,
+    });
+  } else {
+    await octokit.issues.update({
+      owner,
+      repo,
+      issue_number: number,
+      state,
+    });
+  }
+}
+
+export async function setLabels(
+  account: Account,
+  owner: string,
+  repo: string,
+  issueNumber: number,
+  labels: string[],
+): Promise<void> {
+  const octokit = getOctokit(account);
+  await octokit.issues.setLabels({
+    owner,
+    repo,
+    issue_number: issueNumber,
+    labels,
+  });
+}
+
+export interface RepoLabel {
+  id: number;
+  name: string;
+  color: string;
+  description: string | null;
+}
+
+export async function fetchRepoLabels(
+  account: Account,
+  owner: string,
+  repo: string,
+): Promise<RepoLabel[]> {
+  const octokit = getOctokit(account);
+  const response = await octokit.issues.listLabelsForRepo({
+    owner,
+    repo,
+    per_page: 100,
+  });
+  return response.data.map((label) => ({
+    id: label.id,
+    name: label.name,
+    color: label.color,
+    description: label.description ?? null,
+  }));
+}
+
+export function useRepoLabels(accountId: string, owner: string, repo: string) {
+  const account = getAccount(accountId);
+
+  return useQuery({
+    queryKey: ["github-repo-labels", accountId, owner, repo],
+    queryFn: async () => {
+      if (!account) throw new Error("Account not found");
+      return fetchRepoLabels(account, owner, repo);
+    },
+    staleTime: 120_000,
+    enabled: !!account,
+  });
+}
+
+export function useTimelineMutations(
+  accountId: string,
+  owner: string,
+  repo: string,
+  number: number,
+  isPR: boolean,
+) {
+  const account = getAccount(accountId);
+  const queryClient = useQueryClient();
+
+  const invalidate = () => {
+    void queryClient.invalidateQueries({
+      queryKey: ["github-timeline", accountId, owner, repo, number, isPR],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["github-metadata", accountId, owner, repo, number],
+    });
+  };
+
+  const submitComment = async (body: string) => {
+    if (!account) throw new Error("Account not found");
+    await createComment(account, owner, repo, number, body);
+    invalidate();
+  };
+
+  const changeState = async (state: "open" | "closed") => {
+    if (!account) throw new Error("Account not found");
+    await updateIssueOrPullState(account, owner, repo, number, state, isPR);
+    invalidate();
+  };
+
+  const commentAndChangeState = async (
+    body: string,
+    state: "open" | "closed",
+  ) => {
+    if (!account) throw new Error("Account not found");
+    await createComment(account, owner, repo, number, body);
+    await updateIssueOrPullState(account, owner, repo, number, state, isPR);
+    invalidate();
+  };
+
+  const updateLabels = async (labels: string[]) => {
+    if (!account) throw new Error("Account not found");
+    await setLabels(account, owner, repo, number, labels);
+    invalidate();
+  };
+
+  const mutateAssignees = async (add: string[], remove: string[]) => {
+    if (!account) throw new Error("Account not found");
+    await updateAssignees(account, owner, repo, number, add, remove);
+    invalidate();
+  };
+
+  const mutateReviewRequests = async (add: string[], remove: string[]) => {
+    if (!account) throw new Error("Account not found");
+    await updateReviewRequests(account, owner, repo, number, add, remove);
+    invalidate();
+  };
+
+  const mutateMilestone = async (milestoneNumber: number | null) => {
+    if (!account) throw new Error("Account not found");
+    await updateMilestoneOnIssue(account, owner, repo, number, milestoneNumber);
+    invalidate();
+  };
+
+  return {
+    submitComment,
+    changeState,
+    commentAndChangeState,
+    updateLabels,
+    updateAssignees: mutateAssignees,
+    updateReviewRequests: mutateReviewRequests,
+    updateMilestone: mutateMilestone,
   };
 }
