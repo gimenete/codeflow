@@ -11,6 +11,7 @@ import {
 import { GitCommitIcon, RepoIcon } from "@primer/octicons-react";
 import { Branch } from "@/components/branch";
 import { CommentForm } from "@/components/comment-form";
+import { ReviewPopover } from "@/components/review-popover";
 import {
   CommitsList,
   DetailSkeleton,
@@ -85,6 +86,8 @@ export function GitHubPull({
     repo,
     number,
   );
+
+  const mutations = useTimelineMutations(accountId, owner, repo, number, true);
 
   // Derive active tab from URL
   const activeTab: TabType = location.pathname.endsWith("/commits")
@@ -188,32 +191,45 @@ export function GitHubPull({
         </div>
 
         <Tabs value={activeTab}>
-          <TabsList className="w-full rounded-none border-b justify-start">
-            <Link to={tabPaths.conversation}>
-              <TabsTrigger value="conversation" className="gap-1">
-                <MessageSquare className="h-4 w-4" />
-                Conversation
-              </TabsTrigger>
-            </Link>
-            <Link to={tabPaths.commits}>
-              <TabsTrigger value="commits" className="gap-1">
-                <GitCommitIcon size={16} />
-                Commits
-                <Badge variant="secondary" className="ml-1">
-                  {data.totalCommits}
-                </Badge>
-              </TabsTrigger>
-            </Link>
-            <Link to={tabPaths.files}>
-              <TabsTrigger value="files" className="gap-1">
-                <FileText className="h-4 w-4" />
-                Files Changed
-                <Badge variant="secondary" className="ml-1">
-                  {data.changedFiles}
-                </Badge>
-              </TabsTrigger>
-            </Link>
-          </TabsList>
+          <div className="flex items-center border-b bg-muted">
+            <TabsList className="flex-1 rounded-none border-b-0 justify-start">
+              <Link to={tabPaths.conversation}>
+                <TabsTrigger value="conversation" className="gap-1">
+                  <MessageSquare className="h-4 w-4" />
+                  Conversation
+                </TabsTrigger>
+              </Link>
+              <Link to={tabPaths.commits}>
+                <TabsTrigger value="commits" className="gap-1">
+                  <GitCommitIcon size={16} />
+                  Commits
+                  <Badge variant="secondary" className="ml-1">
+                    {data.totalCommits}
+                  </Badge>
+                </TabsTrigger>
+              </Link>
+              <Link to={tabPaths.files}>
+                <TabsTrigger value="files" className="gap-1">
+                  <FileText className="h-4 w-4" />
+                  Files Changed
+                  <Badge variant="secondary" className="ml-1">
+                    {data.changedFiles}
+                  </Badge>
+                </TabsTrigger>
+              </Link>
+            </TabsList>
+            <div className="px-2">
+              <ReviewPopover
+                accountId={accountId}
+                owner={owner}
+                repo={repo}
+                canApprove={
+                  data.viewerCanUpdate && account?.login !== data.author.login
+                }
+                onSubmitReview={mutations.submitReview}
+              />
+            </div>
+          </div>
         </Tabs>
       </div>
 

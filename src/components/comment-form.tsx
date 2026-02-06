@@ -89,6 +89,7 @@ export function CommentForm({
             accountId={accountId}
             owner={owner}
             repo={repo}
+            onSubmit={handleSubmitComment}
             placeholder="Leave a comment..."
             className="min-h-[100px] resize-y"
           />

@@ -125,6 +125,7 @@ interface GitHubCommentTextareaProps extends Omit<
   accountId: string;
   owner: string;
   repo: string;
+  onSubmit?: () => void;
 }
 
 export function GitHubCommentTextarea({
@@ -133,6 +134,7 @@ export function GitHubCommentTextarea({
   accountId,
   owner,
   repo,
+  onSubmit,
   className,
   ...props
 }: GitHubCommentTextareaProps) {
@@ -335,6 +337,12 @@ export function GitHubCommentTextarea({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && onSubmit) {
+        e.preventDefault();
+        onSubmit();
+        return;
+      }
+
       if (!isPopoverVisible) return;
 
       if (e.key === "Escape") {
@@ -361,7 +369,7 @@ export function GitHubCommentTextarea({
         return;
       }
     },
-    [isPopoverVisible, itemCount, selectedIndex, handleSelect],
+    [isPopoverVisible, itemCount, selectedIndex, handleSelect, onSubmit],
   );
 
   const handleChange = useCallback(

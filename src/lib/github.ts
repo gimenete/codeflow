@@ -1651,6 +1651,26 @@ export async function updateMilestoneOnIssue(
   });
 }
 
+// Pull request review
+
+export async function createPullReview(
+  account: Account,
+  owner: string,
+  repo: string,
+  pullNumber: number,
+  body: string,
+  event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT",
+): Promise<void> {
+  const octokit = getOctokit(account);
+  await octokit.pulls.createReview({
+    owner,
+    repo,
+    pull_number: pullNumber,
+    body,
+    event,
+  });
+}
+
 // Mutation functions for comments, state changes, and labels
 
 export async function createComment(
@@ -1816,6 +1836,15 @@ export function useTimelineMutations(
     invalidate();
   };
 
+  const submitReview = async (
+    body: string,
+    event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT",
+  ) => {
+    if (!account) throw new Error("Account not found");
+    await createPullReview(account, owner, repo, number, body, event);
+    invalidate();
+  };
+
   return {
     submitComment,
     changeState,
@@ -1824,5 +1853,6 @@ export function useTimelineMutations(
     updateAssignees: mutateAssignees,
     updateReviewRequests: mutateReviewRequests,
     updateMilestone: mutateMilestone,
+    submitReview,
   };
 }
