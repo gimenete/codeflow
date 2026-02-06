@@ -149,11 +149,22 @@ interface GitAPI {
     remote: string,
     branch: string,
   ): Promise<{ success: boolean; error?: string }>;
+  pullWithOptions(
+    path: string,
+    remote: string,
+    branch: string,
+    options: string[],
+  ): Promise<{ success: boolean; error?: string }>;
   push(
     path: string,
     remote: string,
     branch: string,
     force: boolean,
+  ): Promise<{ success: boolean; error?: string }>;
+  resetToRemote(
+    path: string,
+    remote: string,
+    branch: string,
   ): Promise<{ success: boolean; error?: string }>;
   createBranch(
     path: string,
@@ -534,6 +545,27 @@ export async function gitPull(
   }
 }
 
+export async function gitPullWithStrategy(
+  path: string,
+  remote: string,
+  branch: string,
+  strategy: "merge" | "rebase",
+): Promise<{ success: boolean; error?: string }> {
+  if (!isElectron() || !window.gitAPI) {
+    return { success: false, error: "Not available in web mode" };
+  }
+
+  try {
+    const options = strategy === "rebase" ? ["--rebase"] : ["--no-rebase"];
+    return await window.gitAPI.pullWithOptions(path, remote, branch, options);
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 export async function gitPush(
   path: string,
   remote: string,
@@ -546,6 +578,25 @@ export async function gitPush(
 
   try {
     return await window.gitAPI.push(path, remote, branch, force);
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+export async function gitResetToRemote(
+  path: string,
+  remote: string,
+  branch: string,
+): Promise<{ success: boolean; error?: string }> {
+  if (!isElectron() || !window.gitAPI) {
+    return { success: false, error: "Not available in web mode" };
+  }
+
+  try {
+    return await window.gitAPI.resetToRemote(path, remote, branch);
   } catch (error) {
     return {
       success: false,

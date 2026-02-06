@@ -1,5 +1,6 @@
 import { useEffect, useRef, useMemo } from "react";
-import { File, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { FileIcon } from "@react-symbols/icons/utils";
 import { cn } from "@/lib/utils";
 import { useFileSearch } from "@/hooks/use-file-search";
 import { HighlightedText } from "@/lib/fuzzy-search";
@@ -107,7 +108,11 @@ export function FileAutocomplete({
                 )}
                 onClick={() => onSelect(result.relativePath)}
               >
-                <File className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <FileIcon
+                  fileName={result.name}
+                  autoAssign
+                  className="h-4 w-4 shrink-0 text-muted-foreground"
+                />
                 <div className="flex flex-col min-w-0">
                   <HighlightedText
                     text={result.name}

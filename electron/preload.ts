@@ -132,6 +132,21 @@ const gitAPI = {
     return ipcRenderer.invoke("git:pull", path, remote, branch);
   },
 
+  pullWithOptions: (
+    path: string,
+    remote: string,
+    branch: string,
+    options: string[],
+  ): Promise<OperationResult> => {
+    return ipcRenderer.invoke(
+      "git:pull-with-options",
+      path,
+      remote,
+      branch,
+      options,
+    );
+  },
+
   push: (
     path: string,
     remote: string,
@@ -139,6 +154,14 @@ const gitAPI = {
     force: boolean,
   ): Promise<OperationResult> => {
     return ipcRenderer.invoke("git:push", path, remote, branch, force);
+  },
+
+  resetToRemote: (
+    path: string,
+    remote: string,
+    branch: string,
+  ): Promise<OperationResult> => {
+    return ipcRenderer.invoke("git:reset-to-remote", path, remote, branch);
   },
 
   createBranch: (

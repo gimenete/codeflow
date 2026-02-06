@@ -323,22 +323,6 @@ export const GET_ISSUE_TIMELINE = gql`
                 login
               }
             }
-            ... on SubscribedEvent {
-              id
-              actor {
-                login
-                avatarUrl
-              }
-              createdAt
-            }
-            ... on UnsubscribedEvent {
-              id
-              actor {
-                login
-                avatarUrl
-              }
-              createdAt
-            }
             ... on MentionedEvent {
               id
               actor {
@@ -867,22 +851,6 @@ export const GET_PR_TIMELINE = gql`
               deletedCommentAuthor {
                 login
               }
-            }
-            ... on SubscribedEvent {
-              id
-              actor {
-                login
-                avatarUrl
-              }
-              createdAt
-            }
-            ... on UnsubscribedEvent {
-              id
-              actor {
-                login
-                avatarUrl
-              }
-              createdAt
             }
             ... on MentionedEvent {
               id

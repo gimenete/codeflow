@@ -14,6 +14,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   ResizableHandle,
@@ -43,7 +51,9 @@ import {
   commitChanges,
   emitGitChanged,
   gitPull,
+  gitPullWithStrategy,
   gitPush,
+  gitResetToRemote,
   onWatcherChange,
   removeWatcherListeners,
   startWatcher,
@@ -203,6 +213,10 @@ export function BranchFilesView({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
+  const [isResolving, setIsResolving] = useState(false);
+  const [forcePushConfirmOpen, setForcePushConfirmOpen] = useState(false);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [stagedDiffs, setStagedDiffs] = useState<Record<string, string>>({});
   const [unstagedDiffs, setUnstagedDiffs] = useState<Record<string, string>>(
     {},
@@ -459,6 +473,33 @@ export function BranchFilesView({
     return slashIndex > 0 ? status.tracking.slice(0, slashIndex) : null;
   }, [status?.tracking]);
 
+  const isDiverged = (status?.ahead ?? 0) > 0 && (status?.behind ?? 0) > 0;
+
+  const shouldOpenResolveDialog = useCallback(
+    (errorMessage: string | null) => {
+      if (isDiverged) return true;
+      if (!errorMessage) return false;
+      const message = errorMessage.toLowerCase();
+      return (
+        message.includes("diverge") ||
+        message.includes("non-fast-forward") ||
+        message.includes("non fast forward") ||
+        message.includes("rebase") ||
+        message.includes("unrelated histories")
+      );
+    },
+    [isDiverged],
+  );
+
+  const getLatestStatus = useCallback(async () => {
+    if (!isElectron() || !window.gitAPI) return null;
+    try {
+      return await window.gitAPI.getStatus(repositoryPath);
+    } catch {
+      return null;
+    }
+  }, [repositoryPath]);
+
   const handleSync = useCallback(async () => {
     if (!status?.branch || !upstreamRemote) return;
 
@@ -474,7 +515,11 @@ export function BranchFilesView({
           status.branch,
         );
         if (!pullResult.success) {
-          setSyncError(pullResult.error || "Pull failed");
+          const errorMessage = pullResult.error || "Pull failed";
+          setSyncError(errorMessage);
+          if (shouldOpenResolveDialog(errorMessage)) {
+            setResolveDialogOpen(true);
+          }
           return;
         }
       }
@@ -488,7 +533,11 @@ export function BranchFilesView({
           false,
         );
         if (!pushResult.success) {
-          setSyncError(pushResult.error || "Push failed");
+          const errorMessage = pushResult.error || "Push failed";
+          setSyncError(errorMessage);
+          if (shouldOpenResolveDialog(errorMessage)) {
+            setResolveDialogOpen(true);
+          }
           return;
         }
       }
@@ -505,7 +554,96 @@ export function BranchFilesView({
     status?.ahead,
     status?.behind,
     refresh,
+    shouldOpenResolveDialog,
   ]);
+
+  const handleResolvePull = useCallback(
+    async (strategy: "merge" | "rebase") => {
+      if (!status?.branch || !upstreamRemote) return;
+      setIsResolving(true);
+      setSyncError(null);
+      try {
+        const pullResult = await gitPullWithStrategy(
+          repositoryPath,
+          upstreamRemote,
+          status.branch,
+          strategy,
+        );
+        if (!pullResult.success) {
+          setSyncError(pullResult.error || "Pull failed");
+          return;
+        }
+
+        const latestStatus = await getLatestStatus();
+        if ((latestStatus?.ahead ?? 0) > 0) {
+          const pushResult = await gitPush(
+            repositoryPath,
+            upstreamRemote,
+            status.branch,
+            false,
+          );
+          if (!pushResult.success) {
+            setSyncError(pushResult.error || "Push failed");
+            return;
+          }
+        }
+
+        await refresh();
+        emitGitChanged();
+        setResolveDialogOpen(false);
+      } finally {
+        setIsResolving(false);
+      }
+    },
+    [repositoryPath, upstreamRemote, status?.branch, refresh, getLatestStatus],
+  );
+
+  const handleForcePush = useCallback(async () => {
+    if (!status?.branch || !upstreamRemote) return;
+    setIsResolving(true);
+    setSyncError(null);
+    try {
+      const pushResult = await gitPush(
+        repositoryPath,
+        upstreamRemote,
+        status.branch,
+        true,
+      );
+      if (!pushResult.success) {
+        setSyncError(pushResult.error || "Force push failed");
+        return;
+      }
+      await refresh();
+      emitGitChanged();
+      setResolveDialogOpen(false);
+      setForcePushConfirmOpen(false);
+    } finally {
+      setIsResolving(false);
+    }
+  }, [repositoryPath, upstreamRemote, status?.branch, refresh]);
+
+  const handleResetToRemote = useCallback(async () => {
+    if (!status?.branch || !upstreamRemote) return;
+    setIsResolving(true);
+    setSyncError(null);
+    try {
+      const resetResult = await gitResetToRemote(
+        repositoryPath,
+        upstreamRemote,
+        status.branch,
+      );
+      if (!resetResult.success) {
+        setSyncError(resetResult.error || "Reset to remote failed");
+        return;
+      }
+      await refresh();
+      emitGitChanged();
+      setResolveDialogOpen(false);
+      setResetConfirmOpen(false);
+    } finally {
+      setIsResolving(false);
+    }
+  }, [repositoryPath, upstreamRemote, status?.branch, refresh]);
 
   const getStatusIcon = (fileStatus: string) => {
     switch (fileStatus) {
@@ -1055,22 +1193,38 @@ export function BranchFilesView({
               </div>
               {upstreamRemote &&
                 ((status.ahead ?? 0) > 0 || (status.behind ?? 0) > 0) && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2"
-                    onClick={handleSync}
-                    disabled={isSyncing}
-                    title="Sync with remote"
-                  >
-                    <ArrowDownUp
-                      className={cn(
-                        "h-3.5 w-3.5 mr-1",
-                        isSyncing && "animate-spin",
-                      )}
-                    />
-                    Sync
-                  </Button>
+                  <>
+                    {isDiverged ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2"
+                        onClick={() => setResolveDialogOpen(true)}
+                        disabled={isSyncing || isResolving}
+                        title="Resolve diverged sync"
+                      >
+                        <ArrowDownUp className="h-3.5 w-3.5 mr-1" />
+                        Resolve
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2"
+                        onClick={handleSync}
+                        disabled={isSyncing || isResolving}
+                        title="Sync with remote"
+                      >
+                        <ArrowDownUp
+                          className={cn(
+                            "h-3.5 w-3.5 mr-1",
+                            isSyncing && "animate-spin",
+                          )}
+                        />
+                        Sync
+                      </Button>
+                    )}
+                  </>
                 )}
             </div>
           )}
@@ -1344,6 +1498,158 @@ export function BranchFilesView({
         onOpenChange={setContextMenuDialogOpen}
         onSubmit={handleContextMenuRequestChanges}
       />
+
+      <Dialog open={resolveDialogOpen} onOpenChange={setResolveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Resolve Sync</DialogTitle>
+            <DialogDescription>
+              Your branch has diverged from the remote. Choose how to reconcile
+              the histories.
+              {status && (
+                <span className="block mt-2 text-xs">
+                  {status.ahead} ahead · {status.behind} behind
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="rounded-md border p-3 space-y-2">
+              <div className="text-sm font-medium">Rebase and Push</div>
+              <div className="text-xs text-muted-foreground">
+                Replay your local commits on top of the remote branch, then
+                push.
+              </div>
+              <Button
+                size="sm"
+                onClick={() => handleResolvePull("rebase")}
+                disabled={isResolving || isSyncing}
+              >
+                Rebase and Push
+              </Button>
+            </div>
+
+            <div className="rounded-md border p-3 space-y-2">
+              <div className="text-sm font-medium">Merge and Push</div>
+              <div className="text-xs text-muted-foreground">
+                Create a merge commit to combine histories, then push.
+              </div>
+              <Button
+                size="sm"
+                onClick={() => handleResolvePull("merge")}
+                disabled={isResolving || isSyncing}
+              >
+                Merge and Push
+              </Button>
+            </div>
+
+            <div className="rounded-md border p-3 space-y-2">
+              <div className="text-sm font-medium">Force Push</div>
+              <div className="text-xs text-muted-foreground">
+                Overwrite the remote branch with your local history.
+              </div>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => setForcePushConfirmOpen(true)}
+                disabled={isResolving || isSyncing}
+              >
+                Force Push
+              </Button>
+            </div>
+
+            <div className="rounded-md border p-3 space-y-2">
+              <div className="text-sm font-medium">Reset to Remote</div>
+              <div className="text-xs text-muted-foreground">
+                Discard local commits and tracked changes to match the remote.
+              </div>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => setResetConfirmOpen(true)}
+                disabled={isResolving || isSyncing}
+              >
+                Reset to Remote
+              </Button>
+            </div>
+
+            {syncError && (
+              <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3">
+                <div className="text-sm font-medium text-destructive">
+                  Last error
+                </div>
+                <pre className="text-xs whitespace-pre-wrap mt-2 max-h-48 overflow-auto">
+                  {syncError}
+                </pre>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setResolveDialogOpen(false)}
+              disabled={isResolving || isSyncing}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={forcePushConfirmOpen}
+        onOpenChange={setForcePushConfirmOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Force push branch?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will overwrite the remote branch history with your local
+              commits. Anyone else using the remote branch will need to
+              reconcile their history.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isResolving || isSyncing}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleForcePush}
+              disabled={isResolving || isSyncing}
+            >
+              Force Push
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={resetConfirmOpen} onOpenChange={setResetConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset to remote?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This discards local commits and tracked working tree changes to
+              match the remote branch. Untracked files will remain.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isResolving || isSyncing}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleResetToRemote}
+              disabled={isResolving || isSyncing}
+            >
+              Reset to Remote
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Discard file confirmation dialog */}
       <AlertDialog

@@ -44,8 +44,6 @@ import {
   ConnectedEvent,
   DisconnectedEvent,
   CommentDeletedEvent,
-  SubscribedEvent,
-  UnsubscribedEvent,
   MentionedEvent,
 } from "./misc-events";
 import { UnknownEvent } from "./unknown-event";
@@ -392,22 +390,6 @@ export function TimelineEventItem({ event }: TimelineEventItemProps) {
           actor={event.actor as Actor}
           createdAt={event.createdAt}
           deletedCommentAuthor={event.deletedCommentAuthor}
-        />
-      );
-
-    case "SubscribedEvent":
-      return (
-        <SubscribedEvent
-          actor={event.actor as Actor}
-          createdAt={event.createdAt}
-        />
-      );
-
-    case "UnsubscribedEvent":
-      return (
-        <UnsubscribedEvent
-          actor={event.actor as Actor}
-          createdAt={event.createdAt}
         />
       );
 

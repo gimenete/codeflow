@@ -31,7 +31,13 @@ import { setupClaudeChatIPC } from "@/lib/claude-ipc";
 import { requestNotificationPermission } from "@/lib/notifications";
 import { cn } from "@/lib/utils";
 import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
-import { ChevronDown, ChevronLeft, ChevronRight, Command } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Command,
+  Settings,
+} from "lucide-react";
 import { useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
@@ -231,6 +237,18 @@ function RootLayoutContent() {
           </nav>
 
           <div className="flex-1" />
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 app-region-no-drag"
+            asChild
+          >
+            <Link to="/settings" title="Settings">
+              <Settings className="h-4 w-4" />
+              <span className="text-xs text-muted-foreground">Settings</span>
+            </Link>
+          </Button>
 
           {/* Command palette button */}
           <Button
