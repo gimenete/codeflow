@@ -23,6 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -31,6 +32,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Empty,
   EmptyDescription,
@@ -217,6 +219,9 @@ export function BranchFilesView({
   const [isResolving, setIsResolving] = useState(false);
   const [forcePushConfirmOpen, setForcePushConfirmOpen] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [resolveOption, setResolveOption] = useState<
+    "rebase" | "merge" | "force" | "reset"
+  >("rebase");
   const [stagedDiffs, setStagedDiffs] = useState<Record<string, string>>({});
   const [unstagedDiffs, setUnstagedDiffs] = useState<Record<string, string>>(
     {},
@@ -484,6 +489,10 @@ export function BranchFilesView({
         message.includes("diverge") ||
         message.includes("non-fast-forward") ||
         message.includes("non fast forward") ||
+        message.includes("failed to push some refs") ||
+        message.includes("fetch first") ||
+        message.includes("remote contains work") ||
+        message.includes("updates were rejected") ||
         message.includes("rebase") ||
         message.includes("unrelated histories")
       );
@@ -1187,7 +1196,7 @@ export function BranchFilesView({
                 {(status.ahead ?? 0) === 0 && (status.behind ?? 0) === 0 && (
                   <span>Up to date with remote</span>
                 )}
-                {syncError && (
+                {syncError && !resolveDialogOpen && (
                   <span className="text-destructive ml-2">{syncError}</span>
                 )}
               </div>
@@ -1500,7 +1509,7 @@ export function BranchFilesView({
       />
 
       <Dialog open={resolveDialogOpen} onOpenChange={setResolveDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Resolve Sync</DialogTitle>
             <DialogDescription>
@@ -1515,64 +1524,54 @@ export function BranchFilesView({
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="rounded-md border p-3 space-y-2">
-              <div className="text-sm font-medium">Rebase and Push</div>
-              <div className="text-xs text-muted-foreground">
-                Replay your local commits on top of the remote branch, then
-                push.
+            <RadioGroup
+              value={resolveOption}
+              onValueChange={(value) =>
+                setResolveOption(
+                  value as "rebase" | "merge" | "force" | "reset",
+                )
+              }
+              className="space-y-3"
+            >
+              <div className="flex items-start gap-3 p-1">
+                <RadioGroupItem value="rebase" id="resolve-rebase" />
+                <div className="space-y-1">
+                  <Label htmlFor="resolve-rebase">Rebase and Push</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Replay your local commits on top of the remote branch, then
+                    push.
+                  </p>
+                </div>
               </div>
-              <Button
-                size="sm"
-                onClick={() => handleResolvePull("rebase")}
-                disabled={isResolving || isSyncing}
-              >
-                Rebase and Push
-              </Button>
-            </div>
-
-            <div className="rounded-md border p-3 space-y-2">
-              <div className="text-sm font-medium">Merge and Push</div>
-              <div className="text-xs text-muted-foreground">
-                Create a merge commit to combine histories, then push.
+              <div className="flex items-start gap-3 p-1">
+                <RadioGroupItem value="merge" id="resolve-merge" />
+                <div className="space-y-1">
+                  <Label htmlFor="resolve-merge">Merge and Push</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Create a merge commit to combine histories, then push.
+                  </p>
+                </div>
               </div>
-              <Button
-                size="sm"
-                onClick={() => handleResolvePull("merge")}
-                disabled={isResolving || isSyncing}
-              >
-                Merge and Push
-              </Button>
-            </div>
-
-            <div className="rounded-md border p-3 space-y-2">
-              <div className="text-sm font-medium">Force Push</div>
-              <div className="text-xs text-muted-foreground">
-                Overwrite the remote branch with your local history.
+              <div className="flex items-start gap-3 p-1">
+                <RadioGroupItem value="force" id="resolve-force" />
+                <div className="space-y-1">
+                  <Label htmlFor="resolve-force">Force Push</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Overwrite the remote branch with your local history.
+                  </p>
+                </div>
               </div>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => setForcePushConfirmOpen(true)}
-                disabled={isResolving || isSyncing}
-              >
-                Force Push
-              </Button>
-            </div>
-
-            <div className="rounded-md border p-3 space-y-2">
-              <div className="text-sm font-medium">Reset to Remote</div>
-              <div className="text-xs text-muted-foreground">
-                Discard local commits and tracked changes to match the remote.
+              <div className="flex items-start gap-3 p-1">
+                <RadioGroupItem value="reset" id="resolve-reset" />
+                <div className="space-y-1">
+                  <Label htmlFor="resolve-reset">Reset to Remote</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Discard local commits and tracked changes to match the
+                    remote.
+                  </p>
+                </div>
               </div>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => setResetConfirmOpen(true)}
-                disabled={isResolving || isSyncing}
-              >
-                Reset to Remote
-              </Button>
-            </div>
+            </RadioGroup>
 
             {syncError && (
               <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3">
@@ -1594,6 +1593,38 @@ export function BranchFilesView({
               disabled={isResolving || isSyncing}
             >
               Close
+            </Button>
+            <Button
+              type="button"
+              variant={
+                resolveOption === "force" || resolveOption === "reset"
+                  ? "destructive"
+                  : "default"
+              }
+              onClick={() => {
+                if (resolveOption === "rebase") {
+                  void handleResolvePull("rebase");
+                  return;
+                }
+                if (resolveOption === "merge") {
+                  void handleResolvePull("merge");
+                  return;
+                }
+                if (resolveOption === "force") {
+                  setForcePushConfirmOpen(true);
+                  return;
+                }
+                setResetConfirmOpen(true);
+              }}
+              disabled={isResolving || isSyncing}
+            >
+              {resolveOption === "rebase"
+                ? "Rebase and Push"
+                : resolveOption === "merge"
+                  ? "Merge and Push"
+                  : resolveOption === "force"
+                    ? "Force Push"
+                    : "Reset to Remote"}
             </Button>
           </DialogFooter>
         </DialogContent>
