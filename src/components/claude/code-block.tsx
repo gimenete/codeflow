@@ -54,7 +54,7 @@ export function CodeBlock({ children, language, className }: CodeBlockProps) {
       <Button
         variant="ghost"
         size="icon"
-        className="absolute top-1 right-1 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+        className="absolute top-1 right-1 h-7 w-7 opacity-100 transition-colors z-10 bg-background hover:bg-muted shadow-sm cursor-pointer"
         onClick={handleCopy}
         title={copied ? "Copied!" : "Copy code"}
       >

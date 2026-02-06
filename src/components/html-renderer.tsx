@@ -84,7 +84,7 @@ function HighlightedPre({
     <div className="relative group shiki-wrapper">
       <CopyToClipboard
         text={code}
-        className="absolute top-1 right-1 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+        className="absolute top-1 right-1 h-7 w-7 opacity-100 transition-colors z-10 bg-background hover:bg-muted shadow-sm cursor-pointer"
       />
       {highlightedHtml ? (
         <div dangerouslySetInnerHTML={{ __html: highlightedHtml }} />
@@ -102,7 +102,7 @@ function PlainPre({ code }: { code: string }) {
     <div className="relative group">
       <CopyToClipboard
         text={code}
-        className="absolute top-1 right-1 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+        className="absolute top-1 right-1 h-7 w-7 opacity-100 transition-colors z-10 bg-background hover:bg-muted shadow-sm cursor-pointer"
       />
       <pre>
         <code>{code}</code>
