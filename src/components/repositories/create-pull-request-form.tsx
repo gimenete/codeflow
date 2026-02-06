@@ -3,7 +3,7 @@ import { AlertCircle, GitPullRequest, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { GitHubCommentTextarea } from "@/components/github-comment-textarea";
 import {
   Select,
   SelectContent,
@@ -262,10 +262,13 @@ export function CreatePullRequestForm({
           {/* Description - grows to fill available space */}
           <div className="flex flex-col flex-1 min-h-0 space-y-2">
             <Label htmlFor="description">Description</Label>
-            <Textarea
+            <GitHubCommentTextarea
               id="description"
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={setDescription}
+              accountId={accountId}
+              owner={owner}
+              repo={repo}
               placeholder="Describe your changes..."
               className="flex-1 min-h-[200px] resize-none"
             />

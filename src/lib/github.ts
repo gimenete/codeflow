@@ -19,6 +19,7 @@ import {
   GET_REPOSITORY_INFO,
   type RepositoryInfoResponse,
 } from "@/queries/repository-info";
+import { GET_MENTIONABLE_USERS } from "@/queries/mentionable-users";
 import type {
   Account,
   PullRequest,
@@ -938,6 +939,101 @@ export async function searchGitHubRepos(
     fullName: repo.full_name,
     description: repo.description,
   }));
+}
+
+export interface RepoIssueSearchResult {
+  number: number;
+  title: string;
+  state: "open" | "closed";
+  isPullRequest: boolean;
+  isMerged: boolean;
+}
+
+export async function searchIssuesInRepo(
+  account: Account,
+  owner: string,
+  repo: string,
+  query: string,
+): Promise<RepoIssueSearchResult[]> {
+  if (!query || query.length < 1) return [];
+  const octokit = getOctokit(account);
+  const isNumeric = /^\d+$/.test(query);
+  const q = isNumeric
+    ? `repo:${owner}/${repo} ${query}`
+    : `repo:${owner}/${repo} ${query} in:title`;
+
+  const response = await octokit.search.issuesAndPullRequests({
+    q,
+    sort: "updated",
+    order: "desc",
+    per_page: 8,
+  });
+
+  return response.data.items.map((item) => {
+    const isPullRequest = "pull_request" in item;
+    const pullRequest = isPullRequest
+      ? (item.pull_request as { merged_at?: string | null })
+      : null;
+    return {
+      number: item.number,
+      title: item.title,
+      state: item.state as "open" | "closed",
+      isPullRequest,
+      isMerged: pullRequest?.merged_at != null,
+    };
+  });
+}
+
+export async function fetchMentionableUsers(
+  account: Account,
+  owner: string,
+  repo: string,
+): Promise<GitHubUser[]> {
+  const client = getGraphQLClient(account);
+
+  const response = await client.request<{
+    repository: {
+      mentionableUsers: {
+        nodes: { login: string; avatarUrl: string }[];
+      };
+    };
+  }>(GET_MENTIONABLE_USERS, { owner, repo });
+
+  return response.repository.mentionableUsers.nodes.map((user) => ({
+    login: user.login,
+    avatarUrl: user.avatarUrl,
+  }));
+}
+
+export async function fetchRecentIssues(
+  account: Account,
+  owner: string,
+  repo: string,
+): Promise<RepoIssueSearchResult[]> {
+  const octokit = getOctokit(account);
+
+  const response = await octokit.issues.listForRepo({
+    owner,
+    repo,
+    sort: "updated",
+    direction: "desc",
+    per_page: 8,
+    state: "all",
+  });
+
+  return response.data.map((item) => {
+    const isPullRequest = "pull_request" in item;
+    const pullRequest = isPullRequest
+      ? (item.pull_request as { merged_at?: string | null })
+      : null;
+    return {
+      number: item.number,
+      title: item.title,
+      state: item.state as "open" | "closed",
+      isPullRequest,
+      isMerged: pullRequest?.merged_at != null,
+    };
+  });
 }
 
 // REST API hooks for PR files and diffs

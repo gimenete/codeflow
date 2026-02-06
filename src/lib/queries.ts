@@ -6,6 +6,9 @@ import {
   searchIssuesAndPulls,
   searchGitHubUsers,
   searchGitHubRepos,
+  searchIssuesInRepo,
+  fetchMentionableUsers,
+  fetchRecentIssues,
   buildSearchQuery,
   searchWithCursors,
   searchAdjacentItems,
@@ -174,6 +177,22 @@ export function useRepoSearch(accountId: string, query: string) {
   });
 }
 
+export function useIssueSearch(
+  accountId: string,
+  owner: string,
+  repo: string,
+  query: string,
+) {
+  const account = getAccount(accountId);
+
+  return useQuery({
+    queryKey: ["issue-search", accountId, owner, repo, query],
+    queryFn: () => searchIssuesInRepo(account!, owner, repo, query),
+    enabled: !!account && query.length >= 1,
+    staleTime: 30000,
+  });
+}
+
 export function useAdjacentItems(
   accountId: string,
   queryId: string,
@@ -206,4 +225,34 @@ export function useAdjacentItems(
     isLoading,
     error,
   };
+}
+
+export function useMentionableUsers(
+  accountId: string,
+  owner: string,
+  repo: string,
+) {
+  const account = getAccount(accountId);
+
+  return useQuery({
+    queryKey: ["mentionable-users", accountId, owner, repo],
+    queryFn: () => fetchMentionableUsers(account!, owner, repo),
+    enabled: !!account,
+    staleTime: 120_000,
+  });
+}
+
+export function useRecentIssues(
+  accountId: string,
+  owner: string,
+  repo: string,
+) {
+  const account = getAccount(accountId);
+
+  return useQuery({
+    queryKey: ["recent-issues", accountId, owner, repo],
+    queryFn: () => fetchRecentIssues(account!, owner, repo),
+    enabled: !!account,
+    staleTime: 60_000,
+  });
 }
