@@ -20,14 +20,14 @@ export function SearchResultItemSkeleton() {
         {/* Line break for small screens */}
         <div className="basis-full h-0 lg:hidden" />
 
+        {/* CI + Approval */}
+        <Skeleton className="h-4 lg:h-5 w-8 shrink-0 lg:order-2 lg:w-12" />
+
         {/* Author */}
-        <div className="flex items-center gap-1 ml-6 lg:ml-0 lg:order-2 flex-1 lg:flex-none lg:w-32">
+        <div className="flex items-center gap-1 ml-6 lg:ml-0 lg:order-3 flex-1 lg:flex-none lg:w-32">
           <Skeleton className="h-4 w-4 lg:h-5 lg:w-5 shrink-0 rounded-full" />
           <Skeleton className="h-4 lg:h-5 w-16" />
         </div>
-
-        {/* CI + Approval */}
-        <Skeleton className="h-4 lg:h-5 w-8 shrink-0 lg:order-3 lg:w-12" />
       </div>
       <div className="flex items-center gap-1 mt-1 ml-6">
         <Skeleton className="h-5 w-14 shrink-0" />

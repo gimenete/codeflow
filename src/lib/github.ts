@@ -877,7 +877,7 @@ export interface PRStatusResult {
   reviewDecision: ReviewDecision;
 }
 
-export function usePRStatus(
+export function usePullStatus(
   accountId: string,
   owner: string,
   repo: string,

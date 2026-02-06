@@ -405,6 +405,9 @@ function SavedQueryResults() {
                   item={item}
                   repositorySlug={repositorySlug}
                   isPR={isPRSearch}
+                  accountId={account.id}
+                  owner={owner}
+                  repo={repo}
                 />
               ))}
             </div>
@@ -428,10 +431,16 @@ function RepositorySearchResultItem({
   item,
   repositorySlug,
   isPR,
+  accountId,
+  owner,
+  repo,
 }: {
   item: (PullRequest | Issue) & { cursor?: string };
   repositorySlug: string;
   isPR: boolean;
+  accountId: string;
+  owner: string;
+  repo: string;
 }) {
   return (
     <Link
@@ -446,7 +455,13 @@ function RepositorySearchResultItem({
       }}
       className="block"
     >
-      <SearchResultItemContent item={item} isPR={isPR} />
+      <SearchResultItemContent
+        item={item}
+        isPR={isPR}
+        accountId={accountId}
+        owner={owner}
+        repo={repo}
+      />
     </Link>
   );
 }
@@ -456,15 +471,22 @@ import { Scrollable } from "@/components/flex-layout";
 import { GitHubLabel } from "@/components/github-label";
 import { IssueStateIcon } from "@/components/issue-state-icon";
 import { PullStateIcon } from "@/components/pull-state-icon";
+import { PullStatusBadges } from "@/components/pull-status-badges";
 import { RelativeTime } from "@/components/relative-time";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 function SearchResultItemContent({
   item,
   isPR,
+  accountId,
+  owner,
+  repo,
 }: {
   item: PullRequest | Issue;
   isPR: boolean;
+  accountId: string;
+  owner: string;
+  repo: string;
 }) {
   return (
     <div className="px-4 py-2 hover:bg-accent/50 transition-colors">
@@ -499,8 +521,20 @@ function SearchResultItemContent({
         {/* Line break for small screens */}
         <div className="basis-full h-0 lg:hidden" />
 
+        {/* CI + Review badges */}
+        {isPR && (
+          <div className="ml-6 lg:ml-0 lg:order-2 shrink-0">
+            <PullStatusBadges
+              accountId={accountId}
+              owner={owner}
+              repo={repo}
+              number={item.number}
+            />
+          </div>
+        )}
+
         {/* Author */}
-        <div className="flex items-center gap-1 ml-6 lg:ml-0 lg:order-2 flex-1 lg:flex-none lg:w-32 text-xs lg:text-sm text-muted-foreground">
+        <div className="flex items-center gap-1 ml-6 lg:ml-0 lg:order-3 flex-1 lg:flex-none lg:w-32 text-xs lg:text-sm text-muted-foreground">
           <Avatar className="h-4 w-4 lg:h-5 lg:w-5 shrink-0">
             <AvatarImage src={item.author.avatarUrl} />
             <AvatarFallback>
