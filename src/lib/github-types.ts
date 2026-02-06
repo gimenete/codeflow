@@ -27,6 +27,50 @@ export interface Author {
   avatarUrl: string;
 }
 
+export type MergeMethod = "merge" | "squash" | "rebase";
+
+export interface NormalizedCheck {
+  type: "check_run" | "status_context";
+  name: string;
+  status:
+    | "success"
+    | "failure"
+    | "pending"
+    | "in_progress"
+    | "neutral"
+    | "skipped"
+    | "cancelled"
+    | "timed_out"
+    | "action_required"
+    | "stale"
+    | "startup_failure"
+    | "queued"
+    | "waiting"
+    | "error";
+  description: string | null;
+  detailsUrl: string | null;
+}
+
+export interface PullMergeStatus {
+  pullRequestId: string;
+  overallState: "SUCCESS" | "FAILURE" | "PENDING" | "EXPECTED" | "ERROR" | null;
+  checks: NormalizedCheck[];
+  mergeable: "CONFLICTING" | "MERGEABLE" | "UNKNOWN";
+  mergeStateStatus:
+    | "BEHIND"
+    | "BLOCKED"
+    | "CLEAN"
+    | "DIRTY"
+    | "DRAFT"
+    | "HAS_HOOKS"
+    | "UNKNOWN"
+    | "UNSTABLE";
+  viewerCanMergeAsAdmin: boolean;
+  reviewDecision: ReviewDecision;
+  allowedMergeMethods: MergeMethod[];
+  defaultMergeMethod: MergeMethod;
+}
+
 export type StatusCheckRollupState =
   | "SUCCESS"
   | "FAILURE"

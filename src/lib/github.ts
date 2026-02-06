@@ -15,6 +15,10 @@ import {
 import { GET_PR_COMMITS } from "@/queries/pr-commits";
 import { GET_PR_STATUS, type PRStatusResponse } from "@/queries/pr-status";
 import {
+  GET_PR_MERGE_STATUS,
+  type PRMergeStatusResponse,
+} from "@/queries/pr-status";
+import {
   SEARCH_WITH_CURSORS,
   type SearchNavigationItem,
   type SearchNavigationResponse,
@@ -43,6 +47,9 @@ import type {
   DiffSource,
   SearchResultsPage,
   RepositoryForkInfo,
+  PullMergeStatus,
+  NormalizedCheck,
+  MergeMethod,
 } from "./github-types";
 import type {
   GetIssueOrPrMetadataQuery,
@@ -906,6 +913,129 @@ export function usePRStatus(
     },
     staleTime: 30000,
     enabled: !!account,
+  });
+}
+
+function normalizeCheckRun(
+  node: import("@/queries/pr-status").CheckRunContext,
+): NormalizedCheck {
+  let status: NormalizedCheck["status"];
+  if (node.status === "COMPLETED" && node.conclusion) {
+    status = node.conclusion.toLowerCase() as NormalizedCheck["status"];
+  } else {
+    const s = (node.status ?? "pending").toLowerCase();
+    if (s === "in_progress") status = "in_progress";
+    else if (s === "queued") status = "queued";
+    else if (s === "waiting") status = "waiting";
+    else status = "pending";
+  }
+  return {
+    type: "check_run",
+    name: node.name,
+    status,
+    description: node.title ?? node.summary ?? null,
+    detailsUrl: node.detailsUrl ?? null,
+  };
+}
+
+function normalizeStatusContext(
+  node: import("@/queries/pr-status").StatusContextItem,
+): NormalizedCheck {
+  const stateMap: Record<string, NormalizedCheck["status"]> = {
+    SUCCESS: "success",
+    FAILURE: "failure",
+    PENDING: "pending",
+    ERROR: "error",
+    EXPECTED: "pending",
+  };
+  return {
+    type: "status_context",
+    name: node.context,
+    status: stateMap[node.state] ?? "pending",
+    description: node.description ?? null,
+    detailsUrl: node.targetUrl ?? null,
+  };
+}
+
+export function usePullMergeStatus(
+  accountId: string,
+  owner: string,
+  repo: string,
+  number: number,
+) {
+  const account = getAccount(accountId);
+
+  return useQuery({
+    queryKey: ["pr-merge-status", accountId, owner, repo, number],
+    queryFn: async (): Promise<PullMergeStatus | null> => {
+      if (!account) throw new Error("Account not found");
+      const client = getGraphQLClient(account);
+
+      const response = await client.request<PRMergeStatusResponse>(
+        GET_PR_MERGE_STATUS,
+        { owner, repo, number },
+      );
+
+      const pr = response.repository.pullRequest;
+      if (!pr) return null;
+
+      const rollup = pr.commits.nodes[0]?.commit.statusCheckRollup ?? null;
+
+      const checks: NormalizedCheck[] = (rollup?.contexts.nodes ?? []).map(
+        (node) => {
+          if (node.__typename === "CheckRun") return normalizeCheckRun(node);
+          return normalizeStatusContext(node);
+        },
+      );
+
+      const allowedMergeMethods: MergeMethod[] = [];
+      if (response.repository.mergeCommitAllowed)
+        allowedMergeMethods.push("merge");
+      if (response.repository.squashMergeAllowed)
+        allowedMergeMethods.push("squash");
+      if (response.repository.rebaseMergeAllowed)
+        allowedMergeMethods.push("rebase");
+
+      const defaultMethodMap: Record<string, MergeMethod> = {
+        MERGE: "merge",
+        SQUASH: "squash",
+        REBASE: "rebase",
+      };
+
+      return {
+        pullRequestId: pr.id,
+        overallState: rollup?.state ?? null,
+        checks,
+        mergeable: pr.mergeable,
+        mergeStateStatus: pr.mergeStateStatus,
+        viewerCanMergeAsAdmin: pr.viewerCanMergeAsAdmin,
+        reviewDecision: pr.reviewDecision ?? null,
+        allowedMergeMethods,
+        defaultMergeMethod:
+          defaultMethodMap[response.repository.viewerDefaultMergeMethod] ??
+          allowedMergeMethods[0] ??
+          "merge",
+      };
+    },
+    staleTime: 15000,
+    refetchInterval: 30000,
+    enabled: !!account,
+  });
+}
+
+export async function mergePullRequest(
+  account: Account,
+  owner: string,
+  repo: string,
+  pullNumber: number,
+  mergeMethod: MergeMethod,
+): Promise<void> {
+  const octokit = getOctokit(account);
+  await octokit.pulls.merge({
+    owner,
+    repo,
+    pull_number: pullNumber,
+    merge_method: mergeMethod,
   });
 }
 
@@ -1845,6 +1975,18 @@ export function useTimelineMutations(
     invalidate();
   };
 
+  const mergePull = async (mergeMethod: MergeMethod) => {
+    if (!account) throw new Error("Account not found");
+    await mergePullRequest(account, owner, repo, number, mergeMethod);
+    invalidate();
+    void queryClient.invalidateQueries({
+      queryKey: ["pr-merge-status", accountId, owner, repo, number],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["pr-status", accountId, owner, repo, number],
+    });
+  };
+
   return {
     submitComment,
     changeState,
@@ -1854,5 +1996,6 @@ export function useTimelineMutations(
     updateReviewRequests: mutateReviewRequests,
     updateMilestone: mutateMilestone,
     submitReview,
+    mergePull,
   };
 }

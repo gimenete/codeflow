@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PullMergeStatusCard } from "@/components/pull-merge-status-card";
 import { copyToClipboard, openInBrowser } from "@/lib/actions";
 import { getAccount } from "@/lib/auth";
 import {
@@ -321,18 +322,31 @@ function ConversationTab({
   }
 
   const commentFooter = (
-    <CommentForm
-      accountId={accountId}
-      owner={owner}
-      repo={repo}
-      state={data.state}
-      merged={data.merged}
-      isPR={true}
-      viewerCanUpdate={data.viewerCanUpdate}
-      onSubmitComment={mutations.submitComment}
-      onChangeState={mutations.changeState}
-      onCommentAndChangeState={mutations.commentAndChangeState}
-    />
+    <>
+      <PullMergeStatusCard
+        accountId={accountId}
+        owner={owner}
+        repo={repo}
+        number={number}
+        state={data.state}
+        merged={data.merged}
+        isDraft={data.isDraft}
+        viewerCanUpdate={data.viewerCanUpdate}
+        onMerge={mutations.mergePull}
+      />
+      <CommentForm
+        accountId={accountId}
+        owner={owner}
+        repo={repo}
+        state={data.state}
+        merged={data.merged}
+        isPR={true}
+        viewerCanUpdate={data.viewerCanUpdate}
+        onSubmitComment={mutations.submitComment}
+        onChangeState={mutations.changeState}
+        onCommentAndChangeState={mutations.commentAndChangeState}
+      />
+    </>
   );
 
   return (
