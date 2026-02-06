@@ -727,6 +727,29 @@ ipcMain.handle(
 );
 
 ipcMain.handle(
+  "git:pull-with-options",
+  async (
+    _event,
+    repoPath: string,
+    remote: string,
+    branch: string,
+    options: string[],
+  ) => {
+    try {
+      const git = getGit(repoPath);
+      await git.pull(remote, branch, options);
+      return { success: true };
+    } catch (error) {
+      console.error("git:pull-with-options error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  },
+);
+
+ipcMain.handle(
   "git:push",
   async (
     _event,
@@ -742,6 +765,24 @@ ipcMain.handle(
       return { success: true };
     } catch (error) {
       console.error("git:push error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  },
+);
+
+ipcMain.handle(
+  "git:reset-to-remote",
+  async (_event, repoPath: string, remote: string, branch: string) => {
+    try {
+      const git = getGit(repoPath);
+      await git.fetch(remote);
+      await git.reset(["--hard", `${remote}/${branch}`]);
+      return { success: true };
+    } catch (error) {
+      console.error("git:reset-to-remote error:", error);
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error),
