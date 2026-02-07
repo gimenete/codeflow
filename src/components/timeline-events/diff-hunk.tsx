@@ -1,49 +1,34 @@
+import { PatchDiff } from "@pierre/diffs/react";
+import { useDiffTheme } from "@/lib/use-diff-theme";
+
 interface DiffHunkProps {
   diffHunk: string;
   path: string;
 }
 
 export function DiffHunk({ diffHunk, path }: DiffHunkProps) {
+  const theme = useDiffTheme();
+
   if (!diffHunk) return null;
 
-  const lines = diffHunk.split("\n");
+  // PatchDiff expects a full git diff with headers.
+  // The diffHunk from the GitHub API starts with @@ so we wrap it.
+  const fullPatch = `diff --git a/${path} b/${path}
+--- a/${path}
++++ b/${path}
+${diffHunk}`;
 
   return (
-    <div className="border rounded overflow-hidden text-xs font-mono my-2">
-      <div className="bg-muted px-3 py-1 text-muted-foreground border-b font-sans text-xs">
-        {path}
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
-          <tbody>
-            {lines.map((line, i) => {
-              let bgClass = "";
-              let textClass = "text-foreground";
-
-              if (line.startsWith("@@")) {
-                bgClass = "bg-blue-500/10";
-                textClass = "text-blue-600 dark:text-blue-400";
-              } else if (line.startsWith("+")) {
-                bgClass = "bg-green-500/15";
-                textClass = "text-green-700 dark:text-green-400";
-              } else if (line.startsWith("-")) {
-                bgClass = "bg-red-500/15";
-                textClass = "text-red-700 dark:text-red-400";
-              }
-
-              return (
-                <tr key={i} className={bgClass}>
-                  <td
-                    className={`px-3 py-0 whitespace-pre select-text ${textClass}`}
-                  >
-                    {line}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+    <div className="my-2 overflow-hidden rounded border">
+      <PatchDiff
+        patch={fullPatch}
+        options={{
+          themeType: theme,
+          diffStyle: "unified",
+          overflow: "wrap",
+        }}
+        className="font-mono text-xs"
+      />
     </div>
   );
 }
