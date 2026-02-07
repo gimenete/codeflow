@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Lock } from "lucide-react";
 import { GitHubCommentTextarea } from "@/components/github-comment-textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ interface CommentFormProps {
   owner: string;
   repo: string;
   state: "open" | "closed";
+  locked?: boolean;
   merged?: boolean;
   isPR: boolean;
   viewerCanUpdate: boolean;
@@ -26,6 +27,7 @@ export function CommentForm({
   owner,
   repo,
   state,
+  locked,
   merged,
   viewerCanUpdate,
   onSubmitComment,
@@ -72,6 +74,17 @@ export function CommentForm({
   const canReopen = viewerCanUpdate && state === "closed" && !merged;
   const canClose = viewerCanUpdate && state === "open";
   const account = getAccount(accountId);
+
+  if (locked) {
+    return (
+      <div className="border rounded-lg p-4">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Lock className="h-4 w-4 shrink-0" />
+          <span>This conversation has been locked and limited to collaborators.</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="border rounded-lg p-4 space-y-3">

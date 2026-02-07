@@ -507,6 +507,7 @@ export async function fetchIssueOrPullMetadata(
       number: pr.number,
       title: pr.title,
       state: pr.prState.toLowerCase() as "open" | "closed",
+      locked: pr.locked,
       merged: pr.merged,
       isDraft: pr.isDraft,
       viewerCanUpdate: pr.viewerCanUpdate,
@@ -587,6 +588,7 @@ export async function fetchIssueOrPullMetadata(
       number: issue.number,
       title: issue.title,
       state: issue.issueState.toLowerCase() as "open" | "closed",
+      locked: issue.locked,
       viewerCanUpdate: issue.viewerCanUpdate,
       author: issue.author ?? { login: "ghost", avatarUrl: "" },
       labels: (issue.labels?.nodes ?? [])

@@ -353,6 +353,7 @@ function ConversationTab({
         owner={owner}
         repo={repo}
         state={data.state}
+        locked={data.locked}
         merged={data.merged}
         isPR={true}
         viewerCanUpdate={data.viewerCanUpdate}

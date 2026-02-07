@@ -256,6 +256,7 @@ export interface PullRequestMetadata {
   number: number;
   title: string;
   state: "open" | "closed";
+  locked: boolean;
   merged: boolean;
   isDraft: boolean;
   viewerCanUpdate: boolean;
@@ -287,6 +288,7 @@ export interface IssueMetadata {
   number: number;
   title: string;
   state: "open" | "closed";
+  locked: boolean;
   viewerCanUpdate: boolean;
   author: Author;
   labels: Label[];

@@ -10,6 +10,7 @@ export const GET_ISSUE_OR_PR_METADATA = gql`
           number
           title
           issueState: state
+          locked
           viewerCanUpdate
           bodyHTML
           createdAt
@@ -44,6 +45,7 @@ export const GET_ISSUE_OR_PR_METADATA = gql`
           number
           title
           prState: state
+          locked
           viewerCanUpdate
           merged
           isDraft

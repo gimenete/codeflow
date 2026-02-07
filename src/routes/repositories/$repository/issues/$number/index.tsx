@@ -90,6 +90,7 @@ function IssueConversationTab() {
       owner={owner}
       repo={repo}
       state={data.state}
+      locked={data.locked}
       isPR={false}
       viewerCanUpdate={data.viewerCanUpdate}
       onSubmitComment={mutations.submitComment}
