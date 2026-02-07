@@ -373,6 +373,20 @@ export const GET_PR_TIMELINE = gql`
               bodyHTML
               state
               createdAt
+              comments(first: 50) {
+                nodes {
+                  id
+                  author {
+                    login
+                    avatarUrl
+                  }
+                  bodyHTML
+                  createdAt
+                  diffHunk
+                  path
+                  outdated
+                }
+              }
             }
             ... on PullRequestCommit {
               commit {

@@ -1,7 +1,7 @@
 import type { TimelineNode, Actor } from "./types";
 import { CommentEvent } from "./comment-event";
 import { CommitEvent } from "./commit-event";
-import { ReviewEvent } from "./review-event";
+import { ReviewEvent, type ReviewComment } from "./review-event";
 import { LabeledEvent } from "./labeled-event";
 import {
   ClosedEvent,
@@ -53,6 +53,24 @@ export * from "./types";
 export { TimelineEventWrapper } from "./timeline-event-wrapper";
 export { GroupedLabelsEvent } from "./labeled-event";
 
+// Extract review comments from a PullRequestReview event
+function extractReviewComments(event: TimelineNode): ReviewComment[] {
+  if (!("comments" in event)) return [];
+  const { comments } = event as { comments?: { nodes?: unknown[] } };
+  if (!comments?.nodes) return [];
+  return comments.nodes
+    .filter((n): n is Record<string, unknown> => n != null)
+    .map((n) => ({
+      id: n.id as string,
+      author: (n.author ?? null) as Actor,
+      bodyHTML: n.bodyHTML as string,
+      createdAt: n.createdAt as string,
+      diffHunk: n.diffHunk as string,
+      path: n.path as string,
+      outdated: n.outdated as boolean,
+    }));
+}
+
 interface TimelineEventItemProps {
   event: TimelineNode;
 }
@@ -71,15 +89,17 @@ export function TimelineEventItem({ event }: TimelineEventItemProps) {
     case "PullRequestCommit":
       return <CommitEvent commit={event.commit} />;
 
-    case "PullRequestReview":
+    case "PullRequestReview": {
       return (
         <ReviewEvent
           author={event.author as Actor}
           bodyHTML={event.bodyHTML}
           state={event.state}
           createdAt={event.createdAt}
+          comments={extractReviewComments(event)}
         />
       );
+    }
 
     case "LabeledEvent":
       return (
