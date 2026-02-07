@@ -12,6 +12,7 @@ import {
 import { GitCommitIcon, RepoIcon } from "@primer/octicons-react";
 import { Branch } from "@/components/branch";
 import { EmojiText } from "@/components/emoji-text";
+import { InlineEditableTitle } from "@/components/inline-editable-title";
 import { CommentForm } from "@/components/comment-form";
 import { ReviewPopover } from "@/components/review-popover";
 import {
@@ -134,12 +135,12 @@ export function GitHubPull({
               />
             </div>
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-semibold">
-                <EmojiText text={data.title} />{" "}
-                <span className="text-muted-foreground font-normal">
-                  #{data.number}
-                </span>
-              </h1>
+              <InlineEditableTitle
+                title={data.title}
+                number={data.number}
+                canEdit={data.viewerCanUpdate}
+                onSave={(newTitle) => mutations.editTitle(data.id, newTitle)}
+              />
               <div className="flex items-center gap-1 mt-1 text-sm text-muted-foreground">
                 <RepoIcon size={14} />
                 <span>{data.repository}</span>
@@ -677,7 +678,9 @@ function CommitSelector({
               <CommitHash sha={selectedCommit} />
               <EmojiText
                 className="truncate"
-                text={selectedCommitInfo?.message.split("\n")[0] ?? "Loading..."}
+                text={
+                  selectedCommitInfo?.message.split("\n")[0] ?? "Loading..."
+                }
               />
             </span>
           ) : (
@@ -704,7 +707,10 @@ function CommitSelector({
           <SelectItem key={commit.sha} value={commit.sha}>
             <span className="flex items-center gap-2 max-w-md">
               <CommitHash sha={commit.sha} className="shrink-0" />
-              <EmojiText className="truncate" text={commit.message.split("\n")[0]} />
+              <EmojiText
+                className="truncate"
+                text={commit.message.split("\n")[0]}
+              />
             </span>
           </SelectItem>
         ))}
