@@ -1,6 +1,7 @@
 import { RelativeTime } from "@/components/relative-time";
 import { CommitHash } from "@/components/commit-hash";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserLogin } from "@/components/user-info";
 import {
   GitBranchIcon,
   RepoForkedIcon,
@@ -17,6 +18,7 @@ interface HeadRefForcePushedEventProps {
   createdAt: string;
   beforeCommit?: { oid: string; abbreviatedOid: string } | null;
   afterCommit?: { oid: string; abbreviatedOid: string } | null;
+  accountId?: string;
 }
 
 export function HeadRefForcePushedEvent({
@@ -24,6 +26,7 @@ export function HeadRefForcePushedEvent({
   createdAt,
   beforeCommit,
   afterCommit,
+  accountId,
 }: HeadRefForcePushedEventProps) {
   const login = getActorLogin(actor);
   const avatarUrl = getActorAvatarUrl(actor);
@@ -36,7 +39,9 @@ export function HeadRefForcePushedEvent({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{login}</span>
+        <UserLogin login={login} accountId={accountId}>
+          <span>{login}</span>
+        </UserLogin>
         <span>force-pushed the branch</span>
         {beforeCommit && afterCommit && (
           <>
@@ -58,12 +63,14 @@ interface HeadRefDeletedEventProps {
   actor: Actor;
   createdAt: string;
   headRefName?: string;
+  accountId?: string;
 }
 
 export function HeadRefDeletedEvent({
   actor,
   createdAt,
   headRefName,
+  accountId,
 }: HeadRefDeletedEventProps) {
   const login = getActorLogin(actor);
   const avatarUrl = getActorAvatarUrl(actor);
@@ -76,7 +83,9 @@ export function HeadRefDeletedEvent({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{login}</span>
+        <UserLogin login={login} accountId={accountId}>
+          <span>{login}</span>
+        </UserLogin>
         <span>deleted the</span>
         {headRefName && (
           <code className="bg-muted px-1 rounded text-xs">{headRefName}</code>
@@ -94,11 +103,13 @@ export function HeadRefDeletedEvent({
 interface HeadRefRestoredEventProps {
   actor: Actor;
   createdAt: string;
+  accountId?: string;
 }
 
 export function HeadRefRestoredEvent({
   actor,
   createdAt,
+  accountId,
 }: HeadRefRestoredEventProps) {
   const login = getActorLogin(actor);
   const avatarUrl = getActorAvatarUrl(actor);
@@ -111,7 +122,9 @@ export function HeadRefRestoredEvent({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{login}</span>
+        <UserLogin login={login} accountId={accountId}>
+          <span>{login}</span>
+        </UserLogin>
         <span>restored the head branch</span>
         <span>
           <RelativeTime date={createdAt} />
@@ -127,6 +140,7 @@ interface BaseRefChangedEventProps {
   createdAt: string;
   previousRefName?: string | null;
   currentRefName?: string | null;
+  accountId?: string;
 }
 
 export function BaseRefChangedEvent({
@@ -134,6 +148,7 @@ export function BaseRefChangedEvent({
   createdAt,
   previousRefName,
   currentRefName,
+  accountId,
 }: BaseRefChangedEventProps) {
   const login = getActorLogin(actor);
   const avatarUrl = getActorAvatarUrl(actor);
@@ -146,7 +161,9 @@ export function BaseRefChangedEvent({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{login}</span>
+        <UserLogin login={login} accountId={accountId}>
+          <span>{login}</span>
+        </UserLogin>
         <span>changed the base branch from</span>
         {previousRefName && (
           <code className="bg-muted px-1 rounded text-xs">
@@ -173,6 +190,7 @@ interface BaseRefForcePushedEventProps {
   createdAt: string;
   beforeCommit?: { oid: string; abbreviatedOid: string } | null;
   afterCommit?: { oid: string; abbreviatedOid: string } | null;
+  accountId?: string;
 }
 
 export function BaseRefForcePushedEvent({
@@ -180,6 +198,7 @@ export function BaseRefForcePushedEvent({
   createdAt,
   beforeCommit,
   afterCommit,
+  accountId,
 }: BaseRefForcePushedEventProps) {
   const login = getActorLogin(actor);
   const avatarUrl = getActorAvatarUrl(actor);
@@ -192,7 +211,9 @@ export function BaseRefForcePushedEvent({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{login}</span>
+        <UserLogin login={login} accountId={accountId}>
+          <span>{login}</span>
+        </UserLogin>
         <span>force-pushed the base branch</span>
         {beforeCommit && afterCommit && (
           <>

@@ -1,5 +1,6 @@
 import { RelativeTime } from "@/components/relative-time";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserLogin } from "@/components/user-info";
 import { PersonAddIcon, PersonIcon } from "@primer/octicons-react";
 import { TimelineEventWrapper } from "./timeline-event-wrapper";
 import { getActorLogin, getActorAvatarUrl, type Actor } from "./types";
@@ -16,6 +17,7 @@ interface AssignedEventProps {
   actor: Actor;
   createdAt: string;
   assignee: Assignee;
+  accountId?: string;
 }
 
 function getAssigneeInfo(assignee: Assignee): {
@@ -37,6 +39,7 @@ export function AssignedEvent({
   actor,
   createdAt,
   assignee,
+  accountId,
 }: AssignedEventProps) {
   const actorLogin = getActorLogin(actor);
   const actorAvatarUrl = getActorAvatarUrl(actor);
@@ -52,11 +55,20 @@ export function AssignedEvent({
           <AvatarImage src={actorAvatarUrl} />
           <AvatarFallback>{actorLogin.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{actorLogin}</span>
+        <UserLogin login={actorLogin} accountId={accountId}>
+          <span>{actorLogin}</span>
+        </UserLogin>
         <span>
-          {isSelfAssign
-            ? "self-assigned this"
-            : `assigned ${assigneeInfo.login}`}
+          {isSelfAssign ? (
+            "self-assigned this"
+          ) : (
+            <>
+              assigned{" "}
+              <UserLogin login={assigneeInfo.login} accountId={accountId}>
+                <span className="font-medium">{assigneeInfo.login}</span>
+              </UserLogin>
+            </>
+          )}
         </span>
         <span>
           <RelativeTime date={createdAt} />
@@ -70,12 +82,14 @@ interface UnassignedEventProps {
   actor: Actor;
   createdAt: string;
   assignee: Assignee;
+  accountId?: string;
 }
 
 export function UnassignedEvent({
   actor,
   createdAt,
   assignee,
+  accountId,
 }: UnassignedEventProps) {
   const actorLogin = getActorLogin(actor);
   const actorAvatarUrl = getActorAvatarUrl(actor);
@@ -91,11 +105,20 @@ export function UnassignedEvent({
           <AvatarImage src={actorAvatarUrl} />
           <AvatarFallback>{actorLogin.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{actorLogin}</span>
+        <UserLogin login={actorLogin} accountId={accountId}>
+          <span>{actorLogin}</span>
+        </UserLogin>
         <span>
-          {isSelfUnassign
-            ? "removed their assignment"
-            : `unassigned ${assigneeInfo.login}`}
+          {isSelfUnassign ? (
+            "removed their assignment"
+          ) : (
+            <>
+              unassigned{" "}
+              <UserLogin login={assigneeInfo.login} accountId={accountId}>
+                <span className="font-medium">{assigneeInfo.login}</span>
+              </UserLogin>
+            </>
+          )}
         </span>
         <span>
           <RelativeTime date={createdAt} />

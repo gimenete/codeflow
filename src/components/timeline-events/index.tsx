@@ -127,7 +127,7 @@ export function TimelineEventItem({
       );
 
     case "PullRequestCommit":
-      return <CommitEvent commit={event.commit} />;
+      return <CommitEvent commit={event.commit} accountId={accountId} />;
 
     case "PullRequestReview": {
       return (
@@ -153,6 +153,7 @@ export function TimelineEventItem({
           createdAt={event.createdAt}
           label={event.label}
           action="added"
+          accountId={accountId}
         />
       );
 
@@ -163,6 +164,7 @@ export function TimelineEventItem({
           createdAt={event.createdAt}
           label={event.label}
           action="removed"
+          accountId={accountId}
         />
       );
 
@@ -172,6 +174,7 @@ export function TimelineEventItem({
           actor={event.actor as Actor}
           createdAt={event.createdAt}
           stateReason={event.stateReason}
+          accountId={accountId}
         />
       );
 
@@ -180,6 +183,7 @@ export function TimelineEventItem({
         <ReopenedEvent
           actor={event.actor as Actor}
           createdAt={event.createdAt}
+          accountId={accountId}
         />
       );
 
@@ -189,6 +193,7 @@ export function TimelineEventItem({
           actor={event.actor as Actor}
           createdAt={event.createdAt}
           mergeRefName={event.mergeRefName}
+          accountId={accountId}
         />
       );
 
@@ -198,6 +203,7 @@ export function TimelineEventItem({
           actor={event.actor as Actor}
           createdAt={event.createdAt}
           lockReason={event.lockReason}
+          accountId={accountId}
         />
       );
 
@@ -206,6 +212,7 @@ export function TimelineEventItem({
         <UnlockedEvent
           actor={event.actor as Actor}
           createdAt={event.createdAt}
+          accountId={accountId}
         />
       );
 
@@ -215,6 +222,7 @@ export function TimelineEventItem({
           actor={event.actor as Actor}
           createdAt={event.createdAt}
           assignee={event.assignee}
+          accountId={accountId}
         />
       );
 
@@ -224,6 +232,7 @@ export function TimelineEventItem({
           actor={event.actor as Actor}
           createdAt={event.createdAt}
           assignee={event.assignee}
+          accountId={accountId}
         />
       );
 
@@ -233,6 +242,7 @@ export function TimelineEventItem({
           actor={event.actor as Actor}
           createdAt={event.createdAt}
           milestoneTitle={event.milestoneTitle}
+          accountId={accountId}
         />
       );
 
@@ -242,6 +252,7 @@ export function TimelineEventItem({
           actor={event.actor as Actor}
           createdAt={event.createdAt}
           milestoneTitle={event.milestoneTitle}
+          accountId={accountId}
         />
       );
 
@@ -252,6 +263,7 @@ export function TimelineEventItem({
           createdAt={event.createdAt}
           previousTitle={event.previousTitle}
           currentTitle={event.currentTitle}
+          accountId={accountId}
         />
       );
 
@@ -262,6 +274,7 @@ export function TimelineEventItem({
           createdAt={event.createdAt}
           source={event.source}
           isCrossRepository={event.isCrossRepository}
+          accountId={accountId}
         />
       );
 
@@ -272,6 +285,7 @@ export function TimelineEventItem({
           createdAt={event.createdAt}
           commit={event.referencedCommit}
           isCrossRepository={event.isCrossRepository}
+          accountId={accountId}
         />
       );
 
@@ -281,6 +295,7 @@ export function TimelineEventItem({
           actor={event.actor as Actor}
           createdAt={event.createdAt}
           requestedReviewer={event.requestedReviewer}
+          accountId={accountId}
         />
       );
 
@@ -290,6 +305,7 @@ export function TimelineEventItem({
           actor={event.actor as Actor}
           createdAt={event.createdAt}
           requestedReviewer={event.requestedReviewer}
+          accountId={accountId}
         />
       );
 
@@ -300,6 +316,7 @@ export function TimelineEventItem({
           createdAt={event.createdAt}
           dismissalMessage={event.dismissalMessage}
           review={event.review}
+          accountId={accountId}
         />
       );
 
@@ -310,6 +327,7 @@ export function TimelineEventItem({
           createdAt={event.createdAt}
           beforeCommit={event.beforeCommit}
           afterCommit={event.afterCommit}
+          accountId={accountId}
         />
       );
 
@@ -319,6 +337,7 @@ export function TimelineEventItem({
           actor={event.actor as Actor}
           createdAt={event.createdAt}
           headRefName={event.headRefName}
+          accountId={accountId}
         />
       );
 
@@ -327,6 +346,7 @@ export function TimelineEventItem({
         <HeadRefRestoredEvent
           actor={event.actor as Actor}
           createdAt={event.createdAt}
+          accountId={accountId}
         />
       );
 
@@ -337,6 +357,7 @@ export function TimelineEventItem({
           createdAt={event.createdAt}
           previousRefName={event.previousRefName}
           currentRefName={event.currentRefName}
+          accountId={accountId}
         />
       );
 
@@ -347,6 +368,7 @@ export function TimelineEventItem({
           createdAt={event.createdAt}
           beforeCommit={event.beforeCommit}
           afterCommit={event.afterCommit}
+          accountId={accountId}
         />
       );
 
@@ -355,6 +377,7 @@ export function TimelineEventItem({
         <ConvertToDraftEvent
           actor={event.actor as Actor}
           createdAt={event.createdAt}
+          accountId={accountId}
         />
       );
 
@@ -363,6 +386,7 @@ export function TimelineEventItem({
         <ReadyForReviewEvent
           actor={event.actor as Actor}
           createdAt={event.createdAt}
+          accountId={accountId}
         />
       );
 
@@ -372,6 +396,7 @@ export function TimelineEventItem({
           actor={event.actor as Actor}
           createdAt={event.createdAt}
           enabler={event.enabler}
+          accountId={accountId}
         />
       );
 
@@ -381,6 +406,7 @@ export function TimelineEventItem({
           actor={event.actor as Actor}
           createdAt={event.createdAt}
           disabler={event.disabler}
+          accountId={accountId}
         />
       );
 
@@ -390,6 +416,7 @@ export function TimelineEventItem({
           actor={event.actor as Actor}
           createdAt={event.createdAt}
           canonical={event.canonical}
+          accountId={accountId}
         />
       );
 
@@ -398,6 +425,7 @@ export function TimelineEventItem({
         <UnmarkedAsDuplicateEvent
           actor={event.actor as Actor}
           createdAt={event.createdAt}
+          accountId={accountId}
         />
       );
 
@@ -407,6 +435,7 @@ export function TimelineEventItem({
           actor={event.actor as Actor}
           createdAt={event.createdAt}
           fromRepository={event.fromRepository}
+          accountId={accountId}
         />
       );
 
@@ -415,12 +444,13 @@ export function TimelineEventItem({
         <ConvertedToDiscussionEvent
           actor={event.actor as Actor}
           createdAt={event.createdAt}
+          accountId={accountId}
         />
       );
 
     case "PinnedEvent":
       return (
-        <PinnedEvent actor={event.actor as Actor} createdAt={event.createdAt} />
+        <PinnedEvent actor={event.actor as Actor} createdAt={event.createdAt} accountId={accountId} />
       );
 
     case "UnpinnedEvent":
@@ -428,6 +458,7 @@ export function TimelineEventItem({
         <UnpinnedEvent
           actor={event.actor as Actor}
           createdAt={event.createdAt}
+          accountId={accountId}
         />
       );
 
@@ -437,6 +468,7 @@ export function TimelineEventItem({
           actor={event.actor as Actor}
           createdAt={event.createdAt}
           subject={event.subject}
+          accountId={accountId}
         />
       );
 
@@ -446,6 +478,7 @@ export function TimelineEventItem({
           actor={event.actor as Actor}
           createdAt={event.createdAt}
           subject={event.subject}
+          accountId={accountId}
         />
       );
 
@@ -455,6 +488,7 @@ export function TimelineEventItem({
           actor={event.actor as Actor}
           createdAt={event.createdAt}
           deletedCommentAuthor={event.deletedCommentAuthor}
+          accountId={accountId}
         />
       );
 
@@ -463,6 +497,7 @@ export function TimelineEventItem({
         <MentionedEvent
           actor={event.actor as Actor}
           createdAt={event.createdAt}
+          accountId={accountId}
         />
       );
 

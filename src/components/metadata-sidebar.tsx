@@ -24,6 +24,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { UserLogin } from "@/components/user-info";
 import { Scrollable } from "./flex-layout";
 
 interface MetadataSidebarProps {
@@ -82,7 +83,7 @@ export function MetadataSidebar({
                   ) : (
                     <div className="space-y-2">
                       {displayAssignees.map((assignee) => (
-                        <UserItem key={assignee.login} user={assignee} />
+                        <UserItem key={assignee.login} user={assignee} accountId={accountId} />
                       ))}
                     </div>
                   )}
@@ -94,7 +95,7 @@ export function MetadataSidebar({
           ) : (
             <div className="space-y-2">
               {data.assignees.map((assignee) => (
-                <UserItem key={assignee.login} user={assignee} />
+                <UserItem key={assignee.login} user={assignee} accountId={accountId} />
               ))}
             </div>
           )}
@@ -159,7 +160,7 @@ export function MetadataSidebar({
               ) : (
                 <div className="space-y-2">
                   {prData.latestReviews.map((review) => (
-                    <ReviewerItem key={review.author.login} review={review} />
+                    <ReviewerItem key={review.author.login} review={review} accountId={accountId} />
                   ))}
                 </div>
               )}
@@ -193,6 +194,7 @@ export function MetadataSidebar({
                             <ReviewRequestItem
                               key={request.login ?? request.name ?? index}
                               request={request}
+                              accountId={accountId}
                             />
                           ))}
                         </div>
@@ -208,6 +210,7 @@ export function MetadataSidebar({
                     <ReviewRequestItem
                       key={request.login ?? request.name ?? index}
                       request={request}
+                      accountId={accountId}
                     />
                   ))}
                 </div>
@@ -270,19 +273,33 @@ function SidebarSection({ title, icon, children }: SidebarSectionProps) {
   );
 }
 
-function UserItem({ user }: { user: Author }) {
+function UserItem({
+  user,
+  accountId,
+}: {
+  user: Author;
+  accountId?: string;
+}) {
   return (
     <div className="flex items-center gap-2">
       <Avatar className="h-5 w-5">
         <AvatarImage src={user.avatarUrl} />
         <AvatarFallback>{user.login.charAt(0).toUpperCase()}</AvatarFallback>
       </Avatar>
-      <span className="text-sm truncate">{user.login}</span>
+      <UserLogin login={user.login} accountId={accountId}>
+        <span className="text-sm truncate">{user.login}</span>
+      </UserLogin>
     </div>
   );
 }
 
-function ReviewerItem({ review }: { review: LatestReview }) {
+function ReviewerItem({
+  review,
+  accountId,
+}: {
+  review: LatestReview;
+  accountId?: string;
+}) {
   const getReviewIcon = () => {
     switch (review.state) {
       case "APPROVED":
@@ -321,13 +338,21 @@ function ReviewerItem({ review }: { review: LatestReview }) {
           {review.author.login.charAt(0).toUpperCase()}
         </AvatarFallback>
       </Avatar>
-      <span className="text-sm truncate flex-1">{review.author.login}</span>
+      <UserLogin login={review.author.login} accountId={accountId}>
+        <span className="text-sm truncate flex-1">{review.author.login}</span>
+      </UserLogin>
       <span title={getReviewLabel()}>{getReviewIcon()}</span>
     </div>
   );
 }
 
-function ReviewRequestItem({ request }: { request: ReviewRequest }) {
+function ReviewRequestItem({
+  request,
+  accountId,
+}: {
+  request: ReviewRequest;
+  accountId?: string;
+}) {
   const displayName = request.login ?? request.name ?? "Unknown";
 
   return (
@@ -336,7 +361,9 @@ function ReviewRequestItem({ request }: { request: ReviewRequest }) {
         <AvatarImage src={request.avatarUrl} />
         <AvatarFallback>{displayName.charAt(0).toUpperCase()}</AvatarFallback>
       </Avatar>
-      <span className="text-sm truncate">{displayName}</span>
+      <UserLogin login={displayName} accountId={accountId}>
+        <span className="text-sm truncate">{displayName}</span>
+      </UserLogin>
     </div>
   );
 }

@@ -13,6 +13,7 @@ import {
   toggleCheckboxInMarkdown,
   toggleCheckboxInHtml,
 } from "@/lib/checkbox-utils";
+import { UserLogin } from "@/components/user-info";
 import { getActorLogin, getActorAvatarUrl, type Actor } from "./types";
 import { DiffHunk } from "./diff-hunk";
 
@@ -81,7 +82,7 @@ export function ReviewEvent({
               <AvatarImage src={avatarUrl} />
               <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
             </Avatar>
-            <span className="font-medium">{login}</span>
+            <UserLogin login={login} accountId={accountId}><span className="font-medium">{login}</span></UserLogin>
             <span className="text-muted-foreground">
               {state === PullRequestReviewState.Approved
                 ? "approved these changes"
@@ -224,7 +225,7 @@ function ReviewCommentItem({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span className="font-medium">{login}</span>
+        <UserLogin login={login} accountId={accountId}><span className="font-medium">{login}</span></UserLogin>
         <span className="text-sm text-muted-foreground">
           commented <RelativeTime date={comment.createdAt} />
         </span>
