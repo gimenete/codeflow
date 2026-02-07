@@ -1,3 +1,5 @@
+import type { ReactionContent } from "@/generated/graphql";
+import type { ReactionGroup } from "@/components/reactions";
 import type { TimelineNode, Actor } from "./types";
 import { CommentEvent } from "./comment-event";
 import { CommitEvent } from "./commit-event";
@@ -68,14 +70,23 @@ function extractReviewComments(event: TimelineNode): ReviewComment[] {
       diffHunk: n.diffHunk as string,
       path: n.path as string,
       outdated: n.outdated as boolean,
+      reactionGroups: (n.reactionGroups as ReactionGroup[] | null) ?? null,
     }));
 }
 
 interface TimelineEventItemProps {
   event: TimelineNode;
+  onToggleReaction?: (
+    subjectId: string,
+    content: ReactionContent,
+    viewerHasReacted: boolean,
+  ) => void;
 }
 
-export function TimelineEventItem({ event }: TimelineEventItemProps) {
+export function TimelineEventItem({
+  event,
+  onToggleReaction,
+}: TimelineEventItemProps) {
   switch (event.__typename) {
     case "IssueComment":
       return (
@@ -83,6 +94,19 @@ export function TimelineEventItem({ event }: TimelineEventItemProps) {
           author={event.author as Actor}
           bodyHTML={event.bodyHTML}
           createdAt={event.createdAt}
+          reactionGroups={
+            (
+              event as typeof event & {
+                reactionGroups?: ReactionGroup[] | null;
+              }
+            ).reactionGroups ?? null
+          }
+          onToggleReaction={
+            onToggleReaction
+              ? (content, viewerHasReacted) =>
+                  onToggleReaction(event.id, content, viewerHasReacted)
+              : undefined
+          }
         />
       );
 
@@ -97,6 +121,7 @@ export function TimelineEventItem({ event }: TimelineEventItemProps) {
           state={event.state}
           createdAt={event.createdAt}
           comments={extractReviewComments(event)}
+          onToggleReaction={onToggleReaction}
         />
       );
     }
@@ -422,6 +447,8 @@ export function TimelineEventItem({ event }: TimelineEventItemProps) {
       );
 
     default:
-      return <UnknownEvent typename={event.__typename} />;
+      return (
+        <UnknownEvent typename={(event as { __typename: string }).__typename} />
+      );
   }
 }

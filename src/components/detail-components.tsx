@@ -9,6 +9,7 @@ import {
   type TimelineNode,
   type Actor,
 } from "@/components/timeline-events";
+import type { ReactionContent } from "@/generated/graphql";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -114,6 +115,11 @@ export interface TimelineProps {
   fetchNextPage: () => void;
   isLoading?: boolean;
   footer?: React.ReactNode;
+  onToggleReaction?: (
+    subjectId: string,
+    content: ReactionContent,
+    viewerHasReacted: boolean,
+  ) => void;
 }
 
 function TimelineEventSkeleton() {
@@ -140,6 +146,7 @@ export function Timeline({
   fetchNextPage,
   isLoading,
   footer,
+  onToggleReaction,
 }: TimelineProps) {
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
@@ -189,7 +196,11 @@ export function Timeline({
         </div>
 
         {processedEvents.map((event, index) => (
-          <ProcessedEventItem key={index} event={event} />
+          <ProcessedEventItem
+            key={index}
+            event={event}
+            onToggleReaction={onToggleReaction}
+          />
         ))}
 
         {/* Timeline loading skeletons */}
@@ -219,7 +230,17 @@ export function Timeline({
 }
 
 // Component that handles both regular timeline events and grouped labels
-function ProcessedEventItem({ event }: { event: ProcessedTimelineEvent }) {
+function ProcessedEventItem({
+  event,
+  onToggleReaction,
+}: {
+  event: ProcessedTimelineEvent;
+  onToggleReaction?: (
+    subjectId: string,
+    content: ReactionContent,
+    viewerHasReacted: boolean,
+  ) => void;
+}) {
   if (event.__typename === "GroupedLabels") {
     return (
       <GroupedLabelsEvent
@@ -231,7 +252,9 @@ function ProcessedEventItem({ event }: { event: ProcessedTimelineEvent }) {
     );
   }
 
-  return <TimelineEventItem event={event} />;
+  return (
+    <TimelineEventItem event={event} onToggleReaction={onToggleReaction} />
+  );
 }
 
 export interface CommitsListProps {

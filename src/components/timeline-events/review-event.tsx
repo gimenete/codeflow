@@ -1,10 +1,12 @@
 import { HtmlRenderer } from "@/components/html-renderer";
+import { Reactions, type ReactionGroup } from "@/components/reactions";
 import { RelativeTime } from "@/components/relative-time";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import type { ReactionContent } from "@/generated/graphql";
+import { PullRequestReviewState } from "@/generated/graphql";
 import { CheckIcon, XIcon, CommentIcon } from "@primer/octicons-react";
 import { getActorLogin, getActorAvatarUrl, type Actor } from "./types";
 import { DiffHunk } from "./diff-hunk";
-import { PullRequestReviewState } from "@/generated/graphql";
 
 export interface ReviewComment {
   id: string;
@@ -14,6 +16,7 @@ export interface ReviewComment {
   diffHunk: string;
   path: string;
   outdated: boolean;
+  reactionGroups?: ReactionGroup[] | null;
 }
 
 interface ReviewEventProps {
@@ -22,6 +25,11 @@ interface ReviewEventProps {
   state: PullRequestReviewState;
   createdAt: string;
   comments?: ReviewComment[];
+  onToggleReaction?: (
+    subjectId: string,
+    content: ReactionContent,
+    viewerHasReacted: boolean,
+  ) => void;
 }
 
 export function ReviewEvent({
@@ -30,6 +38,7 @@ export function ReviewEvent({
   state,
   createdAt,
   comments,
+  onToggleReaction,
 }: ReviewEventProps) {
   const login = getActorLogin(author);
   const avatarUrl = getActorAvatarUrl(author);
@@ -74,7 +83,11 @@ export function ReviewEvent({
       {hasComments && (
         <div className="ml-6 mt-2 space-y-3">
           {comments.map((comment) => (
-            <ReviewCommentItem key={comment.id} comment={comment} />
+            <ReviewCommentItem
+              key={comment.id}
+              comment={comment}
+              onToggleReaction={onToggleReaction}
+            />
           ))}
         </div>
       )}
@@ -82,12 +95,22 @@ export function ReviewEvent({
   );
 }
 
-function ReviewCommentItem({ comment }: { comment: ReviewComment }) {
+function ReviewCommentItem({
+  comment,
+  onToggleReaction,
+}: {
+  comment: ReviewComment;
+  onToggleReaction?: (
+    subjectId: string,
+    content: ReactionContent,
+    viewerHasReacted: boolean,
+  ) => void;
+}) {
   const login = getActorLogin(comment.author);
   const avatarUrl = getActorAvatarUrl(comment.author);
 
   return (
-    <div className="border rounded-lg p-4">
+    <div className="group/comment border rounded-lg p-4">
       <div className="flex items-center gap-2 mb-3">
         <Avatar className="h-8 w-8">
           <AvatarImage src={avatarUrl} />
@@ -109,6 +132,14 @@ function ReviewCommentItem({ comment }: { comment: ReviewComment }) {
       <div className="prose prose-sm dark:prose-invert max-w-none">
         <HtmlRenderer html={comment.bodyHTML} />
       </div>
+      {comment.reactionGroups && onToggleReaction && (
+        <Reactions
+          reactionGroups={comment.reactionGroups}
+          onToggleReaction={(content, viewerHasReacted) =>
+            onToggleReaction(comment.id, content, viewerHasReacted)
+          }
+        />
+      )}
     </div>
   );
 }

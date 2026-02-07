@@ -4,7 +4,7 @@ import {
   useInfiniteQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { GraphQLClient } from "graphql-request";
+import { GraphQLClient, gql } from "graphql-request";
 import { Octokit } from "@octokit/rest";
 import { GET_ISSUE_OR_PR } from "@/queries/issue-or-pr-detail";
 import { GET_ISSUE_OR_PR_METADATA } from "@/queries/issue-or-pr-metadata";
@@ -56,6 +56,7 @@ import type {
   GetIssueTimelineQuery,
   GetPrTimelineQuery,
 } from "@/generated/graphql";
+import { type ReactionContent } from "@/generated/graphql";
 import type { TimelineNode } from "@/components/timeline-events";
 import { getAccount } from "./auth";
 
@@ -1987,6 +1988,20 @@ export function useTimelineMutations(
     });
   };
 
+  const toggleReaction = async (
+    subjectId: string,
+    content: ReactionContent,
+    hasReacted: boolean,
+  ) => {
+    if (!account) throw new Error("Account not found");
+    if (hasReacted) {
+      await removeReaction(account, subjectId, content);
+    } else {
+      await addReaction(account, subjectId, content);
+    }
+    invalidate();
+  };
+
   return {
     submitComment,
     changeState,
@@ -1997,5 +2012,46 @@ export function useTimelineMutations(
     updateMilestone: mutateMilestone,
     submitReview,
     mergePull,
+    toggleReaction,
   };
+}
+
+// Reaction mutations via GraphQL
+
+const ADD_REACTION = gql`
+  mutation AddReaction($subjectId: ID!, $content: ReactionContent!) {
+    addReaction(input: { subjectId: $subjectId, content: $content }) {
+      reaction {
+        content
+      }
+    }
+  }
+`;
+
+const REMOVE_REACTION = gql`
+  mutation RemoveReaction($subjectId: ID!, $content: ReactionContent!) {
+    removeReaction(input: { subjectId: $subjectId, content: $content }) {
+      reaction {
+        content
+      }
+    }
+  }
+`;
+
+export async function addReaction(
+  account: Account,
+  subjectId: string,
+  content: ReactionContent,
+): Promise<void> {
+  const client = getGraphQLClient(account);
+  await client.request(ADD_REACTION, { subjectId, content });
+}
+
+export async function removeReaction(
+  account: Account,
+  subjectId: string,
+  content: ReactionContent,
+): Promise<void> {
+  const client = getGraphQLClient(account);
+  await client.request(REMOVE_REACTION, { subjectId, content });
 }
