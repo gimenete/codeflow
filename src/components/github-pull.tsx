@@ -208,9 +208,7 @@ export function GitHubPull({
                           <>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
-                              onClick={() =>
-                                setEditBaseBranchDialogOpen(true)
-                              }
+                              onClick={() => setEditBaseBranchDialogOpen(true)}
                             >
                               <Pencil className="h-4 w-4 mr-2" />
                               Edit base branch
@@ -688,8 +686,6 @@ function FilesTab({
       // When viewing a specific commit, use files from the parsed diff
       return parsedDiffs.map((diff) => ({
         path: diff.path,
-        additions: 0,
-        deletions: 0,
         status: "modified",
         patch: diff.patch,
       }));

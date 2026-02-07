@@ -24,14 +24,18 @@ import type {
 import { GitHubCommentTextarea } from "@/components/github-comment-textarea";
 import { Button } from "@/components/ui/button";
 import { cn, fuzzyFilter } from "@/lib/utils";
-import { AlertCircle, ChevronDown, ChevronRight, PencilIcon } from "lucide-react";
+import {
+  AlertCircle,
+  ChevronDown,
+  ChevronRight,
+  PencilIcon,
+} from "lucide-react";
 import {
   FileIcon,
   FolderIcon,
   DefaultFolderOpenedIcon,
 } from "@react-symbols/icons/utils";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { LoaderCircleIcon } from "lucide-react";
 
 // Type for grouped label events (internal representation)
 interface GroupedLabelEvent {
@@ -306,7 +310,9 @@ function EditableDescription({
             {data.author.login.charAt(0).toUpperCase()}
           </AvatarFallback>
         </Avatar>
-        <span className="font-medium">{data.author.login}</span>
+        <UserLogin login={data.author.login} accountId={accountId}>
+          <span className="font-medium">{data.author.login}</span>
+        </UserLogin>
         <span className="text-sm text-muted-foreground">
           commented <RelativeTime date={data.createdAt} />
         </span>
@@ -497,8 +503,6 @@ export function CommitsList({
 export interface FilesListProps {
   files: Array<{
     path: string;
-    additions: number;
-    deletions: number;
     status: string;
     patch?: string;
   }>;
@@ -510,8 +514,6 @@ interface FileTreeNode {
   path: string;
   type: "file" | "directory";
   children?: FileTreeNode[];
-  additions?: number;
-  deletions?: number;
   status?: string;
 }
 
@@ -519,8 +521,6 @@ interface FileTreeNode {
 function buildFileTree(
   files: Array<{
     path: string;
-    additions: number;
-    deletions: number;
     status: string;
   }>,
 ): FileTreeNode[] {
@@ -541,8 +541,6 @@ function buildFileTree(
           name: part,
           path: file.path,
           type: "file",
-          additions: file.additions,
-          deletions: file.deletions,
           status: file.status,
         });
       } else {
@@ -655,16 +653,6 @@ function FilesTreeNode({
           </>
         )}
         <span className="truncate flex-1">{node.name}</span>
-        {!isDirectory && node.additions != null && (
-          <span className="text-green-600 text-xs shrink-0">
-            +{node.additions}
-          </span>
-        )}
-        {!isDirectory && node.deletions != null && (
-          <span className="text-red-600 text-xs shrink-0">
-            -{node.deletions}
-          </span>
-        )}
       </div>
 
       {isDirectory && isExpanded && node.children && (
@@ -703,8 +691,8 @@ export function FilesList({ files }: FilesListProps) {
   const fileTree = useMemo(() => buildFileTree(files), [files]);
 
   // All directories expanded by default
-  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(
-    () => collectDirectoryPaths(fileTree),
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() =>
+    collectDirectoryPaths(fileTree),
   );
 
   // Update expanded paths when files change (e.g. switching commits)
@@ -847,12 +835,6 @@ export function FilesList({ files }: FilesListProps) {
                   <div className="flex-1 min-w-0 overflow-x-auto scrollbar-thin">
                     <span className="whitespace-nowrap">{file.path}</span>
                   </div>
-                  <span className="text-green-600 text-xs shrink-0">
-                    +{file.additions}
-                  </span>
-                  <span className="text-red-600 text-xs shrink-0">
-                    -{file.deletions}
-                  </span>
                 </div>
               ))}
               {filteredFiles.length === 0 && (

@@ -552,7 +552,6 @@ export async function fetchIssueOrPullMetadata(
             return {
               login: undefined,
               name: reviewer.name,
-              // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- slug is added by our query but not in generated types yet
               slug: (reviewer as any).slug,
               avatarUrl: reviewer.teamAvatarUrl ?? "",
             };
@@ -561,9 +560,7 @@ export async function fetchIssueOrPullMetadata(
         })
         .filter((r): r is NonNullable<typeof r> => r != null),
       suggestedReviewers: ((pr as any).suggestedReviewers ?? [])
-        .filter(
-          (s: any) => s?.reviewer != null,
-        )
+        .filter((s: any) => s?.reviewer != null)
         .map((s: any) => ({
           isAuthor: s.isAuthor ?? false,
           isCommenter: s.isCommenter ?? false,
