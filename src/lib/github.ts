@@ -594,7 +594,7 @@ export async function fetchIssueOrPullMetadata(
       repository: `${owner}/${repo}`,
       createdAt: pr.createdAt,
       updatedAt: pr.updatedAt,
-      body: pr.body ?? "",
+      body: pr.body,
       bodyHTML: pr.bodyHTML,
       headRef: pr.headRefName,
       baseRef: pr.baseRefName,
@@ -642,7 +642,7 @@ export async function fetchIssueOrPullMetadata(
       repository: `${owner}/${repo}`,
       createdAt: issue.createdAt,
       updatedAt: issue.updatedAt,
-      body: issue.body ?? "",
+      body: issue.body,
       bodyHTML: issue.bodyHTML,
     };
     return issueData;
@@ -2189,7 +2189,7 @@ export function useTimelineMutations(
     invalidate();
   };
 
-  const editBody = async (id: string, body: string) => {
+  const editDescription = async (id: string, body: string) => {
     if (!account) throw new Error("Account not found");
     if (isPR) {
       await updatePullRequestBody(account, id, body);
@@ -2245,7 +2245,7 @@ export function useTimelineMutations(
     toggleDraft,
     editComment,
     editReviewComment,
-    editBody,
+    editDescription,
     editTitle,
     updateBaseBranch,
   };
@@ -2387,7 +2387,10 @@ export async function updatePullRequestBody(
   body: string,
 ): Promise<void> {
   const client = getGraphQLClient(account);
-  await client.request(UPDATE_PULL_REQUEST_BODY, { pullRequestId, body });
+  await client.request(UPDATE_PULL_REQUEST_BODY, {
+    pullRequestId,
+    body,
+  });
 }
 
 // Draft pull request mutations via GraphQL

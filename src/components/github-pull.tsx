@@ -474,7 +474,7 @@ function ConversationTab({
           onToggleReaction={mutations.toggleReaction}
           onEditComment={mutations.editComment}
           onEditReviewComment={mutations.editReviewComment}
-          onEditBody={mutations.editBody}
+          onEditDescription={(body) => mutations.editDescription(data.id, body)}
           onCommitClick={(sha) =>
             void navigate({
               to: `${basePath}/files`,

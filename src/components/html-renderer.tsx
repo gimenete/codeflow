@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, type ReactNode } from "react";
 import { codeToHtml } from "shiki";
+import { PatchDiff } from "@pierre/diffs/react";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CopyToClipboard } from "@/components/copy-to-clipboard";
@@ -125,6 +126,67 @@ function PlainPre({ code }: { code: string }) {
   );
 }
 
+interface SuggestedLine {
+  type: "deletion" | "addition" | "context";
+  text: string;
+}
+
+function extractSuggestedChangeLines(element: Element): SuggestedLine[] {
+  const rows = element.querySelectorAll("tr");
+  const lines: SuggestedLine[] = [];
+  for (const row of rows) {
+    const cells = row.querySelectorAll("td");
+    if (cells.length < 2) continue;
+    const codeCell = cells[cells.length - 1];
+    const text = codeCell.textContent ?? "";
+    if (codeCell.classList.contains("blob-code-deletion")) {
+      lines.push({ type: "deletion", text });
+    } else if (codeCell.classList.contains("blob-code-addition")) {
+      lines.push({ type: "addition", text });
+    } else {
+      lines.push({ type: "context", text });
+    }
+  }
+  return lines;
+}
+
+function SuggestedChangeDiff({ lines }: { lines: SuggestedLine[] }) {
+  const theme = useDiffTheme();
+
+  const deletions = lines.filter((l) => l.type !== "addition").length;
+  const additions = lines.filter((l) => l.type !== "deletion").length;
+
+  const patchLines = lines.map((l) => {
+    if (l.type === "deletion") return `-${l.text}`;
+    if (l.type === "addition") return `+${l.text}`;
+    return ` ${l.text}`;
+  });
+
+  const fullPatch = `diff --git a/file b/file
+--- a/file
++++ b/file
+@@ -1,${deletions} +1,${additions} @@
+${patchLines.join("\n")}`;
+
+  return (
+    <div className="not-prose my-2 overflow-hidden rounded border">
+      <div className="bg-muted px-3 py-1.5 text-xs font-medium border-b">
+        Suggested change
+      </div>
+      <PatchDiff
+        patch={fullPatch}
+        options={{
+          themeType: theme,
+          diffStyle: "unified",
+          overflow: "wrap",
+          disableFileHeader: true,
+        }}
+        className="font-mono text-xs"
+      />
+    </div>
+  );
+}
+
 function processNode(node: Node, ctx?: ProcessContext): ReactNode {
   if (node.nodeType === Node.TEXT_NODE) {
     return node.textContent;
@@ -147,6 +209,15 @@ function processNode(node: Node, ctx?: ProcessContext): ReactNode {
     }
     // Plain pre — still wrap with copy button
     return <PlainPre key={key} code={code} />;
+  }
+
+  // Short-circuit suggested change blocks
+  if (
+    tagName === "div" &&
+    element.classList.contains("js-suggested-changes-blob")
+  ) {
+    const lines = extractSuggestedChangeLines(element);
+    return <SuggestedChangeDiff key={key} lines={lines} />;
   }
 
   const children = Array.from(element.childNodes).map((child) =>

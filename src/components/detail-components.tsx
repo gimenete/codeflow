@@ -21,8 +21,10 @@ import type {
   Label,
   PullRequestMetadata,
 } from "@/lib/github-types";
+import { GitHubCommentTextarea } from "@/components/github-comment-textarea";
+import { Button } from "@/components/ui/button";
 import { cn, fuzzyFilter } from "@/lib/utils";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronRight, PencilIcon } from "lucide-react";
 import {
   FileIcon,
   FolderIcon,
@@ -30,10 +32,6 @@ import {
 } from "@react-symbols/icons/utils";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LoaderCircleIcon } from "lucide-react";
-import {
-  toggleCheckboxInMarkdown,
-  toggleCheckboxInHtml,
-} from "@/lib/checkbox-utils";
 
 // Type for grouped label events (internal representation)
 interface GroupedLabelEvent {
@@ -134,7 +132,7 @@ export interface TimelineProps {
   ) => void;
   onEditComment?: (commentId: string, body: string) => Promise<void>;
   onEditReviewComment?: (commentId: string, body: string) => Promise<void>;
-  onEditBody?: (id: string, body: string) => Promise<void>;
+  onEditDescription?: (body: string) => Promise<void>;
   onCommitClick?: (sha: string) => void;
   accountId?: string;
   owner?: string;
@@ -157,79 +155,6 @@ function TimelineEventSkeleton() {
   );
 }
 
-function DescriptionBody({
-  data,
-  onEditBody,
-  accountId,
-}: {
-  data: PullRequestMetadata | IssueMetadata;
-  onEditBody?: (id: string, body: string) => Promise<void>;
-  accountId?: string;
-}) {
-  const [optimisticHtml, setOptimisticHtml] = useState<string | null>(null);
-  const [isTogglingCheckbox, setIsTogglingCheckbox] = useState(false);
-
-  const canToggle = data.viewerCanUpdate && onEditBody && data.body;
-
-  // Clear optimistic state when server HTML updates
-  useEffect(() => {
-    setOptimisticHtml(null);
-  }, [data.bodyHTML]);
-
-  const handleCheckboxToggle = useCallback(
-    async (index: number, checked: boolean) => {
-      if (!data.body || !onEditBody) return;
-
-      setOptimisticHtml(
-        toggleCheckboxInHtml(
-          optimisticHtml ?? (data.bodyHTML ?? ""),
-          index,
-          checked,
-        ),
-      );
-      setIsTogglingCheckbox(true);
-
-      try {
-        const newBody = toggleCheckboxInMarkdown(data.body, index, checked);
-        await onEditBody(data.id, newBody);
-      } catch {
-        setOptimisticHtml(null);
-      } finally {
-        setIsTogglingCheckbox(false);
-      }
-    },
-    [data.body, data.bodyHTML, data.id, optimisticHtml, onEditBody],
-  );
-
-  return (
-    <div className="group/comment border rounded-lg p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <Avatar className="h-8 w-8">
-          <AvatarImage src={data.author.avatarUrl} />
-          <AvatarFallback>
-            {data.author.login.charAt(0).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
-        <UserLogin login={data.author.login} accountId={accountId}>
-          <span className="font-medium">{data.author.login}</span>
-        </UserLogin>
-        <span className="text-sm text-muted-foreground">
-          commented <RelativeTime date={data.createdAt} />
-        </span>
-        {canToggle && isTogglingCheckbox && (
-          <LoaderCircleIcon className="ml-auto h-3.5 w-3.5 text-muted-foreground animate-spin" />
-        )}
-      </div>
-      <div className="prose prose-sm dark:prose-invert max-w-none">
-        <HtmlRenderer
-          html={optimisticHtml ?? (data.bodyHTML ?? "")}
-          onCheckboxToggle={canToggle ? handleCheckboxToggle : undefined}
-        />
-      </div>
-    </div>
-  );
-}
-
 export function Timeline({
   data,
   timelineItems,
@@ -241,7 +166,7 @@ export function Timeline({
   onToggleReaction,
   onEditComment,
   onEditReviewComment,
-  onEditBody,
+  onEditDescription,
   onCommitClick,
   accountId,
   owner,
@@ -276,10 +201,12 @@ export function Timeline({
   return (
     <Scrollable.Vertical>
       <div className="p-4 space-y-4 max-w-4xl">
-        <DescriptionBody
+        <EditableDescription
           data={data}
-          onEditBody={onEditBody}
+          onEditDescription={onEditDescription}
           accountId={accountId}
+          owner={owner}
+          repo={repo}
         />
 
         {processedEvents.map((event, index) => (
@@ -319,6 +246,121 @@ export function Timeline({
         {footer}
       </div>
     </Scrollable.Vertical>
+  );
+}
+
+function EditableDescription({
+  data,
+  onEditDescription,
+  accountId,
+  owner,
+  repo,
+}: {
+  data: PullRequestMetadata | IssueMetadata;
+  onEditDescription?: (body: string) => Promise<void>;
+  accountId?: string;
+  owner?: string;
+  repo?: string;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editBody, setEditBody] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const canEdit =
+    data.viewerCanUpdate && onEditDescription && accountId && owner && repo;
+
+  const handleStartEdit = () => {
+    setEditBody(data.body ?? "");
+    setError(null);
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditBody("");
+    setError(null);
+  };
+
+  const handleSubmitEdit = async () => {
+    if (!onEditDescription) return;
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      await onEditDescription(editBody);
+      setIsEditing(false);
+      setEditBody("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update description");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="group/description border rounded-lg p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Avatar className="h-8 w-8">
+          <AvatarImage src={data.author.avatarUrl} />
+          <AvatarFallback>
+            {data.author.login.charAt(0).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+        <span className="font-medium">{data.author.login}</span>
+        <span className="text-sm text-muted-foreground">
+          commented <RelativeTime date={data.createdAt} />
+        </span>
+        {canEdit && !isEditing && (
+          <button
+            onClick={handleStartEdit}
+            className="ml-auto opacity-0 group-hover/description:opacity-100 transition-opacity p-1 rounded hover:bg-muted"
+            title="Edit description"
+          >
+            <PencilIcon className="h-4 w-4 text-muted-foreground" />
+          </button>
+        )}
+      </div>
+      {isEditing && accountId && owner && repo ? (
+        <div className="space-y-3">
+          <GitHubCommentTextarea
+            value={editBody}
+            onChange={setEditBody}
+            accountId={accountId}
+            owner={owner}
+            repo={repo}
+            onSubmit={handleSubmitEdit}
+            className="min-h-[100px] resize-y"
+          />
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-destructive">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCancelEdit}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSubmitEdit}
+              disabled={isSubmitting}
+            >
+              Update description
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="prose prose-sm dark:prose-invert max-w-none">
+          <HtmlRenderer html={data.bodyHTML ?? ""} />
+        </div>
+      )}
+    </div>
   );
 }
 

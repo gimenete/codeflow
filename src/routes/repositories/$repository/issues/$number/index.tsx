@@ -111,7 +111,7 @@ function IssueConversationTab() {
           footer={commentFooter}
           onToggleReaction={mutations.toggleReaction}
           onEditComment={mutations.editComment}
-          onEditBody={mutations.editBody}
+          onEditDescription={(body) => mutations.editDescription(data.id, body)}
           accountId={account.id}
           owner={owner}
           repo={repo}

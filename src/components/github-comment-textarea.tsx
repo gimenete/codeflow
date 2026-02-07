@@ -589,7 +589,7 @@ function MentionPopover({
                   )}
                   onClick={() => onSelect(index)}
                 >
-                  <Avatar className="h-5 w-5">
+                  <Avatar className="h-5 w-5 shrink-0">
                     <AvatarImage src={user.avatarUrl} alt={user.login} />
                     <AvatarFallback className="text-[10px]">
                       {user.login[0]?.toUpperCase()}
@@ -612,15 +612,17 @@ function MentionPopover({
                   )}
                   onClick={() => onSelect(index)}
                 >
-                  {issue.isPullRequest ? (
-                    <PullStateIcon
-                      state={issue.state}
-                      merged={issue.isMerged}
-                      size="sm"
-                    />
-                  ) : (
-                    <IssueStateIcon state={issue.state} size="sm" />
-                  )}
+                  <span className="shrink-0">
+                    {issue.isPullRequest ? (
+                      <PullStateIcon
+                        state={issue.state}
+                        merged={issue.isMerged}
+                        size="sm"
+                      />
+                    ) : (
+                      <IssueStateIcon state={issue.state} size="sm" />
+                    )}
+                  </span>
                   <span className="text-muted-foreground shrink-0">
                     #{issue.number}
                   </span>
@@ -644,7 +646,7 @@ function MentionPopover({
                   <img
                     src={githubEmojis[result.item]}
                     alt={result.item}
-                    className="h-4 w-4"
+                    className="h-4 w-4 shrink-0"
                   />
                   <span>:{result.item}:</span>
                 </div>
