@@ -1,9 +1,20 @@
 import { useState, useMemo, useEffect } from "react";
-import { AlertCircle, GitPullRequest, Loader2 } from "lucide-react";
+import {
+  AlertCircle,
+  ChevronDown,
+  GitPullRequest,
+  Loader2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GitHubCommentTextarea } from "@/components/github-comment-textarea";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -50,6 +61,17 @@ function humanizeBranchName(branch: string): string {
 }
 
 type TargetRepo = "current" | "parent";
+type CreateMode = "ready" | "draft";
+
+const CREATE_MODE_LABELS: Record<CreateMode, string> = {
+  ready: "Create Pull Request",
+  draft: "Create Draft Pull Request",
+};
+
+const CREATE_MODE_DESCRIPTIONS: Record<CreateMode, string> = {
+  ready: "Open a pull request that is ready for review",
+  draft: "Cannot be merged until marked ready for review",
+};
 
 export function CreatePullRequestForm({
   accountId,
@@ -73,6 +95,8 @@ export function CreatePullRequestForm({
   const [description, setDescription] = useState("");
   const [targetRepo, setTargetRepo] = useState<TargetRepo>("current");
   const [targetBranch, setTargetBranch] = useState<string>("");
+  const [createMode, setCreateMode] = useState<CreateMode>("ready");
+  const [popoverOpen, setPopoverOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -153,6 +177,7 @@ export function CreatePullRequestForm({
         body: description.trim(),
         head,
         base: targetBranch,
+        draft: createMode === "draft",
       });
 
       onPullRequestCreated(result.number, targetOwner, targetRepoName);
@@ -284,19 +309,60 @@ export function CreatePullRequestForm({
 
           {/* Submit button */}
           <div className="flex justify-end shrink-0">
-            <Button
-              type="submit"
-              disabled={isSubmitting || !title.trim() || !targetBranch}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                "Create Pull Request"
-              )}
-            </Button>
+            <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+              <div className="flex items-center">
+                <Button
+                  type="submit"
+                  disabled={isSubmitting || !title.trim() || !targetBranch}
+                  className="rounded-r-none"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    CREATE_MODE_LABELS[createMode]
+                  )}
+                </Button>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    className="rounded-l-none border-l border-l-primary-foreground/20 px-2"
+                    disabled={isSubmitting}
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+              </div>
+              <PopoverContent align="end" className="w-80 space-y-3">
+                <RadioGroup
+                  value={createMode}
+                  onValueChange={(v) => {
+                    setCreateMode(v as CreateMode);
+                    setPopoverOpen(false);
+                  }}
+                >
+                  {(["ready", "draft"] as const).map((mode) => (
+                    <div key={mode} className="flex items-start gap-2">
+                      <RadioGroupItem
+                        value={mode}
+                        id={`create-mode-${mode}`}
+                        className="mt-0.5"
+                      />
+                      <div className="grid gap-0.5">
+                        <Label htmlFor={`create-mode-${mode}`}>
+                          {CREATE_MODE_LABELS[mode]}
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          {CREATE_MODE_DESCRIPTIONS[mode]}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </PopoverContent>
+            </Popover>
           </div>
         </form>
       </div>

@@ -5,6 +5,7 @@ import {
   Copy,
   ExternalLink,
   FileText,
+  Loader2,
   MessageSquare,
   MoreHorizontal,
 } from "lucide-react";
@@ -158,6 +159,15 @@ export function GitHubPull({
               </div>
             </div>
             <div className="flex items-center gap-1 self-start ml-auto">
+              {data.viewerCanUpdate &&
+                data.state === "open" &&
+                !data.merged && (
+                  <DraftToggleButton
+                    isDraft={data.isDraft}
+                    pullRequestId={data.id}
+                    onToggleDraft={mutations.toggleDraft}
+                  />
+                )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon-sm">
@@ -708,5 +718,47 @@ function CommitSelector({
         )}
       </SelectContent>
     </Select>
+  );
+}
+
+function DraftToggleButton({
+  isDraft,
+  pullRequestId,
+  onToggleDraft,
+}: {
+  isDraft: boolean;
+  pullRequestId: string;
+  onToggleDraft: (pullRequestId: string, isDraft: boolean) => Promise<void>;
+}) {
+  const [isToggling, setIsToggling] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleToggle = async () => {
+    setIsToggling(true);
+    setError(null);
+    try {
+      await onToggleDraft(pullRequestId, isDraft);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Failed to update draft status",
+      );
+    } finally {
+      setIsToggling(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={handleToggle}
+        disabled={isToggling}
+        title={error ?? undefined}
+      >
+        {isToggling ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+        {isDraft ? "Ready for review" : "Convert to draft"}
+      </Button>
+    </div>
   );
 }
