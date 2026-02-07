@@ -1,4 +1,5 @@
 import { DetailSkeleton } from "@/components/detail-components";
+import { EmojiText } from "@/components/emoji-text";
 import { IssueStateIcon } from "@/components/issue-state-icon";
 import { Button } from "@/components/ui/button";
 import {
@@ -76,7 +77,7 @@ function IssueDetail() {
               </div>
               <div className="flex-1 min-w-0">
                 <h1 className="text-xl font-semibold">
-                  {data.title}{" "}
+                  <EmojiText text={data.title} />{" "}
                   <span className="text-muted-foreground font-normal">
                     #{data.number}
                   </span>

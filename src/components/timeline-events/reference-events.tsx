@@ -1,5 +1,6 @@
 import { RelativeTime } from "@/components/relative-time";
 import { CommitHash } from "@/components/commit-hash";
+import { EmojiText } from "@/components/emoji-text";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   CrossReferenceIcon,
@@ -77,7 +78,7 @@ export function CrossReferencedEvent({
             ? `${source.repository.nameWithOwner}#${source.number}`
             : `#${source.number}`}
         </span>
-        <span className="truncate">{source.title}</span>
+        <EmojiText className="truncate" text={source.title} />
         <span>
           <RelativeTime date={createdAt} />
         </span>
@@ -117,9 +118,7 @@ export function ReferencedEvent({
           <>
             <span>in commit</span>
             <CommitHash sha={commit.oid} />
-            <span className="truncate font-mono">
-              {commit.message.split("\n")[0]}
-            </span>
+            <EmojiText className="truncate font-mono" text={commit.message.split("\n")[0]} />
           </>
         )}
         {isCrossRepository && <span>(from another repository)</span>}
@@ -157,8 +156,8 @@ export function RenamedTitleEvent({
         </Avatar>
         <span>{login}</span>
         <span>changed the title</span>
-        <span className="line-through">{previousTitle}</span>
-        <span className="font-medium">{currentTitle}</span>
+        <EmojiText className="line-through" text={previousTitle} />
+        <EmojiText className="font-medium" text={currentTitle} />
         <span>
           <RelativeTime date={createdAt} />
         </span>

@@ -1,3 +1,4 @@
+import { EmojiText } from "@/components/emoji-text";
 import { SaveQueryDialog } from "@/components/save-query-dialog";
 import { SearchResultItemSkeleton } from "@/components/search-result-item";
 import {
@@ -507,9 +508,7 @@ function SearchResultItemContent({
 
         {/* Title */}
         <div className="min-w-0 flex-1">
-          <span className="font-medium" title={item.title}>
-            {item.title}
-          </span>
+          <EmojiText className="font-medium" text={item.title} />
           <span className="text-muted-foreground ml-1">#{item.number}</span>
         </div>
 

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { GitCommitIcon, RepoIcon } from "@primer/octicons-react";
 import { Branch } from "@/components/branch";
+import { EmojiText } from "@/components/emoji-text";
 import { CommentForm } from "@/components/comment-form";
 import { ReviewPopover } from "@/components/review-popover";
 import {
@@ -134,7 +135,7 @@ export function GitHubPull({
             </div>
             <div className="flex-1 min-w-0">
               <h1 className="text-xl font-semibold">
-                {data.title}{" "}
+                <EmojiText text={data.title} />{" "}
                 <span className="text-muted-foreground font-normal">
                   #{data.number}
                 </span>
@@ -674,9 +675,10 @@ function CommitSelector({
           {selectedCommit ? (
             <span className="flex items-center gap-2">
               <CommitHash sha={selectedCommit} />
-              <span className="truncate">
-                {selectedCommitInfo?.message.split("\n")[0] ?? "Loading..."}
-              </span>
+              <EmojiText
+                className="truncate"
+                text={selectedCommitInfo?.message.split("\n")[0] ?? "Loading..."}
+              />
             </span>
           ) : (
             <span>
@@ -702,7 +704,7 @@ function CommitSelector({
           <SelectItem key={commit.sha} value={commit.sha}>
             <span className="flex items-center gap-2 max-w-md">
               <CommitHash sha={commit.sha} className="shrink-0" />
-              <span className="truncate">{commit.message.split("\n")[0]}</span>
+              <EmojiText className="truncate" text={commit.message.split("\n")[0]} />
             </span>
           </SelectItem>
         ))}

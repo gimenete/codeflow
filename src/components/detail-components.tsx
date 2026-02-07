@@ -1,4 +1,5 @@
 import { CommitHash } from "@/components/commit-hash";
+import { EmojiText } from "@/components/emoji-text";
 import { Scrollable } from "@/components/flex-layout";
 import { HtmlRenderer } from "@/components/html-renderer";
 import { LazyDiffViewer } from "@/components/lazy-diff-viewer";
@@ -414,7 +415,9 @@ export function CommitsList({
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="font-medium truncate">{commit.message}</p>
+              <p className="font-medium truncate">
+                <EmojiText text={commit.message.split("\n")[0]} />
+              </p>
               <p className="text-sm text-muted-foreground">
                 {commit.author.login} committed{" "}
                 <RelativeTime date={commit.date} />

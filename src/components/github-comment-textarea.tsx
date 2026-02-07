@@ -9,6 +9,7 @@ import {
 import { Loader2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { EmojiText } from "@/components/emoji-text";
 import { PullStateIcon } from "@/components/pull-state-icon";
 import { IssueStateIcon } from "@/components/issue-state-icon";
 import { cn } from "@/lib/utils";
@@ -623,7 +624,7 @@ function MentionPopover({
                   <span className="text-muted-foreground shrink-0">
                     #{issue.number}
                   </span>
-                  <span className="truncate">{issue.title}</span>
+                  <EmojiText className="truncate" text={issue.title} />
                 </div>
               ))}
 
