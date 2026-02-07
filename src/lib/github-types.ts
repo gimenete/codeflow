@@ -279,6 +279,7 @@ export interface PullRequestMetadata {
   isCrossRepository: boolean;
   headRepositoryOwner: string | null;
   headRepositoryName: string | null;
+  headRefExists: boolean;
 }
 
 export interface IssueMetadata {

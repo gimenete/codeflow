@@ -59,6 +59,9 @@ export const GET_ISSUE_OR_PR_METADATA = gql`
             oid
           }
           isCrossRepository
+          headRef {
+            id
+          }
           headRepository {
             name
             owner {
