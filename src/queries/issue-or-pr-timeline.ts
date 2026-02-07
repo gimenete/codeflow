@@ -340,14 +340,6 @@ export const GET_ISSUE_TIMELINE = gql`
                 login
               }
             }
-            ... on MentionedEvent {
-              id
-              actor {
-                login
-                avatarUrl
-              }
-              createdAt
-            }
           }
         }
       }
@@ -916,14 +908,6 @@ export const GET_PR_TIMELINE = gql`
               deletedCommentAuthor {
                 login
               }
-            }
-            ... on MentionedEvent {
-              id
-              actor {
-                login
-                avatarUrl
-              }
-              createdAt
             }
           }
         }
