@@ -566,6 +566,7 @@ export async function fetchIssueOrPullMetadata(
       repository: `${owner}/${repo}`,
       createdAt: pr.createdAt,
       updatedAt: pr.updatedAt,
+      body: pr.body ?? "",
       bodyHTML: pr.bodyHTML,
       headRef: pr.headRefName,
       baseRef: pr.baseRefName,
@@ -613,6 +614,7 @@ export async function fetchIssueOrPullMetadata(
       repository: `${owner}/${repo}`,
       createdAt: issue.createdAt,
       updatedAt: issue.updatedAt,
+      body: issue.body ?? "",
       bodyHTML: issue.bodyHTML,
     };
     return issueData;
@@ -2041,6 +2043,16 @@ export function useTimelineMutations(
     invalidate();
   };
 
+  const editBody = async (id: string, body: string) => {
+    if (!account) throw new Error("Account not found");
+    if (isPR) {
+      await updatePullRequestBody(account, id, body);
+    } else {
+      await updateIssueBody(account, id, body);
+    }
+    invalidate();
+  };
+
   const deleteBranch = async (branch: string) => {
     if (!account) throw new Error("Account not found");
     await deleteRemoteBranch(account, owner, repo, branch);
@@ -2062,6 +2074,7 @@ export function useTimelineMutations(
     toggleDraft,
     editComment,
     editReviewComment,
+    editBody,
   };
 }
 
@@ -2152,6 +2165,50 @@ export async function updatePullRequestReviewComment(
     pullRequestReviewCommentId: commentId,
     body,
   });
+}
+
+// Issue/PR body update mutations via GraphQL
+
+const UPDATE_ISSUE_BODY = gql`
+  mutation UpdateIssueBody($id: ID!, $body: String!) {
+    updateIssue(input: { id: $id, body: $body }) {
+      issue {
+        id
+        body
+        bodyHTML
+      }
+    }
+  }
+`;
+
+const UPDATE_PULL_REQUEST_BODY = gql`
+  mutation UpdatePullRequestBody($pullRequestId: ID!, $body: String!) {
+    updatePullRequest(input: { pullRequestId: $pullRequestId, body: $body }) {
+      pullRequest {
+        id
+        body
+        bodyHTML
+      }
+    }
+  }
+`;
+
+export async function updateIssueBody(
+  account: Account,
+  issueId: string,
+  body: string,
+): Promise<void> {
+  const client = getGraphQLClient(account);
+  await client.request(UPDATE_ISSUE_BODY, { id: issueId, body });
+}
+
+export async function updatePullRequestBody(
+  account: Account,
+  pullRequestId: string,
+  body: string,
+): Promise<void> {
+  const client = getGraphQLClient(account);
+  await client.request(UPDATE_PULL_REQUEST_BODY, { pullRequestId, body });
 }
 
 // Draft pull request mutations via GraphQL

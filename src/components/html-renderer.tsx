@@ -13,17 +13,31 @@ import {
 interface HtmlRendererProps {
   html: string;
   className?: string;
+  onCheckboxToggle?: (index: number, checked: boolean) => void;
 }
 
-export function HtmlRenderer({ html, className }: HtmlRendererProps) {
+interface ProcessContext {
+  onCheckboxToggle?: (index: number, checked: boolean) => void;
+  checkboxCounter: { current: number };
+}
+
+export function HtmlRenderer({
+  html,
+  className,
+  onCheckboxToggle,
+}: HtmlRendererProps) {
   const content = useMemo(() => {
     if (!html) return null;
 
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, "text/html");
 
-    return processNode(doc.body);
-  }, [html]);
+    const ctx: ProcessContext | undefined = onCheckboxToggle
+      ? { onCheckboxToggle, checkboxCounter: { current: 0 } }
+      : undefined;
+
+    return processNode(doc.body, ctx);
+  }, [html, onCheckboxToggle]);
 
   if (!html) {
     return (
@@ -111,7 +125,7 @@ function PlainPre({ code }: { code: string }) {
   );
 }
 
-function processNode(node: Node): ReactNode {
+function processNode(node: Node, ctx?: ProcessContext): ReactNode {
   if (node.nodeType === Node.TEXT_NODE) {
     return node.textContent;
   }
@@ -135,7 +149,9 @@ function processNode(node: Node): ReactNode {
     return <PlainPre key={key} code={code} />;
   }
 
-  const children = Array.from(element.childNodes).map(processNode);
+  const children = Array.from(element.childNodes).map((child) =>
+    processNode(child, ctx),
+  );
 
   switch (tagName) {
     case "body":
@@ -169,6 +185,22 @@ function processNode(node: Node): ReactNode {
       const type = element.getAttribute("type");
       if (type === "checkbox") {
         const checked = element.hasAttribute("checked");
+        if (ctx?.onCheckboxToggle) {
+          const index = ctx.checkboxCounter.current++;
+          const toggle = ctx.onCheckboxToggle;
+          return (
+            <Checkbox
+              key={key}
+              checked={checked}
+              className="cursor-pointer"
+              onCheckedChange={(newChecked) => {
+                if (typeof newChecked === "boolean") {
+                  toggle(index, newChecked);
+                }
+              }}
+            />
+          );
+        }
         return <Checkbox key={key} checked={checked} disabled />;
       }
       return null;
@@ -268,8 +300,12 @@ function processNode(node: Node): ReactNode {
       );
       const contentNodes = childNodes.filter((node) => node !== summaryNode);
 
-      const summaryContent = summaryNode ? processNode(summaryNode) : null;
-      const contentChildren = contentNodes.map(processNode);
+      const summaryContent = summaryNode
+        ? processNode(summaryNode, ctx)
+        : null;
+      const contentChildren = contentNodes.map((child) =>
+        processNode(child, ctx),
+      );
 
       return (
         <Collapsible key={key}>

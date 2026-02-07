@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { AlertCircle, PencilIcon } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { AlertCircle, PencilIcon, LoaderCircleIcon } from "lucide-react";
 import { HtmlRenderer } from "@/components/html-renderer";
 import { GitHubCommentTextarea } from "@/components/github-comment-textarea";
 import { Reactions, type ReactionGroup } from "@/components/reactions";
@@ -9,6 +9,10 @@ import { Button } from "@/components/ui/button";
 import type { ReactionContent } from "@/generated/graphql";
 import { PullRequestReviewState } from "@/generated/graphql";
 import { CheckIcon, XIcon, CommentIcon } from "@primer/octicons-react";
+import {
+  toggleCheckboxInMarkdown,
+  toggleCheckboxInHtml,
+} from "@/lib/checkbox-utils";
 import { getActorLogin, getActorAvatarUrl, type Actor } from "./types";
 import { DiffHunk } from "./diff-hunk";
 
@@ -145,9 +149,46 @@ function ReviewCommentItem({
   const [editBody, setEditBody] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [optimisticHtml, setOptimisticHtml] = useState<string | null>(null);
+  const [isTogglingCheckbox, setIsTogglingCheckbox] = useState(false);
 
   const canEdit =
     comment.viewerCanUpdate && onEdit && accountId && owner && repo;
+
+  // Clear optimistic state when server HTML updates
+  useEffect(() => {
+    setOptimisticHtml(null);
+  }, [comment.bodyHTML]);
+
+  const handleCheckboxToggle = useCallback(
+    async (index: number, checked: boolean) => {
+      if (!comment.body || !onEdit) return;
+
+      // Optimistic update
+      setOptimisticHtml(
+        toggleCheckboxInHtml(
+          optimisticHtml ?? comment.bodyHTML,
+          index,
+          checked,
+        ),
+      );
+      setIsTogglingCheckbox(true);
+
+      try {
+        const newBody = toggleCheckboxInMarkdown(
+          comment.body,
+          index,
+          checked,
+        );
+        await onEdit(newBody);
+      } catch {
+        setOptimisticHtml(null);
+      } finally {
+        setIsTogglingCheckbox(false);
+      }
+    },
+    [comment.body, comment.bodyHTML, optimisticHtml, onEdit],
+  );
 
   const handleStartEdit = () => {
     setEditBody(comment.body ?? "");
@@ -193,13 +234,20 @@ function ReviewCommentItem({
           </span>
         )}
         {canEdit && !isEditing && (
-          <button
-            onClick={handleStartEdit}
-            className="ml-auto opacity-0 group-hover/comment:opacity-100 transition-opacity p-1 rounded hover:bg-muted"
-            title="Edit comment"
+          <div
+            className={`ml-auto flex items-center gap-1 transition-opacity ${isTogglingCheckbox ? "opacity-100" : "opacity-0 group-hover/comment:opacity-100"}`}
           >
-            <PencilIcon className="h-4 w-4 text-muted-foreground" />
-          </button>
+            {isTogglingCheckbox && (
+              <LoaderCircleIcon className="h-3.5 w-3.5 text-muted-foreground animate-spin" />
+            )}
+            <button
+              onClick={handleStartEdit}
+              className="p-1 rounded hover:bg-muted"
+              title="Edit comment"
+            >
+              <PencilIcon className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </div>
         )}
       </div>
       {comment.diffHunk && (
@@ -242,7 +290,10 @@ function ReviewCommentItem({
         </div>
       ) : (
         <div className="prose prose-sm dark:prose-invert max-w-none">
-          <HtmlRenderer html={comment.bodyHTML} />
+          <HtmlRenderer
+            html={optimisticHtml ?? comment.bodyHTML}
+            onCheckboxToggle={canEdit ? handleCheckboxToggle : undefined}
+          />
         </div>
       )}
       {comment.reactionGroups && onToggleReaction && (
