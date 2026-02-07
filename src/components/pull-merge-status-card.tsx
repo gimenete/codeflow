@@ -6,8 +6,10 @@ import {
   ChevronRight,
   Clock,
   ExternalLink,
+  GitBranch,
   Loader2,
   Minus,
+  Trash2,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -41,7 +43,11 @@ interface PullMergeStatusCardProps {
   merged: boolean;
   isDraft: boolean;
   viewerCanUpdate: boolean;
+  headRef: string;
+  headRefExists: boolean;
+  isCrossRepository: boolean;
   onMerge: (mergeMethod: MergeMethod) => Promise<void>;
+  onDeleteBranch: () => Promise<void>;
 }
 
 export function PullMergeStatusCard({
@@ -53,7 +59,11 @@ export function PullMergeStatusCard({
   merged,
   isDraft,
   viewerCanUpdate,
+  headRef,
+  headRefExists,
+  isCrossRepository,
   onMerge,
+  onDeleteBranch,
 }: PullMergeStatusCardProps) {
   const { data: mergeStatus } = usePullMergeStatus(
     accountId,
@@ -62,7 +72,14 @@ export function PullMergeStatusCard({
     number,
   );
 
-  if (merged || state === "closed") return null;
+  if (merged) {
+    if (headRefExists && viewerCanUpdate && !isCrossRepository) {
+      return <DeleteBranchCard headRef={headRef} onDelete={onDeleteBranch} />;
+    }
+    return null;
+  }
+
+  if (state === "closed") return null;
   if (!mergeStatus) return null;
 
   return (
@@ -429,6 +446,78 @@ function MergeRow({
         </p>
       )}
 
+      {error && (
+        <div className="flex items-center gap-2 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DeleteBranchCard({
+  headRef,
+  onDelete,
+}: {
+  headRef: string;
+  onDelete: () => Promise<void>;
+}) {
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleted, setDeleted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    setError(null);
+    try {
+      await onDelete();
+      setDeleted(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete branch");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  if (deleted) {
+    return (
+      <div className="border rounded-lg p-3">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Trash2 className="h-4 w-4 shrink-0" />
+          <span>
+            Branch <code className="font-mono text-xs">{headRef}</code> has been
+            deleted.
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border rounded-lg p-3 space-y-2">
+      <div className="flex items-center gap-3">
+        <GitBranch className="h-4 w-4 text-muted-foreground shrink-0" />
+        <span className="flex-1 text-sm text-muted-foreground">
+          Pull request successfully merged. The{" "}
+          <code className="font-mono text-xs">{headRef}</code> branch can be
+          safely deleted.
+        </span>
+        <Button
+          variant="destructive"
+          size="sm"
+          className="shrink-0"
+          onClick={handleDelete}
+          disabled={isDeleting}
+        >
+          {isDeleting ? (
+            <Loader2 className="h-4 w-4 animate-spin mr-1" />
+          ) : (
+            <Trash2 className="h-4 w-4 mr-1" />
+          )}
+          Delete branch
+        </Button>
+      </div>
       {error && (
         <div className="flex items-center gap-2 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 shrink-0" />

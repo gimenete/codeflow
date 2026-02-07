@@ -578,6 +578,7 @@ export async function fetchIssueOrPullMetadata(
       isCrossRepository: pr.isCrossRepository,
       headRepositoryOwner: pr.headRepository?.owner?.login ?? null,
       headRepositoryName: pr.headRepository?.name ?? null,
+      headRefExists: pr.headRef != null,
     };
     return prData;
   } else {
@@ -1039,6 +1040,20 @@ export async function mergePullRequest(
     repo,
     pull_number: pullNumber,
     merge_method: mergeMethod,
+  });
+}
+
+export async function deleteRemoteBranch(
+  account: Account,
+  owner: string,
+  repo: string,
+  branch: string,
+): Promise<void> {
+  const octokit = getOctokit(account);
+  await octokit.git.deleteRef({
+    owner,
+    repo,
+    ref: `heads/${branch}`,
   });
 }
 
@@ -2038,6 +2053,12 @@ export function useTimelineMutations(
     invalidate();
   };
 
+  const deleteBranch = async (branch: string) => {
+    if (!account) throw new Error("Account not found");
+    await deleteRemoteBranch(account, owner, repo, branch);
+    invalidate();
+  };
+
   return {
     submitComment,
     changeState,
@@ -2048,6 +2069,7 @@ export function useTimelineMutations(
     updateMilestone: mutateMilestone,
     submitReview,
     mergePull,
+    deleteBranch,
     toggleReaction,
     toggleDraft,
     editComment,
