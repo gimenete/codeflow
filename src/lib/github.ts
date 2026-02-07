@@ -2014,6 +2014,18 @@ export function useTimelineMutations(
     invalidate();
   };
 
+  const editComment = async (commentId: string, body: string) => {
+    if (!account) throw new Error("Account not found");
+    await updateIssueComment(account, commentId, body);
+    invalidate();
+  };
+
+  const editReviewComment = async (commentId: string, body: string) => {
+    if (!account) throw new Error("Account not found");
+    await updatePullRequestReviewComment(account, commentId, body);
+    invalidate();
+  };
+
   return {
     submitComment,
     changeState,
@@ -2026,6 +2038,8 @@ export function useTimelineMutations(
     mergePull,
     toggleReaction,
     toggleDraft,
+    editComment,
+    editReviewComment,
   };
 }
 
@@ -2067,6 +2081,55 @@ export async function removeReaction(
 ): Promise<void> {
   const client = getGraphQLClient(account);
   await client.request(REMOVE_REACTION, { subjectId, content });
+}
+
+// Comment update mutations via GraphQL
+
+const UPDATE_ISSUE_COMMENT = gql`
+  mutation UpdateIssueComment($id: ID!, $body: String!) {
+    updateIssueComment(input: { id: $id, body: $body }) {
+      issueComment {
+        id
+        body
+        bodyHTML
+      }
+    }
+  }
+`;
+
+const UPDATE_PULL_REQUEST_REVIEW_COMMENT = gql`
+  mutation UpdatePullRequestReviewComment($pullRequestReviewCommentId: ID!, $body: String!) {
+    updatePullRequestReviewComment(
+      input: { pullRequestReviewCommentId: $pullRequestReviewCommentId, body: $body }
+    ) {
+      pullRequestReviewComment {
+        id
+        body
+        bodyHTML
+      }
+    }
+  }
+`;
+
+export async function updateIssueComment(
+  account: Account,
+  commentId: string,
+  body: string,
+): Promise<void> {
+  const client = getGraphQLClient(account);
+  await client.request(UPDATE_ISSUE_COMMENT, { id: commentId, body });
+}
+
+export async function updatePullRequestReviewComment(
+  account: Account,
+  commentId: string,
+  body: string,
+): Promise<void> {
+  const client = getGraphQLClient(account);
+  await client.request(UPDATE_PULL_REQUEST_REVIEW_COMMENT, {
+    pullRequestReviewCommentId: commentId,
+    body,
+  });
 }
 
 // Draft pull request mutations via GraphQL

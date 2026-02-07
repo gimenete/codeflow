@@ -110,6 +110,10 @@ function IssueConversationTab() {
           isLoading={isTimelineLoading}
           footer={commentFooter}
           onToggleReaction={mutations.toggleReaction}
+          onEditComment={mutations.editComment}
+          accountId={account.id}
+          owner={owner}
+          repo={repo}
         />
       </div>
 
