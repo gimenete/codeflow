@@ -435,7 +435,7 @@ export function parseDiff(diffText: string): FileDiff[] {
     const pathMatch = firstLine.match(/a\/(.+?)\s+b\/(.+)/);
     if (!pathMatch) continue;
 
-    const path = pathMatch[2]; // Use the "b" path (destination)
+    const path = pathMatch[2].trim(); // Use the "b" path (destination)
 
     // Find where the actual patch starts (after @@)
     const patchStartIndex = chunk.indexOf("@@");

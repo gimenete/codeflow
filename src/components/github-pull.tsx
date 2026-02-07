@@ -683,6 +683,24 @@ function FilesTab({
     return map;
   }, [parsedDiffs]);
 
+  const displayFiles = useMemo(() => {
+    if (commit) {
+      // When viewing a specific commit, use files from the parsed diff
+      return parsedDiffs.map((diff) => ({
+        path: diff.path,
+        additions: 0,
+        deletions: 0,
+        status: "modified",
+        patch: diff.patch,
+      }));
+    }
+    // When viewing all changes, use REST file list + patchMap
+    return restFiles.map((file) => ({
+      ...file,
+      patch: patchMap.get(file.path),
+    }));
+  }, [commit, parsedDiffs, restFiles, patchMap]);
+
   const handleCommitSelect = (value: string) => {
     const newCommit = value === "all" ? undefined : value;
     void navigate({
@@ -695,11 +713,6 @@ function FilesTab({
   if (!data) {
     return null;
   }
-
-  const filesWithPatches = restFiles.map((file) => ({
-    ...file,
-    patch: patchMap.get(file.path),
-  }));
 
   if (isDiffLoading || isParsing) {
     return (
@@ -734,7 +747,7 @@ function FilesTab({
           isLoadingMore={isFetchingNextPage}
         />
       </div>
-      <FilesList files={filesWithPatches} />
+      <FilesList files={displayFiles} />
     </Scrollable.Layout>
   );
 }
