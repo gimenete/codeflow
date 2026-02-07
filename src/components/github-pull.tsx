@@ -342,7 +342,11 @@ function ConversationTab({
         merged={data.merged}
         isDraft={data.isDraft}
         viewerCanUpdate={data.viewerCanUpdate}
+        headRef={data.headRef}
+        headRefExists={data.headRefExists}
+        isCrossRepository={data.isCrossRepository}
         onMerge={mutations.mergePull}
+        onDeleteBranch={() => mutations.deleteBranch(data.headRef)}
       />
       <CommentForm
         accountId={accountId}
