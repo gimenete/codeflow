@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MilestoneCombobox } from "@/components/milestone-combobox";
+import { TeamCombobox } from "@/components/team-combobox";
 import { UserCombobox } from "@/components/user-combobox";
 import { getAccount } from "@/lib/auth";
 import {
@@ -40,6 +41,7 @@ const searchSchema = z.object({
   author: z.string().optional(),
   assignee: z.string().optional(),
   reviewRequested: z.string().optional(),
+  teamReviewRequested: z.string().optional(),
   mentioned: z.string().optional(),
   milestone: z.string().optional(),
 });
@@ -108,6 +110,8 @@ function SavedQueryResults() {
       base.assignee = urlFilters.assignee || undefined;
     if (urlFilters.reviewRequested !== undefined)
       base.reviewRequested = urlFilters.reviewRequested || undefined;
+    if (urlFilters.teamReviewRequested !== undefined)
+      base.teamReviewRequested = urlFilters.teamReviewRequested || undefined;
     if (urlFilters.mentioned !== undefined)
       base.mentioned = urlFilters.mentioned || undefined;
     if (urlFilters.milestone !== undefined)
@@ -345,6 +349,19 @@ function SavedQueryResults() {
               accountId={account.id}
               placeholder="Reviewer"
               label="Reviewer"
+              className="w-40"
+            />
+          )}
+
+          {/* Team review requested filter (PR only, org repos) */}
+          {isPRSearch && (
+            <TeamCombobox
+              value={filters.teamReviewRequested}
+              onChange={(v) => updateFilter("teamReviewRequested", v)}
+              accountId={account.id}
+              owner={owner}
+              placeholder="Team"
+              label="Team"
               className="w-40"
             />
           )}

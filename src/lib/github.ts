@@ -27,7 +27,10 @@ import {
   GET_REPOSITORY_INFO,
   type RepositoryInfoResponse,
 } from "@/queries/repository-info";
-import { GET_MENTIONABLE_USERS } from "@/queries/mentionable-users";
+import {
+  GET_ASSIGNABLE_USERS,
+  GET_ORG_TEAMS,
+} from "@/queries/mentionable-users";
 import type {
   Account,
   PullRequest,
@@ -50,6 +53,7 @@ import type {
   PullMergeStatus,
   NormalizedCheck,
   MergeMethod,
+  OrgTeam,
 } from "./github-types";
 import type {
   GetIssueOrPrMetadataQuery,
@@ -136,6 +140,15 @@ export function buildSearchQuery(
       account.login,
     );
     parts.push(`${prefix}review-requested:${resolved}`);
+  }
+
+  if (filters.teamReviewRequested) {
+    const isNegated = filters.teamReviewRequested.startsWith("-");
+    const rawValue = isNegated
+      ? filters.teamReviewRequested.slice(1)
+      : filters.teamReviewRequested;
+    const prefix = isNegated ? "-" : "";
+    parts.push(`${prefix}team-review-requested:${rawValue}`);
   }
 
   if (filters.mentioned) {
@@ -532,18 +545,33 @@ export async function fetchIssueOrPullMetadata(
             return {
               login: reviewer.login,
               name: undefined,
+              slug: undefined,
               avatarUrl: reviewer.userAvatarUrl,
             };
           } else if (reviewer.__typename === "Team") {
             return {
               login: undefined,
               name: reviewer.name,
+              // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- slug is added by our query but not in generated types yet
+              slug: (reviewer as any).slug,
               avatarUrl: reviewer.teamAvatarUrl ?? "",
             };
           }
           return null;
         })
         .filter((r): r is NonNullable<typeof r> => r != null),
+      suggestedReviewers: ((pr as any).suggestedReviewers ?? [])
+        .filter(
+          (s: any) => s?.reviewer != null,
+        )
+        .map((s: any) => ({
+          isAuthor: s.isAuthor ?? false,
+          isCommenter: s.isCommenter ?? false,
+          reviewer: {
+            login: s.reviewer.login,
+            avatarUrl: s.reviewer.avatarUrl,
+          },
+        })),
       latestReviews: (pr.latestOpinionatedReviews?.nodes ?? [])
         .filter((n): n is NonNullable<typeof n> => n != null)
         .filter((n) => n.author != null)
@@ -1155,16 +1183,79 @@ export async function fetchMentionableUsers(
 
   const response = await client.request<{
     repository: {
-      mentionableUsers: {
+      assignableUsers: {
         nodes: { login: string; avatarUrl: string }[];
       };
     };
-  }>(GET_MENTIONABLE_USERS, { owner, repo });
+  }>(GET_ASSIGNABLE_USERS, { owner, repo });
 
-  return response.repository.mentionableUsers.nodes.map((user) => ({
+  return response.repository.assignableUsers.nodes.map((user) => ({
     login: user.login,
     avatarUrl: user.avatarUrl,
   }));
+}
+
+export async function fetchAssignableUsers(
+  account: Account,
+  owner: string,
+  repo: string,
+): Promise<GitHubUser[]> {
+  const client = getGraphQLClient(account);
+
+  const response = await client.request<{
+    repository: {
+      assignableUsers: {
+        nodes: { login: string; avatarUrl: string }[];
+      };
+    };
+  }>(GET_ASSIGNABLE_USERS, { owner, repo });
+
+  return response.repository.assignableUsers.nodes.map((user) => ({
+    login: user.login,
+    avatarUrl: user.avatarUrl,
+  }));
+}
+
+export async function fetchOrgTeams(
+  account: Account,
+  org: string,
+): Promise<OrgTeam[]> {
+  const client = getGraphQLClient(account);
+
+  const response = await client.request<{
+    organization: {
+      teams: {
+        nodes: {
+          name: string;
+          slug: string;
+          avatarUrl: string;
+          combinedSlug: string;
+        }[];
+      };
+    } | null;
+  }>(GET_ORG_TEAMS, { org });
+
+  if (!response.organization) return [];
+
+  return response.organization.teams.nodes.map((team) => ({
+    name: team.name,
+    slug: team.slug,
+    avatarUrl: team.avatarUrl,
+    combinedSlug: team.combinedSlug,
+  }));
+}
+
+export async function isOrganization(
+  account: Account,
+  owner: string,
+): Promise<boolean> {
+  const octokit = getOctokit(account);
+  try {
+    const response = await octokit.users.getByUsername({ username: owner });
+    return response.data.type === "Organization";
+  } catch {
+    return false;
+  }
 }
 
 export async function fetchRecentIssues(
@@ -1765,22 +1856,26 @@ export async function updateReviewRequests(
   pullNumber: number,
   addLogins: string[],
   removeLogins: string[],
+  addTeamSlugs: string[] = [],
+  removeTeamSlugs: string[] = [],
 ): Promise<void> {
   const octokit = getOctokit(account);
-  if (removeLogins.length > 0) {
+  if (removeLogins.length > 0 || removeTeamSlugs.length > 0) {
     await octokit.pulls.removeRequestedReviewers({
       owner,
       repo,
       pull_number: pullNumber,
       reviewers: removeLogins,
+      team_reviewers: removeTeamSlugs,
     });
   }
-  if (addLogins.length > 0) {
+  if (addLogins.length > 0 || addTeamSlugs.length > 0) {
     await octokit.pulls.requestReviewers({
       owner,
       repo,
       pull_number: pullNumber,
       reviewers: addLogins,
+      team_reviewers: addTeamSlugs,
     });
   }
 }
@@ -1974,9 +2069,23 @@ export function useTimelineMutations(
     invalidate();
   };
 
-  const mutateReviewRequests = async (add: string[], remove: string[]) => {
+  const mutateReviewRequests = async (
+    addUsers: string[],
+    removeUsers: string[],
+    addTeamSlugs?: string[],
+    removeTeamSlugs?: string[],
+  ) => {
     if (!account) throw new Error("Account not found");
-    await updateReviewRequests(account, owner, repo, number, add, remove);
+    await updateReviewRequests(
+      account,
+      owner,
+      repo,
+      number,
+      addUsers,
+      removeUsers,
+      addTeamSlugs,
+      removeTeamSlugs,
+    );
     invalidate();
   };
 

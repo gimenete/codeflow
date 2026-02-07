@@ -8,6 +8,9 @@ import {
   searchGitHubRepos,
   searchIssuesInRepo,
   fetchMentionableUsers,
+  fetchAssignableUsers,
+  fetchOrgTeams,
+  isOrganization,
   fetchRecentIssues,
   buildSearchQuery,
   searchWithCursors,
@@ -239,6 +242,44 @@ export function useMentionableUsers(
     queryFn: () => fetchMentionableUsers(account!, owner, repo),
     enabled: !!account,
     staleTime: 120_000,
+  });
+}
+
+export function useAssignableUsers(
+  accountId: string,
+  owner: string,
+  repo: string,
+) {
+  const account = getAccount(accountId);
+
+  return useQuery({
+    queryKey: ["assignable-users", accountId, owner, repo],
+    queryFn: () => fetchAssignableUsers(account!, owner, repo),
+    enabled: !!account,
+    staleTime: 120_000,
+  });
+}
+
+export function useOrgTeams(accountId: string, org: string) {
+  const account = getAccount(accountId);
+  const isOrgQuery = useIsOrganization(accountId, org);
+
+  return useQuery({
+    queryKey: ["org-teams", accountId, org],
+    queryFn: () => fetchOrgTeams(account!, org),
+    enabled: !!account && isOrgQuery.data === true,
+    staleTime: 120_000,
+  });
+}
+
+export function useIsOrganization(accountId: string, owner: string) {
+  const account = getAccount(accountId);
+
+  return useQuery({
+    queryKey: ["is-org", accountId, owner],
+    queryFn: () => isOrganization(account!, owner),
+    enabled: !!account,
+    staleTime: 300_000,
   });
 }
 

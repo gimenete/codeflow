@@ -100,7 +100,24 @@ export interface Milestone {
 export interface ReviewRequest {
   login?: string;
   name?: string;
+  slug?: string;
   avatarUrl: string;
+}
+
+export interface SuggestedReviewer {
+  isAuthor: boolean;
+  isCommenter: boolean;
+  reviewer: {
+    login: string;
+    avatarUrl: string;
+  };
+}
+
+export interface OrgTeam {
+  name: string;
+  slug: string;
+  avatarUrl: string;
+  combinedSlug: string;
 }
 
 export interface LatestReview {
@@ -242,6 +259,7 @@ export interface QueryFilters {
   author?: string;
   assignee?: string;
   reviewRequested?: string;
+  teamReviewRequested?: string;
   mentioned?: string;
   milestone?: string;
 }
@@ -263,6 +281,7 @@ export interface PullRequestMetadata {
   labels: Label[];
   assignees: Author[];
   reviewRequests: ReviewRequest[];
+  suggestedReviewers: SuggestedReviewer[];
   latestReviews: LatestReview[];
   milestone: Milestone | null;
   repository: string;
