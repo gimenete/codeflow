@@ -25,6 +25,21 @@ export const GET_ISSUE_TIMELINE = gql`
               }
               bodyHTML
               createdAt
+              reactionGroups {
+                content
+                reactors(first: 11) {
+                  totalCount
+                  nodes {
+                    ... on User {
+                      login
+                    }
+                    ... on Bot {
+                      login
+                    }
+                  }
+                }
+                viewerHasReacted
+              }
             }
             ... on ClosedEvent {
               id
@@ -363,6 +378,21 @@ export const GET_PR_TIMELINE = gql`
               }
               bodyHTML
               createdAt
+              reactionGroups {
+                content
+                reactors(first: 11) {
+                  totalCount
+                  nodes {
+                    ... on User {
+                      login
+                    }
+                    ... on Bot {
+                      login
+                    }
+                  }
+                }
+                viewerHasReacted
+              }
             }
             ... on PullRequestReview {
               id
@@ -385,6 +415,21 @@ export const GET_PR_TIMELINE = gql`
                   diffHunk
                   path
                   outdated
+                  reactionGroups {
+                    content
+                    reactors(first: 11) {
+                      totalCount
+                      nodes {
+                        ... on User {
+                          login
+                        }
+                        ... on Bot {
+                          login
+                        }
+                      }
+                    }
+                    viewerHasReacted
+                  }
                 }
               }
             }

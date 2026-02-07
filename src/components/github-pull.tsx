@@ -360,6 +360,7 @@ function ConversationTab({
           fetchNextPage={fetchNextPage}
           isLoading={isTimelineLoading}
           footer={commentFooter}
+          onToggleReaction={mutations.toggleReaction}
         />
       </div>
 

@@ -109,6 +109,7 @@ function IssueConversationTab() {
           fetchNextPage={fetchNextPage}
           isLoading={isTimelineLoading}
           footer={commentFooter}
+          onToggleReaction={mutations.toggleReaction}
         />
       </div>
 
