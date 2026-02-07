@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { AlertCircle, PencilIcon, LoaderCircleIcon } from "lucide-react";
-import { HtmlRenderer } from "@/components/html-renderer";
+import { HtmlRenderer, type SuggestionInfo } from "@/components/html-renderer";
 import { GitHubCommentTextarea } from "@/components/github-comment-textarea";
 import { Reactions, type ReactionGroup } from "@/components/reactions";
 import { RelativeTime } from "@/components/relative-time";
@@ -28,6 +28,7 @@ export interface ReviewComment {
   path: string;
   outdated: boolean;
   reactionGroups?: ReactionGroup[] | null;
+  suggestedChanges?: SuggestionInfo[];
 }
 
 interface ReviewEventProps {
@@ -41,10 +42,15 @@ interface ReviewEventProps {
     content: ReactionContent,
     viewerHasReacted: boolean,
   ) => void;
-  onEditReviewComment?: (
-    commentId: string,
+  onEditReviewComment?: (commentId: string, body: string) => Promise<void>;
+  onCommitSuggestion?: (
+    suggestionId: string,
+    headline: string,
     body: string,
   ) => Promise<void>;
+  onAddSuggestionToBatch?: (suggestion: SuggestionInfo) => void;
+  onRemoveSuggestionFromBatch?: (suggestionId: string) => void;
+  isSuggestionInBatch?: (suggestionId: string) => boolean;
   accountId?: string;
   owner?: string;
   repo?: string;
@@ -58,6 +64,10 @@ export function ReviewEvent({
   comments,
   onToggleReaction,
   onEditReviewComment,
+  onCommitSuggestion,
+  onAddSuggestionToBatch,
+  onRemoveSuggestionFromBatch,
+  isSuggestionInBatch,
   accountId,
   owner,
   repo,
@@ -82,7 +92,9 @@ export function ReviewEvent({
               <AvatarImage src={avatarUrl} />
               <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
             </Avatar>
-            <UserLogin login={login} accountId={accountId}><span className="font-medium">{login}</span></UserLogin>
+            <UserLogin login={login} accountId={accountId}>
+              <span className="font-medium">{login}</span>
+            </UserLogin>
             <span className="text-muted-foreground">
               {state === PullRequestReviewState.Approved
                 ? "approved these changes"
@@ -114,6 +126,10 @@ export function ReviewEvent({
                   ? (body) => onEditReviewComment(comment.id, body)
                   : undefined
               }
+              onCommitSuggestion={onCommitSuggestion}
+              onAddSuggestionToBatch={onAddSuggestionToBatch}
+              onRemoveSuggestionFromBatch={onRemoveSuggestionFromBatch}
+              isSuggestionInBatch={isSuggestionInBatch}
               accountId={accountId}
               owner={owner}
               repo={repo}
@@ -129,6 +145,10 @@ function ReviewCommentItem({
   comment,
   onToggleReaction,
   onEdit,
+  onCommitSuggestion,
+  onAddSuggestionToBatch,
+  onRemoveSuggestionFromBatch,
+  isSuggestionInBatch,
   accountId,
   owner,
   repo,
@@ -140,6 +160,14 @@ function ReviewCommentItem({
     viewerHasReacted: boolean,
   ) => void;
   onEdit?: (body: string) => Promise<void>;
+  onCommitSuggestion?: (
+    suggestionId: string,
+    headline: string,
+    body: string,
+  ) => Promise<void>;
+  onAddSuggestionToBatch?: (suggestion: SuggestionInfo) => void;
+  onRemoveSuggestionFromBatch?: (suggestionId: string) => void;
+  isSuggestionInBatch?: (suggestionId: string) => boolean;
   accountId?: string;
   owner?: string;
   repo?: string;
@@ -176,11 +204,7 @@ function ReviewCommentItem({
       setIsTogglingCheckbox(true);
 
       try {
-        const newBody = toggleCheckboxInMarkdown(
-          comment.body,
-          index,
-          checked,
-        );
+        const newBody = toggleCheckboxInMarkdown(comment.body, index, checked);
         await onEdit(newBody);
       } catch {
         setOptimisticHtml(null);
@@ -225,7 +249,9 @@ function ReviewCommentItem({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <UserLogin login={login} accountId={accountId}><span className="font-medium">{login}</span></UserLogin>
+        <UserLogin login={login} accountId={accountId}>
+          <span className="font-medium">{login}</span>
+        </UserLogin>
         <span className="text-sm text-muted-foreground">
           commented <RelativeTime date={comment.createdAt} />
         </span>
@@ -294,6 +320,12 @@ function ReviewCommentItem({
           <HtmlRenderer
             html={optimisticHtml ?? comment.bodyHTML}
             onCheckboxToggle={canEdit ? handleCheckboxToggle : undefined}
+            suggestions={comment.suggestedChanges}
+            onCommitSuggestion={onCommitSuggestion}
+            onAddSuggestionToBatch={onAddSuggestionToBatch}
+            onRemoveSuggestionFromBatch={onRemoveSuggestionFromBatch}
+            isSuggestionInBatch={isSuggestionInBatch}
+            commentPath={comment.path}
           />
         </div>
       )}

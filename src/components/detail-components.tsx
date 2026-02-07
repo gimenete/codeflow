@@ -10,6 +10,7 @@ import {
   type TimelineNode,
   type Actor,
 } from "@/components/timeline-events";
+import type { SuggestionInfo } from "@/components/html-renderer";
 import type { ReactionContent } from "@/generated/graphql";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -137,6 +138,14 @@ export interface TimelineProps {
   onEditComment?: (commentId: string, body: string) => Promise<void>;
   onEditReviewComment?: (commentId: string, body: string) => Promise<void>;
   onEditDescription?: (body: string) => Promise<void>;
+  onCommitSuggestion?: (
+    suggestionId: string,
+    headline: string,
+    body: string,
+  ) => Promise<void>;
+  onAddSuggestionToBatch?: (suggestion: SuggestionInfo) => void;
+  onRemoveSuggestionFromBatch?: (suggestionId: string) => void;
+  isSuggestionInBatch?: (suggestionId: string) => boolean;
   onCommitClick?: (sha: string) => void;
   accountId?: string;
   owner?: string;
@@ -171,6 +180,10 @@ export function Timeline({
   onEditComment,
   onEditReviewComment,
   onEditDescription,
+  onCommitSuggestion,
+  onAddSuggestionToBatch,
+  onRemoveSuggestionFromBatch,
+  isSuggestionInBatch,
   onCommitClick,
   accountId,
   owner,
@@ -220,6 +233,10 @@ export function Timeline({
             onToggleReaction={onToggleReaction}
             onEditComment={onEditComment}
             onEditReviewComment={onEditReviewComment}
+            onCommitSuggestion={onCommitSuggestion}
+            onAddSuggestionToBatch={onAddSuggestionToBatch}
+            onRemoveSuggestionFromBatch={onRemoveSuggestionFromBatch}
+            isSuggestionInBatch={isSuggestionInBatch}
             onCommitClick={onCommitClick}
             accountId={accountId}
             owner={owner}
@@ -376,6 +393,10 @@ function ProcessedEventItem({
   onToggleReaction,
   onEditComment,
   onEditReviewComment,
+  onCommitSuggestion,
+  onAddSuggestionToBatch,
+  onRemoveSuggestionFromBatch,
+  isSuggestionInBatch,
   onCommitClick,
   accountId,
   owner,
@@ -389,6 +410,14 @@ function ProcessedEventItem({
   ) => void;
   onEditComment?: (commentId: string, body: string) => Promise<void>;
   onEditReviewComment?: (commentId: string, body: string) => Promise<void>;
+  onCommitSuggestion?: (
+    suggestionId: string,
+    headline: string,
+    body: string,
+  ) => Promise<void>;
+  onAddSuggestionToBatch?: (suggestion: SuggestionInfo) => void;
+  onRemoveSuggestionFromBatch?: (suggestionId: string) => void;
+  isSuggestionInBatch?: (suggestionId: string) => boolean;
   onCommitClick?: (sha: string) => void;
   accountId?: string;
   owner?: string;
@@ -412,6 +441,10 @@ function ProcessedEventItem({
       onToggleReaction={onToggleReaction}
       onEditComment={onEditComment}
       onEditReviewComment={onEditReviewComment}
+      onCommitSuggestion={onCommitSuggestion}
+      onAddSuggestionToBatch={onAddSuggestionToBatch}
+      onRemoveSuggestionFromBatch={onRemoveSuggestionFromBatch}
+      isSuggestionInBatch={isSuggestionInBatch}
       onCommitClick={onCommitClick}
       accountId={accountId}
       owner={owner}

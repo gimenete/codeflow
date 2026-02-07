@@ -1,5 +1,6 @@
 import type { ReactionContent } from "@/generated/graphql";
 import type { ReactionGroup } from "@/components/reactions";
+import type { SuggestionInfo } from "@/components/html-renderer";
 import type { TimelineNode, Actor } from "./types";
 import { CommentEvent } from "./comment-event";
 import { CommitEvent } from "./commit-event";
@@ -61,18 +62,22 @@ function extractReviewComments(event: TimelineNode): ReviewComment[] {
   if (!comments?.nodes) return [];
   return comments.nodes
     .filter((n): n is Record<string, unknown> => n != null)
-    .map((n) => ({
-      id: n.id as string,
-      author: (n.author ?? null) as Actor,
-      body: (n.body as string) ?? undefined,
-      bodyHTML: n.bodyHTML as string,
-      createdAt: n.createdAt as string,
-      viewerCanUpdate: (n.viewerCanUpdate as boolean) ?? false,
-      diffHunk: n.diffHunk as string,
-      path: n.path as string,
-      outdated: n.outdated as boolean,
-      reactionGroups: (n.reactionGroups as ReactionGroup[] | null) ?? null,
-    }));
+    .map((n) => {
+      const sc = n.suggestedChanges as { nodes?: SuggestionInfo[] } | undefined;
+      return {
+        id: n.id as string,
+        author: (n.author ?? null) as Actor,
+        body: (n.body as string) ?? undefined,
+        bodyHTML: n.bodyHTML as string,
+        createdAt: n.createdAt as string,
+        viewerCanUpdate: (n.viewerCanUpdate as boolean) ?? false,
+        diffHunk: n.diffHunk as string,
+        path: n.path as string,
+        outdated: n.outdated as boolean,
+        reactionGroups: (n.reactionGroups as ReactionGroup[] | null) ?? null,
+        suggestedChanges: sc?.nodes ?? undefined,
+      };
+    });
 }
 
 interface TimelineEventItemProps {
@@ -84,6 +89,14 @@ interface TimelineEventItemProps {
   ) => void;
   onEditComment?: (commentId: string, body: string) => Promise<void>;
   onEditReviewComment?: (commentId: string, body: string) => Promise<void>;
+  onCommitSuggestion?: (
+    suggestionId: string,
+    headline: string,
+    body: string,
+  ) => Promise<void>;
+  onAddSuggestionToBatch?: (suggestion: SuggestionInfo) => void;
+  onRemoveSuggestionFromBatch?: (suggestionId: string) => void;
+  isSuggestionInBatch?: (suggestionId: string) => boolean;
   onCommitClick?: (sha: string) => void;
   accountId?: string;
   owner?: string;
@@ -95,6 +108,10 @@ export function TimelineEventItem({
   onToggleReaction,
   onEditComment,
   onEditReviewComment,
+  onCommitSuggestion,
+  onAddSuggestionToBatch,
+  onRemoveSuggestionFromBatch,
+  isSuggestionInBatch,
   onCommitClick,
   accountId,
   owner,
@@ -144,6 +161,10 @@ export function TimelineEventItem({
           comments={extractReviewComments(event)}
           onToggleReaction={onToggleReaction}
           onEditReviewComment={onEditReviewComment}
+          onCommitSuggestion={onCommitSuggestion}
+          onAddSuggestionToBatch={onAddSuggestionToBatch}
+          onRemoveSuggestionFromBatch={onRemoveSuggestionFromBatch}
+          isSuggestionInBatch={isSuggestionInBatch}
           accountId={accountId}
           owner={owner}
           repo={repo}
@@ -455,7 +476,11 @@ export function TimelineEventItem({
 
     case "PinnedEvent":
       return (
-        <PinnedEvent actor={event.actor as Actor} createdAt={event.createdAt} accountId={accountId} />
+        <PinnedEvent
+          actor={event.actor as Actor}
+          createdAt={event.createdAt}
+          accountId={accountId}
+        />
       );
 
     case "UnpinnedEvent":

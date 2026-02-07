@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   Link,
   useLocation,
@@ -23,6 +23,7 @@ import { EditBaseBranchDialog } from "@/components/edit-base-branch-dialog";
 import { EmojiText } from "@/components/emoji-text";
 import { InlineEditableTitle } from "@/components/inline-editable-title";
 import { CommentForm } from "@/components/comment-form";
+import { CommitSuggestionPopover } from "@/components/commit-suggestion-popover";
 import { ReviewPopover } from "@/components/review-popover";
 import {
   CommitsList,
@@ -30,6 +31,7 @@ import {
   FilesList,
   Timeline,
 } from "@/components/detail-components";
+import type { SuggestionInfo } from "@/components/html-renderer";
 import { MetadataSidebar } from "@/components/metadata-sidebar";
 import { PullStateIcon } from "@/components/pull-state-icon";
 import { Scrollable } from "@/components/flex-layout";
@@ -75,6 +77,10 @@ import { useIsLargeScreen, useParseDiffAsync } from "@/lib/hooks";
 import type { DiffSource } from "@/lib/github-types";
 import { parseRemoteUrl } from "@/lib/remote-url";
 import { useRepositoriesStore } from "@/lib/repositories-store";
+import {
+  useSuggestionBatchStore,
+  getPrKey,
+} from "@/lib/suggestion-batch-store";
 
 export interface GitHubPullProps {
   accountId: string;
@@ -297,7 +303,17 @@ export function GitHubPull({
                 </TabsTrigger>
               </Link>
             </TabsList>
-            <div className="px-2">
+            <div className="px-2 flex items-center gap-1.5">
+              {data.viewerCanUpdate &&
+                data.state === "open" &&
+                !data.merged && (
+                  <BatchCommitButton
+                    owner={owner}
+                    repo={repo}
+                    number={number}
+                    onCommit={mutations.commitSuggestions}
+                  />
+                )}
               <ReviewPopover
                 accountId={accountId}
                 owner={owner}
@@ -402,6 +418,47 @@ function ConversationTab({
 
   const mutations = useTimelineMutations(accountId, owner, repo, number, true);
 
+  const prKey = getPrKey(owner, repo, number);
+  const addSuggestion = useSuggestionBatchStore((s) => s.addSuggestion);
+  const removeSuggestion = useSuggestionBatchStore((s) => s.removeSuggestion);
+  const batchForPr = useSuggestionBatchStore((s) => s.batches[prKey] ?? []);
+
+  const canCommitSuggestions =
+    data?.viewerCanUpdate && data?.state === "open" && !data?.merged;
+
+  const handleCommitSuggestion = useCallback(
+    async (suggestionId: string, headline: string, body: string) => {
+      await mutations.commitSuggestions([suggestionId], headline, body);
+    },
+    [mutations],
+  );
+
+  const handleAddToBatch = useCallback(
+    (suggestion: SuggestionInfo) => {
+      addSuggestion(prKey, {
+        suggestionId: suggestion.id,
+        commentId: "",
+        path: "",
+        suggestion: suggestion.suggestion,
+      });
+    },
+    [addSuggestion, prKey],
+  );
+
+  const handleRemoveFromBatch = useCallback(
+    (suggestionId: string) => {
+      removeSuggestion(prKey, suggestionId);
+    },
+    [removeSuggestion, prKey],
+  );
+
+  const isSuggestionInBatch = useCallback(
+    (suggestionId: string) => {
+      return batchForPr.some((s) => s.suggestionId === suggestionId);
+    },
+    [batchForPr],
+  );
+
   const timelineItems = useMemo(() => {
     if (!timelineData?.pages) return [];
     return timelineData.pages.flatMap((page) => page.items);
@@ -473,6 +530,18 @@ function ConversationTab({
           onEditComment={mutations.editComment}
           onEditReviewComment={mutations.editReviewComment}
           onEditDescription={(body) => mutations.editDescription(data.id, body)}
+          onCommitSuggestion={
+            canCommitSuggestions ? handleCommitSuggestion : undefined
+          }
+          onAddSuggestionToBatch={
+            canCommitSuggestions ? handleAddToBatch : undefined
+          }
+          onRemoveSuggestionFromBatch={
+            canCommitSuggestions ? handleRemoveFromBatch : undefined
+          }
+          isSuggestionInBatch={
+            canCommitSuggestions ? isSuggestionInBatch : undefined
+          }
           onCommitClick={(sha) =>
             void navigate({
               to: `${basePath}/files`,
@@ -843,6 +912,51 @@ function CommitSelector({
         )}
       </SelectContent>
     </Select>
+  );
+}
+
+function BatchCommitButton({
+  owner,
+  repo,
+  number,
+  onCommit,
+}: {
+  owner: string;
+  repo: string;
+  number: number;
+  onCommit: (
+    suggestionIds: string[],
+    headline: string,
+    body?: string,
+  ) => Promise<void>;
+}) {
+  const prKey = getPrKey(owner, repo, number);
+  const batch = useSuggestionBatchStore((s) => s.batches[prKey] ?? []);
+  const clearBatch = useSuggestionBatchStore((s) => s.clearBatch);
+
+  if (batch.length === 0) return null;
+
+  const defaultHeadline =
+    batch.length === 1
+      ? "Apply suggestion from code review"
+      : `Apply ${batch.length} suggestions from code review`;
+
+  return (
+    <CommitSuggestionPopover
+      defaultHeadline={defaultHeadline}
+      onCommit={async (headline, body) => {
+        const ids = batch.map((s) => s.suggestionId);
+        await onCommit(ids, headline, body || undefined);
+        clearBatch(prKey);
+      }}
+      align="end"
+      trigger={
+        <Button size="sm" variant="outline" className="gap-1.5">
+          Commit suggestions
+          <Badge variant="secondary">{batch.length}</Badge>
+        </Button>
+      }
+    />
   );
 }
 

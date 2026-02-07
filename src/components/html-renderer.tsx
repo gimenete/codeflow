@@ -10,22 +10,59 @@ import {
   CollapsibleTrigger,
   CollapsibleContent,
 } from "@/components/ui/collapsible";
+import { CommitSuggestionPopover } from "@/components/commit-suggestion-popover";
+import { Button } from "@/components/ui/button";
+import { CheckIcon, PlusIcon } from "lucide-react";
+
+export interface SuggestionInfo {
+  id: string;
+  suggestion: string;
+  isApplied: boolean;
+  isOutdated: boolean;
+}
 
 interface HtmlRendererProps {
   html: string;
   className?: string;
   onCheckboxToggle?: (index: number, checked: boolean) => void;
+  suggestions?: SuggestionInfo[];
+  onCommitSuggestion?: (
+    suggestionId: string,
+    headline: string,
+    body: string,
+  ) => Promise<void>;
+  onAddSuggestionToBatch?: (suggestion: SuggestionInfo) => void;
+  onRemoveSuggestionFromBatch?: (suggestionId: string) => void;
+  isSuggestionInBatch?: (suggestionId: string) => boolean;
+  commentPath?: string;
 }
 
 interface ProcessContext {
   onCheckboxToggle?: (index: number, checked: boolean) => void;
   checkboxCounter: { current: number };
+  suggestions?: SuggestionInfo[];
+  suggestionCounter: { current: number };
+  onCommitSuggestion?: (
+    suggestionId: string,
+    headline: string,
+    body: string,
+  ) => Promise<void>;
+  onAddSuggestionToBatch?: (suggestion: SuggestionInfo) => void;
+  onRemoveSuggestionFromBatch?: (suggestionId: string) => void;
+  isSuggestionInBatch?: (suggestionId: string) => boolean;
+  commentPath?: string;
 }
 
 export function HtmlRenderer({
   html,
   className,
   onCheckboxToggle,
+  suggestions,
+  onCommitSuggestion,
+  onAddSuggestionToBatch,
+  onRemoveSuggestionFromBatch,
+  isSuggestionInBatch,
+  commentPath,
 }: HtmlRendererProps) {
   const content = useMemo(() => {
     if (!html) return null;
@@ -33,12 +70,29 @@ export function HtmlRenderer({
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, "text/html");
 
-    const ctx: ProcessContext | undefined = onCheckboxToggle
-      ? { onCheckboxToggle, checkboxCounter: { current: 0 } }
-      : undefined;
+    const ctx: ProcessContext = {
+      onCheckboxToggle,
+      checkboxCounter: { current: 0 },
+      suggestions,
+      suggestionCounter: { current: 0 },
+      onCommitSuggestion,
+      onAddSuggestionToBatch,
+      onRemoveSuggestionFromBatch,
+      isSuggestionInBatch,
+      commentPath,
+    };
 
     return processNode(doc.body, ctx);
-  }, [html, onCheckboxToggle]);
+  }, [
+    html,
+    onCheckboxToggle,
+    suggestions,
+    onCommitSuggestion,
+    onAddSuggestionToBatch,
+    onRemoveSuggestionFromBatch,
+    isSuggestionInBatch,
+    commentPath,
+  ]);
 
   if (!html) {
     return (
@@ -150,7 +204,27 @@ function extractSuggestedChangeLines(element: Element): SuggestedLine[] {
   return lines;
 }
 
-function SuggestedChangeDiff({ lines }: { lines: SuggestedLine[] }) {
+function SuggestedChangeDiff({
+  lines,
+  suggestionInfo,
+  onCommitSuggestion,
+  onAddSuggestionToBatch,
+  onRemoveSuggestionFromBatch,
+  isSuggestionInBatch,
+  commentPath,
+}: {
+  lines: SuggestedLine[];
+  suggestionInfo?: SuggestionInfo;
+  onCommitSuggestion?: (
+    suggestionId: string,
+    headline: string,
+    body: string,
+  ) => Promise<void>;
+  onAddSuggestionToBatch?: (suggestion: SuggestionInfo) => void;
+  onRemoveSuggestionFromBatch?: (suggestionId: string) => void;
+  isSuggestionInBatch?: (suggestionId: string) => boolean;
+  commentPath?: string;
+}) {
   const theme = useDiffTheme();
 
   const deletions = lines.filter((l) => l.type !== "addition").length;
@@ -168,10 +242,78 @@ function SuggestedChangeDiff({ lines }: { lines: SuggestedLine[] }) {
 @@ -1,${deletions} +1,${additions} @@
 ${patchLines.join("\n")}`;
 
+  const canAct =
+    suggestionInfo &&
+    !suggestionInfo.isApplied &&
+    !suggestionInfo.isOutdated &&
+    onCommitSuggestion;
+
+  const inBatch =
+    suggestionInfo && isSuggestionInBatch
+      ? isSuggestionInBatch(suggestionInfo.id)
+      : false;
+
+  const defaultHeadline = commentPath
+    ? `Apply suggestion to ${commentPath}`
+    : "Apply suggestion from code review";
+
   return (
     <div className="not-prose my-2 overflow-hidden rounded border">
-      <div className="bg-muted px-3 py-1.5 text-xs font-medium border-b">
-        Suggested change
+      <div className="bg-muted px-3 py-1.5 text-xs font-medium border-b flex items-center justify-between">
+        <span>
+          Suggested change
+          {suggestionInfo?.isApplied && (
+            <span className="ml-2 text-green-600 inline-flex items-center gap-0.5">
+              <CheckIcon className="h-3 w-3" />
+              Applied
+            </span>
+          )}
+          {suggestionInfo?.isOutdated && !suggestionInfo.isApplied && (
+            <span className="ml-2 text-muted-foreground">Outdated</span>
+          )}
+        </span>
+        {canAct && (
+          <span className="flex items-center gap-1">
+            <CommitSuggestionPopover
+              defaultHeadline={defaultHeadline}
+              onCommit={(headline, body) =>
+                onCommitSuggestion(suggestionInfo.id, headline, body)
+              }
+              align="end"
+              trigger={
+                <Button variant="outline" size="sm" className="h-6 text-xs">
+                  Commit suggestion
+                </Button>
+              }
+            />
+            {onAddSuggestionToBatch && onRemoveSuggestionFromBatch && (
+              <Button
+                variant={inBatch ? "secondary" : "outline"}
+                size="sm"
+                className="h-6 text-xs"
+                onClick={() => {
+                  if (inBatch) {
+                    onRemoveSuggestionFromBatch(suggestionInfo.id);
+                  } else {
+                    onAddSuggestionToBatch(suggestionInfo);
+                  }
+                }}
+              >
+                {inBatch ? (
+                  <>
+                    <CheckIcon className="h-3 w-3 mr-0.5" />
+                    Added to batch
+                  </>
+                ) : (
+                  <>
+                    <PlusIcon className="h-3 w-3 mr-0.5" />
+                    Add to batch
+                  </>
+                )}
+              </Button>
+            )}
+          </span>
+        )}
       </div>
       <PatchDiff
         patch={fullPatch}
@@ -217,7 +359,22 @@ function processNode(node: Node, ctx?: ProcessContext): ReactNode {
     element.classList.contains("js-suggested-changes-blob")
   ) {
     const lines = extractSuggestedChangeLines(element);
-    return <SuggestedChangeDiff key={key} lines={lines} />;
+    const suggestionIndex = ctx?.suggestionCounter
+      ? ctx.suggestionCounter.current++
+      : 0;
+    const suggestionInfo = ctx?.suggestions?.[suggestionIndex];
+    return (
+      <SuggestedChangeDiff
+        key={key}
+        lines={lines}
+        suggestionInfo={suggestionInfo}
+        onCommitSuggestion={ctx?.onCommitSuggestion}
+        onAddSuggestionToBatch={ctx?.onAddSuggestionToBatch}
+        onRemoveSuggestionFromBatch={ctx?.onRemoveSuggestionFromBatch}
+        isSuggestionInBatch={ctx?.isSuggestionInBatch}
+        commentPath={ctx?.commentPath}
+      />
+    );
   }
 
   const children = Array.from(element.childNodes).map((child) =>
@@ -371,9 +528,7 @@ function processNode(node: Node, ctx?: ProcessContext): ReactNode {
       );
       const contentNodes = childNodes.filter((node) => node !== summaryNode);
 
-      const summaryContent = summaryNode
-        ? processNode(summaryNode, ctx)
-        : null;
+      const summaryContent = summaryNode ? processNode(summaryNode, ctx) : null;
       const contentChildren = contentNodes.map((child) =>
         processNode(child, ctx),
       );
