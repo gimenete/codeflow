@@ -321,6 +321,16 @@ ipcMain.handle("git:branches", async (_event, repoPath: string) => {
 ipcMain.handle("git:status", async (_event, repoPath: string) => {
   try {
     const git = getGit(repoPath);
+
+    // Fetch from remote to update tracking refs before checking status.
+    // Best-effort: if fetch fails (e.g. offline), we still show status
+    // based on last known remote state.
+    try {
+      await git.fetch();
+    } catch {
+      // Ignore fetch errors — status will use cached tracking refs
+    }
+
     const status: StatusResult = await git.status();
 
     // Map git status codes to our status types
