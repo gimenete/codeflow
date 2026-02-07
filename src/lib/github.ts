@@ -2053,6 +2053,16 @@ export function useTimelineMutations(
     invalidate();
   };
 
+  const editTitle = async (id: string, title: string) => {
+    if (!account) throw new Error("Account not found");
+    if (isPR) {
+      await updatePullRequestTitle(account, id, title);
+    } else {
+      await updateIssueTitle(account, id, title);
+    }
+    invalidate();
+  };
+
   const deleteBranch = async (branch: string) => {
     if (!account) throw new Error("Account not found");
     await deleteRemoteBranch(account, owner, repo, branch);
@@ -2075,6 +2085,7 @@ export function useTimelineMutations(
     editComment,
     editReviewComment,
     editBody,
+    editTitle,
   };
 }
 
@@ -2133,9 +2144,15 @@ const UPDATE_ISSUE_COMMENT = gql`
 `;
 
 const UPDATE_PULL_REQUEST_REVIEW_COMMENT = gql`
-  mutation UpdatePullRequestReviewComment($pullRequestReviewCommentId: ID!, $body: String!) {
+  mutation UpdatePullRequestReviewComment(
+    $pullRequestReviewCommentId: ID!
+    $body: String!
+  ) {
     updatePullRequestReviewComment(
-      input: { pullRequestReviewCommentId: $pullRequestReviewCommentId, body: $body }
+      input: {
+        pullRequestReviewCommentId: $pullRequestReviewCommentId
+        body: $body
+      }
     ) {
       pullRequestReviewComment {
         id
@@ -2249,4 +2266,46 @@ export async function markPullRequestReadyForReview(
 ): Promise<void> {
   const client = getGraphQLClient(account);
   await client.request(MARK_PULL_REQUEST_READY_FOR_REVIEW, { pullRequestId });
+}
+
+// Title update mutations via GraphQL
+
+const UPDATE_PULL_REQUEST_TITLE = gql`
+  mutation UpdatePullRequestTitle($pullRequestId: ID!, $title: String!) {
+    updatePullRequest(input: { pullRequestId: $pullRequestId, title: $title }) {
+      pullRequest {
+        id
+        title
+      }
+    }
+  }
+`;
+
+const UPDATE_ISSUE_TITLE = gql`
+  mutation UpdateIssueTitle($id: ID!, $title: String!) {
+    updateIssue(input: { id: $id, title: $title }) {
+      issue {
+        id
+        title
+      }
+    }
+  }
+`;
+
+export async function updatePullRequestTitle(
+  account: Account,
+  pullRequestId: string,
+  title: string,
+): Promise<void> {
+  const client = getGraphQLClient(account);
+  await client.request(UPDATE_PULL_REQUEST_TITLE, { pullRequestId, title });
+}
+
+export async function updateIssueTitle(
+  account: Account,
+  issueId: string,
+  title: string,
+): Promise<void> {
+  const client = getGraphQLClient(account);
+  await client.request(UPDATE_ISSUE_TITLE, { id: issueId, title });
 }
