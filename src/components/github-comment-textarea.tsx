@@ -20,6 +20,12 @@ import {
 } from "@/lib/queries";
 import { fuzzyFilter } from "@/lib/fuzzy-search";
 import { githubEmojis, emojiNames } from "@/lib/github-emojis";
+import {
+  applyEdit,
+  getUrlPasteEdit,
+  getListContinuationEdit,
+  getInlineStyleEdit,
+} from "@/lib/markdown-editing";
 
 type TriggerType = "@" | "#" | ":";
 
@@ -335,6 +341,26 @@ export function GitHubCommentTextarea({
     ],
   );
 
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+
+      const pastedText = e.clipboardData.getData("text/plain");
+      const edit = getUrlPasteEdit(
+        value,
+        textarea.selectionStart,
+        textarea.selectionEnd,
+        pastedText,
+      );
+      if (edit) {
+        e.preventDefault();
+        applyEdit(textarea, edit);
+      }
+    },
+    [value],
+  );
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && onSubmit) {
@@ -343,7 +369,58 @@ export function GitHubCommentTextarea({
         return;
       }
 
-      if (!isPopoverVisible) return;
+      // Cmd/Ctrl+B: bold
+      if (e.key === "b" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+        applyEdit(
+          textarea,
+          getInlineStyleEdit(
+            value,
+            textarea.selectionStart,
+            textarea.selectionEnd,
+            "**",
+          ),
+        );
+        return;
+      }
+
+      // Cmd/Ctrl+I: italic
+      if (e.key === "i" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+        applyEdit(
+          textarea,
+          getInlineStyleEdit(
+            value,
+            textarea.selectionStart,
+            textarea.selectionEnd,
+            "*",
+          ),
+        );
+        return;
+      }
+
+      if (!isPopoverVisible) {
+        // Enter: auto-continue lists (only when popover is not open)
+        if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+          const textarea = textareaRef.current;
+          if (!textarea) return;
+          const edit = getListContinuationEdit(
+            value,
+            textarea.selectionStart,
+            textarea.selectionEnd,
+          );
+          if (edit) {
+            e.preventDefault();
+            applyEdit(textarea, edit);
+            return;
+          }
+        }
+        return;
+      }
 
       if (e.key === "Escape") {
         e.preventDefault();
@@ -369,7 +446,7 @@ export function GitHubCommentTextarea({
         return;
       }
     },
-    [isPopoverVisible, itemCount, selectedIndex, handleSelect, onSubmit],
+    [isPopoverVisible, itemCount, selectedIndex, handleSelect, onSubmit, value],
   );
 
   const handleChange = useCallback(
@@ -395,6 +472,7 @@ export function GitHubCommentTextarea({
         onChange={handleChange}
         onSelect={handleSelect_}
         onKeyDown={handleKeyDown}
+        onPaste={handlePaste}
         className={className}
         {...props}
       />
