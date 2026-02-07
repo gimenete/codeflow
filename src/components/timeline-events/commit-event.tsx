@@ -1,4 +1,5 @@
 import { CommitHash } from "@/components/commit-hash";
+import { EmojiText } from "@/components/emoji-text";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { GitCommitIcon } from "@primer/octicons-react";
 import { TimelineEventWrapper } from "./timeline-event-wrapper";
@@ -31,7 +32,7 @@ export function CommitEvent({ commit }: CommitEventProps) {
         <span>{login}</span>
         <span>added a commit:</span>
         <CommitHash sha={commit.oid} />
-        <span className="truncate flex-1 font-mono">{commit.message}</span>
+        <EmojiText className="truncate flex-1 font-mono" text={commit.message.split("\n")[0]} />
       </div>
     </TimelineEventWrapper>
   );
