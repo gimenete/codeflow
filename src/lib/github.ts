@@ -2178,6 +2178,21 @@ export function useTimelineMutations(
     invalidate();
   };
 
+  const updateBaseBranch = async (
+    pullRequestId: string,
+    baseRefName: string,
+  ) => {
+    if (!account) throw new Error("Account not found");
+    await updatePullRequestBaseBranch(account, pullRequestId, baseRefName);
+    invalidate();
+    void queryClient.invalidateQueries({
+      queryKey: ["pr-merge-status", accountId, owner, repo, number],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["pr-status", accountId, owner, repo, number],
+    });
+  };
+
   return {
     submitComment,
     changeState,
@@ -2195,6 +2210,7 @@ export function useTimelineMutations(
     editReviewComment,
     editBody,
     editTitle,
+    updateBaseBranch,
   };
 }
 
@@ -2417,4 +2433,34 @@ export async function updateIssueTitle(
 ): Promise<void> {
   const client = getGraphQLClient(account);
   await client.request(UPDATE_ISSUE_TITLE, { id: issueId, title });
+}
+
+// Base branch update mutation via GraphQL
+
+const UPDATE_PULL_REQUEST_BASE_BRANCH = gql`
+  mutation UpdatePullRequestBaseBranch(
+    $pullRequestId: ID!
+    $baseRefName: String!
+  ) {
+    updatePullRequest(
+      input: { pullRequestId: $pullRequestId, baseRefName: $baseRefName }
+    ) {
+      pullRequest {
+        id
+        baseRefName
+      }
+    }
+  }
+`;
+
+export async function updatePullRequestBaseBranch(
+  account: Account,
+  pullRequestId: string,
+  baseRefName: string,
+): Promise<void> {
+  const client = getGraphQLClient(account);
+  await client.request(UPDATE_PULL_REQUEST_BASE_BRANCH, {
+    pullRequestId,
+    baseRefName,
+  });
 }
