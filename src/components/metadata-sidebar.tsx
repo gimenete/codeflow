@@ -35,7 +35,12 @@ interface MetadataSidebarProps {
   repo?: string;
   onLabelsChange?: (labels: string[]) => Promise<void>;
   onAssigneesChange?: (add: string[], remove: string[]) => Promise<void>;
-  onReviewRequestsChange?: (add: string[], remove: string[]) => Promise<void>;
+  onReviewRequestsChange?: (
+    addUsers: string[],
+    removeUsers: string[],
+    addTeamSlugs?: string[],
+    removeTeamSlugs?: string[],
+  ) => Promise<void>;
   onMilestoneChange?: (milestoneNumber: number | null) => Promise<void>;
 }
 
@@ -173,6 +178,7 @@ export function MetadataSidebar({
                   owner={owner}
                   repo={repo}
                   currentRequests={prData.reviewRequests}
+                  suggestedReviewers={prData.suggestedReviewers}
                   onReviewRequestsChange={onReviewRequestsChange}
                 >
                   {(displayRequests) => (

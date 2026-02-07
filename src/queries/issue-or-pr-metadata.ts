@@ -95,9 +95,18 @@ export const GET_ISSUE_OR_PR_METADATA = gql`
                 }
                 ... on Team {
                   name
+                  slug
                   teamAvatarUrl: avatarUrl
                 }
               }
+            }
+          }
+          suggestedReviewers {
+            isAuthor
+            isCommenter
+            reviewer {
+              login
+              avatarUrl
             }
           }
           latestOpinionatedReviews(first: 20) {
