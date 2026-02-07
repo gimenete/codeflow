@@ -1,4 +1,5 @@
 import { RelativeTime } from "@/components/relative-time";
+import { UserLogin } from "@/components/user-info";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   IssueOpenedIcon,
@@ -32,12 +33,14 @@ interface MarkedAsDuplicateEventProps {
         repository: { nameWithOwner: string };
       }
     | null;
+  accountId?: string;
 }
 
 export function MarkedAsDuplicateEvent({
   actor,
   createdAt,
   canonical,
+  accountId,
 }: MarkedAsDuplicateEventProps) {
   const login = getActorLogin(actor);
   const avatarUrl = getActorAvatarUrl(actor);
@@ -50,7 +53,7 @@ export function MarkedAsDuplicateEvent({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{login}</span>
+        <UserLogin login={login} accountId={accountId}><span>{login}</span></UserLogin>
         <span>marked this as a duplicate of</span>
         {canonical && (
           <>
@@ -76,11 +79,13 @@ export function MarkedAsDuplicateEvent({
 interface UnmarkedAsDuplicateEventProps {
   actor: Actor;
   createdAt: string;
+  accountId?: string;
 }
 
 export function UnmarkedAsDuplicateEvent({
   actor,
   createdAt,
+  accountId,
 }: UnmarkedAsDuplicateEventProps) {
   const login = getActorLogin(actor);
   const avatarUrl = getActorAvatarUrl(actor);
@@ -93,7 +98,7 @@ export function UnmarkedAsDuplicateEvent({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{login}</span>
+        <UserLogin login={login} accountId={accountId}><span>{login}</span></UserLogin>
         <span>unmarked this as a duplicate</span>
         <span>
           <RelativeTime date={createdAt} />
@@ -108,12 +113,14 @@ interface TransferredEventProps {
   actor: Actor;
   createdAt: string;
   fromRepository?: { nameWithOwner: string } | null;
+  accountId?: string;
 }
 
 export function TransferredEvent({
   actor,
   createdAt,
   fromRepository,
+  accountId,
 }: TransferredEventProps) {
   const login = getActorLogin(actor);
   const avatarUrl = getActorAvatarUrl(actor);
@@ -126,7 +133,7 @@ export function TransferredEvent({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{login}</span>
+        <UserLogin login={login} accountId={accountId}><span>{login}</span></UserLogin>
         <span>transferred this</span>
         {fromRepository && (
           <>
@@ -146,11 +153,13 @@ export function TransferredEvent({
 interface ConvertedToDiscussionEventProps {
   actor: Actor;
   createdAt: string;
+  accountId?: string;
 }
 
 export function ConvertedToDiscussionEvent({
   actor,
   createdAt,
+  accountId,
 }: ConvertedToDiscussionEventProps) {
   const login = getActorLogin(actor);
   const avatarUrl = getActorAvatarUrl(actor);
@@ -163,7 +172,7 @@ export function ConvertedToDiscussionEvent({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{login}</span>
+        <UserLogin login={login} accountId={accountId}><span>{login}</span></UserLogin>
         <span>converted this issue to a discussion</span>
         <span>
           <RelativeTime date={createdAt} />
@@ -177,9 +186,10 @@ export function ConvertedToDiscussionEvent({
 interface PinnedEventProps {
   actor: Actor;
   createdAt: string;
+  accountId?: string;
 }
 
-export function PinnedEvent({ actor, createdAt }: PinnedEventProps) {
+export function PinnedEvent({ actor, createdAt, accountId }: PinnedEventProps) {
   const login = getActorLogin(actor);
   const avatarUrl = getActorAvatarUrl(actor);
 
@@ -191,7 +201,7 @@ export function PinnedEvent({ actor, createdAt }: PinnedEventProps) {
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{login}</span>
+        <UserLogin login={login} accountId={accountId}><span>{login}</span></UserLogin>
         <span>pinned this issue</span>
         <span>
           <RelativeTime date={createdAt} />
@@ -205,9 +215,10 @@ export function PinnedEvent({ actor, createdAt }: PinnedEventProps) {
 interface UnpinnedEventProps {
   actor: Actor;
   createdAt: string;
+  accountId?: string;
 }
 
-export function UnpinnedEvent({ actor, createdAt }: UnpinnedEventProps) {
+export function UnpinnedEvent({ actor, createdAt, accountId }: UnpinnedEventProps) {
   const login = getActorLogin(actor);
   const avatarUrl = getActorAvatarUrl(actor);
 
@@ -219,7 +230,7 @@ export function UnpinnedEvent({ actor, createdAt }: UnpinnedEventProps) {
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{login}</span>
+        <UserLogin login={login} accountId={accountId}><span>{login}</span></UserLogin>
         <span>unpinned this issue</span>
         <span>
           <RelativeTime date={createdAt} />
@@ -247,12 +258,14 @@ interface ConnectedEventProps {
         repository: { nameWithOwner: string };
       }
     | null;
+  accountId?: string;
 }
 
 export function ConnectedEvent({
   actor,
   createdAt,
   subject,
+  accountId,
 }: ConnectedEventProps) {
   const login = getActorLogin(actor);
   const avatarUrl = getActorAvatarUrl(actor);
@@ -265,7 +278,7 @@ export function ConnectedEvent({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{login}</span>
+        <UserLogin login={login} accountId={accountId}><span>{login}</span></UserLogin>
         <span>linked</span>
         {subject && (
           <>
@@ -305,12 +318,14 @@ interface DisconnectedEventProps {
         repository: { nameWithOwner: string };
       }
     | null;
+  accountId?: string;
 }
 
 export function DisconnectedEvent({
   actor,
   createdAt,
   subject,
+  accountId,
 }: DisconnectedEventProps) {
   const login = getActorLogin(actor);
   const avatarUrl = getActorAvatarUrl(actor);
@@ -323,7 +338,7 @@ export function DisconnectedEvent({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{login}</span>
+        <UserLogin login={login} accountId={accountId}><span>{login}</span></UserLogin>
         <span>unlinked</span>
         {subject && (
           <>
@@ -350,12 +365,14 @@ interface CommentDeletedEventProps {
   actor: Actor;
   createdAt: string;
   deletedCommentAuthor?: { login: string } | null;
+  accountId?: string;
 }
 
 export function CommentDeletedEvent({
   actor,
   createdAt,
   deletedCommentAuthor,
+  accountId,
 }: CommentDeletedEventProps) {
   const login = getActorLogin(actor);
   const avatarUrl = getActorAvatarUrl(actor);
@@ -368,12 +385,12 @@ export function CommentDeletedEvent({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{login}</span>
+        <UserLogin login={login} accountId={accountId}><span>{login}</span></UserLogin>
         <span>deleted a comment</span>
         {deletedCommentAuthor && (
           <>
             <span>from</span>
-            <span className="font-medium">{deletedCommentAuthor.login}</span>
+            <UserLogin login={deletedCommentAuthor.login} accountId={accountId}><span className="font-medium">{deletedCommentAuthor.login}</span></UserLogin>
           </>
         )}
         <span>
@@ -388,9 +405,10 @@ export function CommentDeletedEvent({
 interface MentionedEventProps {
   actor: Actor;
   createdAt: string;
+  accountId?: string;
 }
 
-export function MentionedEvent({ actor, createdAt }: MentionedEventProps) {
+export function MentionedEvent({ actor, createdAt, accountId }: MentionedEventProps) {
   const login = getActorLogin(actor);
   const avatarUrl = getActorAvatarUrl(actor);
 
@@ -402,7 +420,7 @@ export function MentionedEvent({ actor, createdAt }: MentionedEventProps) {
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{login}</span>
+        <UserLogin login={login} accountId={accountId}><span>{login}</span></UserLogin>
         <span>was mentioned</span>
         <span>
           <RelativeTime date={createdAt} />

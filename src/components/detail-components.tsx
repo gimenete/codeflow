@@ -15,6 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { UserLogin } from "@/components/user-info";
 import type {
   IssueMetadata,
   Label,
@@ -158,9 +159,11 @@ function TimelineEventSkeleton() {
 function DescriptionBody({
   data,
   onEditBody,
+  accountId,
 }: {
   data: PullRequestMetadata | IssueMetadata;
   onEditBody?: (id: string, body: string) => Promise<void>;
+  accountId?: string;
 }) {
   const [optimisticHtml, setOptimisticHtml] = useState<string | null>(null);
   const [isTogglingCheckbox, setIsTogglingCheckbox] = useState(false);
@@ -206,7 +209,9 @@ function DescriptionBody({
             {data.author.login.charAt(0).toUpperCase()}
           </AvatarFallback>
         </Avatar>
-        <span className="font-medium">{data.author.login}</span>
+        <UserLogin login={data.author.login} accountId={accountId}>
+          <span className="font-medium">{data.author.login}</span>
+        </UserLogin>
         <span className="text-sm text-muted-foreground">
           commented <RelativeTime date={data.createdAt} />
         </span>
@@ -272,6 +277,7 @@ export function Timeline({
         <DescriptionBody
           data={data}
           onEditBody={onEditBody}
+          accountId={accountId}
         />
 
         {processedEvents.map((event, index) => (
@@ -342,6 +348,7 @@ function ProcessedEventItem({
         createdAt={event.createdAt}
         labels={event.labels}
         action={event.action}
+        accountId={accountId}
       />
     );
   }

@@ -11,6 +11,7 @@ import {
   toggleCheckboxInMarkdown,
   toggleCheckboxInHtml,
 } from "@/lib/checkbox-utils";
+import { UserLogin } from "@/components/user-info";
 import { getActorLogin, getActorAvatarUrl, type Actor } from "./types";
 
 interface CommentEventProps {
@@ -115,7 +116,7 @@ export function CommentEvent({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span className="font-medium">{login}</span>
+        <UserLogin login={login} accountId={accountId}><span className="font-medium">{login}</span></UserLogin>
         <span className="text-sm text-muted-foreground">
           commented <RelativeTime date={createdAt} />
         </span>

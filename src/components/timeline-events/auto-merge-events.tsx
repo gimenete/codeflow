@@ -1,4 +1,5 @@
 import { RelativeTime } from "@/components/relative-time";
+import { UserLogin } from "@/components/user-info";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { GitMergeQueueIcon } from "@primer/octicons-react";
 import { TimelineEventWrapper } from "./timeline-event-wrapper";
@@ -9,11 +10,13 @@ interface AutoMergeEnabledEventProps {
   actor: Actor;
   createdAt: string;
   enabler?: { login: string; avatarUrl: string } | null;
+  accountId?: string;
 }
 
 export function AutoMergeEnabledEvent({
   actor,
   createdAt,
+  accountId,
 }: AutoMergeEnabledEventProps) {
   const login = getActorLogin(actor);
   const avatarUrl = getActorAvatarUrl(actor);
@@ -26,7 +29,7 @@ export function AutoMergeEnabledEvent({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{login}</span>
+        <UserLogin login={login} accountId={accountId}><span>{login}</span></UserLogin>
         <span>enabled auto-merge</span>
         <span>
           <RelativeTime date={createdAt} />
@@ -41,11 +44,13 @@ interface AutoMergeDisabledEventProps {
   actor: Actor;
   createdAt: string;
   disabler?: { login: string; avatarUrl: string } | null;
+  accountId?: string;
 }
 
 export function AutoMergeDisabledEvent({
   actor,
   createdAt,
+  accountId,
 }: AutoMergeDisabledEventProps) {
   const login = getActorLogin(actor);
   const avatarUrl = getActorAvatarUrl(actor);
@@ -58,7 +63,7 @@ export function AutoMergeDisabledEvent({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{login}</span>
+        <UserLogin login={login} accountId={accountId}><span>{login}</span></UserLogin>
         <span>disabled auto-merge</span>
         <span>
           <RelativeTime date={createdAt} />

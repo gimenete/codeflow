@@ -1,5 +1,6 @@
 import { RelativeTime } from "@/components/relative-time";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserLogin } from "@/components/user-info";
 import { PersonAddIcon, PersonIcon, XCircleIcon } from "@primer/octicons-react";
 import { TimelineEventWrapper } from "./timeline-event-wrapper";
 import {
@@ -22,12 +23,14 @@ interface ReviewRequestedEventProps {
   actor: Actor;
   createdAt: string;
   requestedReviewer: RequestedReviewer;
+  accountId?: string;
 }
 
 export function ReviewRequestedEvent({
   actor,
   createdAt,
   requestedReviewer,
+  accountId,
 }: ReviewRequestedEventProps) {
   const actorLogin = getActorLogin(actor);
   const actorAvatarUrl = getActorAvatarUrl(actor);
@@ -41,7 +44,9 @@ export function ReviewRequestedEvent({
           <AvatarImage src={actorAvatarUrl} />
           <AvatarFallback>{actorLogin.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{actorLogin}</span>
+        <UserLogin login={actorLogin} accountId={accountId}>
+          <span>{actorLogin}</span>
+        </UserLogin>
         <span>requested a review from</span>
         <Avatar className="h-5 w-5">
           <AvatarImage src={reviewerInfo.avatarUrl} />
@@ -49,7 +54,9 @@ export function ReviewRequestedEvent({
             {reviewerInfo.name.charAt(0).toUpperCase()}
           </AvatarFallback>
         </Avatar>
-        <span className="font-medium">{reviewerInfo.name}</span>
+        <UserLogin login={reviewerInfo.name} accountId={accountId}>
+          <span className="font-medium">{reviewerInfo.name}</span>
+        </UserLogin>
         <span>
           <RelativeTime date={createdAt} />
         </span>
@@ -63,12 +70,14 @@ interface ReviewRequestRemovedEventProps {
   actor: Actor;
   createdAt: string;
   requestedReviewer: RequestedReviewer;
+  accountId?: string;
 }
 
 export function ReviewRequestRemovedEvent({
   actor,
   createdAt,
   requestedReviewer,
+  accountId,
 }: ReviewRequestRemovedEventProps) {
   const actorLogin = getActorLogin(actor);
   const actorAvatarUrl = getActorAvatarUrl(actor);
@@ -82,9 +91,13 @@ export function ReviewRequestRemovedEvent({
           <AvatarImage src={actorAvatarUrl} />
           <AvatarFallback>{actorLogin.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{actorLogin}</span>
+        <UserLogin login={actorLogin} accountId={accountId}>
+          <span>{actorLogin}</span>
+        </UserLogin>
         <span>removed review request from</span>
-        <span className="font-medium">{reviewerInfo.name}</span>
+        <UserLogin login={reviewerInfo.name} accountId={accountId}>
+          <span className="font-medium">{reviewerInfo.name}</span>
+        </UserLogin>
         <span>
           <RelativeTime date={createdAt} />
         </span>
@@ -99,6 +112,7 @@ interface ReviewDismissedEventProps {
   createdAt: string;
   dismissalMessage?: string | null;
   review?: { author?: Actor } | null;
+  accountId?: string;
 }
 
 export function ReviewDismissedEvent({
@@ -106,6 +120,7 @@ export function ReviewDismissedEvent({
   createdAt,
   dismissalMessage,
   review,
+  accountId,
 }: ReviewDismissedEventProps) {
   const actorLogin = getActorLogin(actor);
   const actorAvatarUrl = getActorAvatarUrl(actor);
@@ -125,9 +140,13 @@ export function ReviewDismissedEvent({
                 {actorLogin.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <span>{actorLogin}</span>
+            <UserLogin login={actorLogin} accountId={accountId}>
+              <span>{actorLogin}</span>
+            </UserLogin>
             <span>dismissed</span>
-            <span className="font-medium">{reviewAuthor}'s</span>
+            <UserLogin login={reviewAuthor} accountId={accountId}>
+              <span className="font-medium">{reviewAuthor}&apos;s</span>
+            </UserLogin>
             <span>review</span>
             <span>
               <RelativeTime date={createdAt} />

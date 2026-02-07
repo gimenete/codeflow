@@ -1090,6 +1090,43 @@ export interface GitHubUser {
   avatarUrl: string;
 }
 
+export interface GitHubUserProfile {
+  login: string;
+  avatarUrl: string;
+  name: string | null;
+  bio: string | null;
+  company: string | null;
+  location: string | null;
+  followers: number;
+  following: number;
+  publicRepos: number;
+  createdAt: string;
+  url: string;
+}
+
+export async function fetchGitHubUserProfile(
+  account: Account,
+  login: string,
+): Promise<GitHubUserProfile> {
+  const octokit = getOctokit(account);
+  const response = await octokit.users.getByUsername({ username: login });
+  const user = response.data;
+
+  return {
+    login: user.login,
+    avatarUrl: user.avatar_url,
+    name: user.name ?? null,
+    bio: user.bio ?? null,
+    company: user.company ?? null,
+    location: user.location ?? null,
+    followers: user.followers ?? 0,
+    following: user.following ?? 0,
+    publicRepos: user.public_repos ?? 0,
+    createdAt: user.created_at,
+    url: user.html_url,
+  };
+}
+
 export async function searchGitHubUsers(
   account: Account,
   query: string,

@@ -1,5 +1,6 @@
 import { RelativeTime } from "@/components/relative-time";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserLogin } from "@/components/user-info";
 import {
   GitMergeIcon,
   IssueClosedIcon,
@@ -16,12 +17,14 @@ interface ClosedEventProps {
   actor: Actor;
   createdAt: string;
   stateReason?: IssueStateReason | null;
+  accountId?: string;
 }
 
 export function ClosedEvent({
   actor,
   createdAt,
   stateReason,
+  accountId,
 }: ClosedEventProps) {
   const login = getActorLogin(actor);
   const avatarUrl = getActorAvatarUrl(actor);
@@ -38,7 +41,9 @@ export function ClosedEvent({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{login}</span>
+        <UserLogin login={login} accountId={accountId}>
+          <span>{login}</span>
+        </UserLogin>
         <span>closed this{reason}</span>
         <span>
           <RelativeTime date={createdAt} />
@@ -52,9 +57,14 @@ export function ClosedEvent({
 interface ReopenedEventProps {
   actor: Actor;
   createdAt: string;
+  accountId?: string;
 }
 
-export function ReopenedEvent({ actor, createdAt }: ReopenedEventProps) {
+export function ReopenedEvent({
+  actor,
+  createdAt,
+  accountId,
+}: ReopenedEventProps) {
   const login = getActorLogin(actor);
   const avatarUrl = getActorAvatarUrl(actor);
 
@@ -66,7 +76,9 @@ export function ReopenedEvent({ actor, createdAt }: ReopenedEventProps) {
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{login}</span>
+        <UserLogin login={login} accountId={accountId}>
+          <span>{login}</span>
+        </UserLogin>
         <span>reopened this</span>
         <span>
           <RelativeTime date={createdAt} />
@@ -81,12 +93,14 @@ interface MergedEventProps {
   actor: Actor;
   createdAt: string;
   mergeRefName?: string;
+  accountId?: string;
 }
 
 export function MergedEvent({
   actor,
   createdAt,
   mergeRefName,
+  accountId,
 }: MergedEventProps) {
   const login = getActorLogin(actor);
   const avatarUrl = getActorAvatarUrl(actor);
@@ -99,7 +113,9 @@ export function MergedEvent({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{login}</span>
+        <UserLogin login={login} accountId={accountId}>
+          <span>{login}</span>
+        </UserLogin>
         <span>merged this{mergeRefName ? ` into ${mergeRefName}` : ""}</span>
         <span>
           <RelativeTime date={createdAt} />
@@ -114,12 +130,14 @@ interface LockedEventProps {
   actor: Actor;
   createdAt: string;
   lockReason?: LockReason | null;
+  accountId?: string;
 }
 
 export function LockedEvent({
   actor,
   createdAt,
   lockReason,
+  accountId,
 }: LockedEventProps) {
   const login = getActorLogin(actor);
   const avatarUrl = getActorAvatarUrl(actor);
@@ -136,7 +154,9 @@ export function LockedEvent({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{login}</span>
+        <UserLogin login={login} accountId={accountId}>
+          <span>{login}</span>
+        </UserLogin>
         <span>locked this conversation{reason}</span>
         <span>
           <RelativeTime date={createdAt} />
@@ -150,9 +170,14 @@ export function LockedEvent({
 interface UnlockedEventProps {
   actor: Actor;
   createdAt: string;
+  accountId?: string;
 }
 
-export function UnlockedEvent({ actor, createdAt }: UnlockedEventProps) {
+export function UnlockedEvent({
+  actor,
+  createdAt,
+  accountId,
+}: UnlockedEventProps) {
   const login = getActorLogin(actor);
   const avatarUrl = getActorAvatarUrl(actor);
 
@@ -164,7 +189,9 @@ export function UnlockedEvent({ actor, createdAt }: UnlockedEventProps) {
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{login}</span>
+        <UserLogin login={login} accountId={accountId}>
+          <span>{login}</span>
+        </UserLogin>
         <span>unlocked this conversation</span>
         <span>
           <RelativeTime date={createdAt} />

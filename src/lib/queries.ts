@@ -15,6 +15,7 @@ import {
   buildSearchQuery,
   searchWithCursors,
   searchAdjacentItems,
+  fetchGitHubUserProfile,
 } from "./github";
 import { getAccount } from "./auth";
 import { useQueryById, getQueryById } from "./saved-queries-store";
@@ -295,5 +296,19 @@ export function useRecentIssues(
     queryFn: () => fetchRecentIssues(account!, owner, repo),
     enabled: !!account,
     staleTime: 60_000,
+  });
+}
+
+export function useGitHubUserProfile(
+  accountId: string | undefined,
+  login: string | undefined,
+) {
+  const account = accountId ? getAccount(accountId) : null;
+
+  return useQuery({
+    queryKey: ["github-user-profile", accountId, login],
+    queryFn: () => fetchGitHubUserProfile(account!, login!),
+    enabled: !!account && !!login,
+    staleTime: 300_000,
   });
 }

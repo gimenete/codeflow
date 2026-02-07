@@ -1,6 +1,7 @@
 import { RelativeTime } from "@/components/relative-time";
 import { CommitHash } from "@/components/commit-hash";
 import { EmojiText } from "@/components/emoji-text";
+import { UserLogin } from "@/components/user-info";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   CrossReferenceIcon,
@@ -33,6 +34,7 @@ interface CrossReferencedEventProps {
     | null
     | undefined;
   isCrossRepository: boolean;
+  accountId?: string;
 }
 
 export function CrossReferencedEvent({
@@ -40,6 +42,7 @@ export function CrossReferencedEvent({
   createdAt,
   source,
   isCrossRepository,
+  accountId,
 }: CrossReferencedEventProps) {
   const login = getActorLogin(actor);
   const avatarUrl = getActorAvatarUrl(actor);
@@ -60,7 +63,7 @@ export function CrossReferencedEvent({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{login}</span>
+        <UserLogin login={login} accountId={accountId}><span>{login}</span></UserLogin>
         <span>mentioned this in</span>
         {isPR ? (
           <GitPullRequestIcon
@@ -93,6 +96,7 @@ interface ReferencedEventProps {
   createdAt: string;
   commit?: { oid: string; message: string } | null;
   isCrossRepository: boolean;
+  accountId?: string;
 }
 
 export function ReferencedEvent({
@@ -100,6 +104,7 @@ export function ReferencedEvent({
   createdAt,
   commit,
   isCrossRepository,
+  accountId,
 }: ReferencedEventProps) {
   const login = getActorLogin(actor);
   const avatarUrl = getActorAvatarUrl(actor);
@@ -112,7 +117,7 @@ export function ReferencedEvent({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{login}</span>
+        <UserLogin login={login} accountId={accountId}><span>{login}</span></UserLogin>
         <span>referenced this</span>
         {commit && (
           <>
@@ -136,6 +141,7 @@ interface RenamedTitleEventProps {
   createdAt: string;
   previousTitle: string;
   currentTitle: string;
+  accountId?: string;
 }
 
 export function RenamedTitleEvent({
@@ -143,6 +149,7 @@ export function RenamedTitleEvent({
   createdAt,
   previousTitle,
   currentTitle,
+  accountId,
 }: RenamedTitleEventProps) {
   const login = getActorLogin(actor);
   const avatarUrl = getActorAvatarUrl(actor);
@@ -154,7 +161,7 @@ export function RenamedTitleEvent({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <span>{login}</span>
+        <UserLogin login={login} accountId={accountId}><span>{login}</span></UserLogin>
         <span>changed the title</span>
         <EmojiText className="line-through" text={previousTitle} />
         <EmojiText className="font-medium" text={currentTitle} />
