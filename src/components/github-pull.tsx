@@ -1,16 +1,20 @@
 import { useMemo, useState } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
 import {
-  Info,
   Copy,
   ExternalLink,
   FileText,
+  GitBranch,
+  Info,
   Loader2,
   MessageSquare,
   MoreHorizontal,
+  Pencil,
 } from "lucide-react";
 import { GitCommitIcon, RepoIcon } from "@primer/octicons-react";
 import { Branch } from "@/components/branch";
+import { CheckoutBranchDialog } from "@/components/checkout-branch-dialog";
+import { EditBaseBranchDialog } from "@/components/edit-base-branch-dialog";
 import { EmojiText } from "@/components/emoji-text";
 import { InlineEditableTitle } from "@/components/inline-editable-title";
 import { CommentForm } from "@/components/comment-form";
@@ -31,6 +35,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -63,6 +68,8 @@ import {
 } from "@/lib/github";
 import { useIsLargeScreen, useParseDiffAsync } from "@/lib/hooks";
 import type { DiffSource } from "@/lib/github-types";
+import { parseRemoteUrl } from "@/lib/remote-url";
+import { useRepositoriesStore } from "@/lib/repositories-store";
 
 export interface GitHubPullProps {
   accountId: string;
@@ -92,6 +99,20 @@ export function GitHubPull({
   );
 
   const mutations = useTimelineMutations(accountId, owner, repo, number, true);
+
+  const [checkoutDialogOpen, setCheckoutDialogOpen] = useState(false);
+  const [editBaseBranchDialogOpen, setEditBaseBranchDialogOpen] =
+    useState(false);
+
+  // Find local repository matching this owner/repo
+  const localRepository = useRepositoriesStore((state) =>
+    state.repositories.find((r) => {
+      if (!r.remoteUrl) return false;
+      const info = parseRemoteUrl(r.remoteUrl);
+      return info?.owner === owner && info?.repo === repo;
+    }),
+  );
+  const hasLocalPath = !!localRepository?.path;
 
   // Derive active tab from URL
   const activeTab: TabType = location.pathname.endsWith("/commits")
@@ -151,6 +172,48 @@ export function GitHubPull({
                   <Branch name={data.baseRef} />
                   <span>&larr;</span>
                   <Branch name={data.headRef} />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="h-5 w-5 ml-0.5"
+                      >
+                        <MoreHorizontal className="h-3 w-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem
+                        onClick={() => copyToClipboard(data.headRef)}
+                      >
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy branch name
+                      </DropdownMenuItem>
+                      {hasLocalPath && localRepository && (
+                        <DropdownMenuItem
+                          onClick={() => setCheckoutDialogOpen(true)}
+                        >
+                          <GitBranch className="h-4 w-4 mr-2" />
+                          Check out branch
+                        </DropdownMenuItem>
+                      )}
+                      {data.viewerCanUpdate &&
+                        data.state === "open" &&
+                        !data.merged && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() =>
+                                setEditBaseBranchDialogOpen(true)
+                              }
+                            >
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Edit base branch
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
                 <span>
                   <span className="text-green-600">+{data.additions}</span>
@@ -274,6 +337,29 @@ export function GitHubPull({
           />
         )}
       </div>
+
+      {hasLocalPath && localRepository && (
+        <CheckoutBranchDialog
+          repository={localRepository}
+          branchName={data.headRef}
+          open={checkoutDialogOpen}
+          onOpenChange={setCheckoutDialogOpen}
+        />
+      )}
+
+      {data.viewerCanUpdate && data.state === "open" && !data.merged && (
+        <EditBaseBranchDialog
+          accountId={accountId}
+          owner={owner}
+          repo={repo}
+          pullRequestId={data.id}
+          currentBaseBranch={data.baseRef}
+          headBranch={data.headRef}
+          open={editBaseBranchDialogOpen}
+          onOpenChange={setEditBaseBranchDialogOpen}
+          onSave={mutations.updateBaseBranch}
+        />
+      )}
     </div>
   );
 }
