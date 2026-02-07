@@ -13,7 +13,7 @@ import {
   CommandEmpty,
   CommandItem,
 } from "@/components/ui/command";
-import { useMentionableUsers } from "@/lib/queries";
+import { useAssignableUsers } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import type { Author } from "@/lib/github-types";
 
@@ -39,7 +39,7 @@ export function AssigneePicker({
   const [pendingLogins, setPendingLogins] = useState<Set<string>>(
     () => new Set(currentAssignees.map((a) => a.login)),
   );
-  const { data: mentionableUsers } = useMentionableUsers(
+  const { data: assignableUsers } = useAssignableUsers(
     accountId,
     owner,
     repo,
@@ -89,7 +89,7 @@ export function AssigneePicker({
   const displayAssignees = buildDisplayAssignees(
     pendingLogins,
     currentAssignees,
-    mentionableUsers ?? [],
+    assignableUsers ?? [],
   );
 
   return (
@@ -100,7 +100,7 @@ export function AssigneePicker({
           <CommandInput placeholder="Filter users..." />
           <CommandList>
             <CommandEmpty>No users found.</CommandEmpty>
-            {mentionableUsers?.map((user) => (
+            {assignableUsers?.map((user) => (
               <CommandItem
                 key={user.login}
                 value={user.login}
@@ -137,11 +137,11 @@ export function AssigneePicker({
 function buildDisplayAssignees(
   logins: Set<string>,
   currentAssignees: Author[],
-  mentionableUsers: { login: string; avatarUrl: string }[],
+  assignableUsers: { login: string; avatarUrl: string }[],
 ): Author[] {
   const avatarMap = new Map<string, string>();
   for (const a of currentAssignees) avatarMap.set(a.login, a.avatarUrl);
-  for (const u of mentionableUsers) avatarMap.set(u.login, u.avatarUrl);
+  for (const u of assignableUsers) avatarMap.set(u.login, u.avatarUrl);
   return Array.from(logins).map((login) => ({
     login,
     avatarUrl: avatarMap.get(login) ?? "",
