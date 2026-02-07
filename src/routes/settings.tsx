@@ -23,7 +23,7 @@ function SettingsPage() {
   const setTheme = useAppearanceStore((s) => s.setTheme);
 
   return (
-    <div className="h-full p-6 max-w-2xl mx-auto">
+    <div className="h-full w-full p-6 max-w-2xl mx-auto">
       <h1 className="text-2xl font-semibold mb-6">Settings</h1>
 
       <Card>
