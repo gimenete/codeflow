@@ -1,5 +1,10 @@
 import { useMemo, useState } from "react";
-import { Link, useLocation } from "@tanstack/react-router";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useSearch,
+} from "@tanstack/react-router";
 import {
   Copy,
   ExternalLink,
@@ -317,6 +322,7 @@ export function GitHubPull({
             owner={owner}
             repo={repo}
             number={number}
+            basePath={basePath}
           />
         )}
         {activeTab === "commits" && (
@@ -370,11 +376,13 @@ function ConversationTab({
   owner,
   repo,
   number,
+  basePath,
 }: {
   accountId: string;
   owner: string;
   repo: string;
   number: number;
+  basePath: string;
 }) {
   const { data, isLoading: isMetadataLoading } = usePullMetadata(
     accountId,
@@ -382,6 +390,7 @@ function ConversationTab({
     repo,
     number,
   );
+  const navigate = useNavigate();
   const isLargeScreen = useIsLargeScreen();
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -466,6 +475,12 @@ function ConversationTab({
           onEditComment={mutations.editComment}
           onEditReviewComment={mutations.editReviewComment}
           onEditBody={mutations.editBody}
+          onCommitClick={(sha) =>
+            void navigate({
+              to: `${basePath}/files`,
+              search: { commit: sha },
+            })
+          }
           accountId={accountId}
           owner={owner}
           repo={repo}
@@ -538,6 +553,7 @@ function CommitsTab({
   number: number;
   basePath: string;
 }) {
+  const navigate = useNavigate();
   const {
     data: commitsData,
     fetchNextPage,
@@ -552,8 +568,10 @@ function CommitsTab({
   }, [commitsData]);
 
   const handleCommitClick = (sha: string) => {
-    // Use window.location for navigation with query params to avoid TanStack Router type issues
-    window.location.href = `${basePath}/files?commit=${encodeURIComponent(sha)}`;
+    void navigate({
+      to: `${basePath}/files`,
+      search: { commit: sha },
+    });
   };
 
   if (isCommitsLoading) {
@@ -596,9 +614,8 @@ function FilesTab({
   repo: string;
   number: number;
 }) {
-  // Parse commit from search params using window.location
-  const searchParams = new URLSearchParams(window.location.search);
-  const commit = searchParams.get("commit") ?? undefined;
+  const navigate = useNavigate();
+  const { commit } = useSearch({ strict: false });
 
   const { data } = usePullMetadata(accountId, owner, repo, number);
 
@@ -668,16 +685,11 @@ function FilesTab({
 
   const handleCommitSelect = (value: string) => {
     const newCommit = value === "all" ? undefined : value;
-    // Update URL with new commit param
-    const url = new URL(window.location.href);
-    if (newCommit) {
-      url.searchParams.set("commit", newCommit);
-    } else {
-      url.searchParams.delete("commit");
-    }
-    window.history.replaceState({}, "", url.toString());
-    // Force re-render by updating location
-    window.location.replace(url.toString());
+    void navigate({
+      to: ".",
+      search: { commit: newCommit },
+      replace: true,
+    });
   };
 
   if (!data) {

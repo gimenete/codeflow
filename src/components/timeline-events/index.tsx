@@ -85,6 +85,7 @@ interface TimelineEventItemProps {
   ) => void;
   onEditComment?: (commentId: string, body: string) => Promise<void>;
   onEditReviewComment?: (commentId: string, body: string) => Promise<void>;
+  onCommitClick?: (sha: string) => void;
   accountId?: string;
   owner?: string;
   repo?: string;
@@ -95,6 +96,7 @@ export function TimelineEventItem({
   onToggleReaction,
   onEditComment,
   onEditReviewComment,
+  onCommitClick,
   accountId,
   owner,
   repo,
@@ -116,9 +118,7 @@ export function TimelineEventItem({
               : undefined
           }
           onEdit={
-            onEditComment
-              ? (body) => onEditComment(event.id, body)
-              : undefined
+            onEditComment ? (body) => onEditComment(event.id, body) : undefined
           }
           accountId={accountId}
           owner={owner}
@@ -127,7 +127,13 @@ export function TimelineEventItem({
       );
 
     case "PullRequestCommit":
-      return <CommitEvent commit={event.commit} accountId={accountId} />;
+      return (
+        <CommitEvent
+          commit={event.commit}
+          onCommitClick={onCommitClick}
+          accountId={accountId}
+        />
+      );
 
     case "PullRequestReview": {
       return (

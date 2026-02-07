@@ -6,4 +6,7 @@ export const Route = createFileRoute(
   "/repositories/$repository/pulls/$number/files",
 )({
   component: () => null,
+  validateSearch: (search: Record<string, unknown>) => ({
+    commit: (search.commit as string) ?? undefined,
+  }),
 });

@@ -135,6 +135,7 @@ export interface TimelineProps {
   onEditComment?: (commentId: string, body: string) => Promise<void>;
   onEditReviewComment?: (commentId: string, body: string) => Promise<void>;
   onEditBody?: (id: string, body: string) => Promise<void>;
+  onCommitClick?: (sha: string) => void;
   accountId?: string;
   owner?: string;
   repo?: string;
@@ -241,6 +242,7 @@ export function Timeline({
   onEditComment,
   onEditReviewComment,
   onEditBody,
+  onCommitClick,
   accountId,
   owner,
   repo,
@@ -287,6 +289,7 @@ export function Timeline({
             onToggleReaction={onToggleReaction}
             onEditComment={onEditComment}
             onEditReviewComment={onEditReviewComment}
+            onCommitClick={onCommitClick}
             accountId={accountId}
             owner={owner}
             repo={repo}
@@ -325,6 +328,7 @@ function ProcessedEventItem({
   onToggleReaction,
   onEditComment,
   onEditReviewComment,
+  onCommitClick,
   accountId,
   owner,
   repo,
@@ -337,6 +341,7 @@ function ProcessedEventItem({
   ) => void;
   onEditComment?: (commentId: string, body: string) => Promise<void>;
   onEditReviewComment?: (commentId: string, body: string) => Promise<void>;
+  onCommitClick?: (sha: string) => void;
   accountId?: string;
   owner?: string;
   repo?: string;
@@ -359,6 +364,7 @@ function ProcessedEventItem({
       onToggleReaction={onToggleReaction}
       onEditComment={onEditComment}
       onEditReviewComment={onEditReviewComment}
+      onCommitClick={onCommitClick}
       accountId={accountId}
       owner={owner}
       repo={repo}
