@@ -19,8 +19,13 @@ import type {
   Label,
   PullRequestMetadata,
 } from "@/lib/github-types";
-import { fuzzyFilter } from "@/lib/utils";
-import { FileText } from "lucide-react";
+import { cn, fuzzyFilter } from "@/lib/utils";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import {
+  FileIcon,
+  FolderIcon,
+  DefaultFolderOpenedIcon,
+} from "@react-symbols/icons/utils";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 // Type for grouped label events (internal representation)
@@ -378,6 +383,188 @@ export interface FilesListProps {
   }>;
 }
 
+// Tree node for file tree view
+interface FileTreeNode {
+  name: string;
+  path: string;
+  type: "file" | "directory";
+  children?: FileTreeNode[];
+  additions?: number;
+  deletions?: number;
+  status?: string;
+}
+
+// Build tree from flat file list
+function buildFileTree(
+  files: Array<{
+    path: string;
+    additions: number;
+    deletions: number;
+    status: string;
+  }>,
+): FileTreeNode[] {
+  const root: FileTreeNode[] = [];
+
+  for (const file of files) {
+    const parts = file.path.split("/");
+    let current = root;
+    let currentPath = "";
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      currentPath = currentPath ? `${currentPath}/${part}` : part;
+      const isFile = i === parts.length - 1;
+
+      if (isFile) {
+        current.push({
+          name: part,
+          path: file.path,
+          type: "file",
+          additions: file.additions,
+          deletions: file.deletions,
+          status: file.status,
+        });
+      } else {
+        let dir = current.find(
+          (n) => n.type === "directory" && n.name === part,
+        );
+        if (!dir) {
+          dir = {
+            name: part,
+            path: currentPath,
+            type: "directory",
+            children: [],
+          };
+          current.push(dir);
+        }
+        current = dir.children!;
+      }
+    }
+  }
+
+  // Sort: directories first, then alphabetically
+  const sortNodes = (nodes: FileTreeNode[]) => {
+    nodes.sort((a, b) => {
+      if (a.type !== b.type) return a.type === "directory" ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+    for (const node of nodes) {
+      if (node.children) sortNodes(node.children);
+    }
+  };
+  sortNodes(root);
+
+  return root;
+}
+
+// Collect all directory paths from a tree
+function collectDirectoryPaths(nodes: FileTreeNode[]): Set<string> {
+  const paths = new Set<string>();
+  const walk = (nodes: FileTreeNode[]) => {
+    for (const node of nodes) {
+      if (node.type === "directory") {
+        paths.add(node.path);
+        if (node.children) walk(node.children);
+      }
+    }
+  };
+  walk(nodes);
+  return paths;
+}
+
+// Tree node component for file sidebar
+function FilesTreeNode({
+  node,
+  depth,
+  selectedFile,
+  expandedPaths,
+  onToggle,
+  onFileSelect,
+}: {
+  node: FileTreeNode;
+  depth: number;
+  selectedFile: string | null;
+  expandedPaths: Set<string>;
+  onToggle: (path: string) => void;
+  onFileSelect: (path: string) => void;
+}) {
+  const isExpanded = expandedPaths.has(node.path);
+  const isSelected = selectedFile === node.path;
+  const isDirectory = node.type === "directory";
+
+  const handleClick = () => {
+    if (isDirectory) {
+      onToggle(node.path);
+    } else {
+      onFileSelect(node.path);
+    }
+  };
+
+  return (
+    <div>
+      <div
+        className={cn(
+          "flex items-center gap-1 px-2 py-1 cursor-pointer hover:bg-muted/50 text-sm",
+          isSelected && "bg-accent",
+        )}
+        style={{ paddingLeft: `${depth * 12 + 8}px` }}
+        onClick={handleClick}
+      >
+        {isDirectory ? (
+          <>
+            {isExpanded ? (
+              <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+            )}
+            <span className="shrink-0">
+              {isExpanded ? (
+                <DefaultFolderOpenedIcon className="h-4 w-4" />
+              ) : (
+                <FolderIcon folderName={node.name} className="h-4 w-4" />
+              )}
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="w-4 shrink-0" />
+            <span className="shrink-0">
+              <FileIcon fileName={node.name} autoAssign className="h-4 w-4" />
+            </span>
+          </>
+        )}
+        <span className="truncate flex-1">{node.name}</span>
+        {!isDirectory && node.additions != null && (
+          <span className="text-green-600 text-xs shrink-0">
+            +{node.additions}
+          </span>
+        )}
+        {!isDirectory && node.deletions != null && (
+          <span className="text-red-600 text-xs shrink-0">
+            -{node.deletions}
+          </span>
+        )}
+      </div>
+
+      {isDirectory && isExpanded && node.children && (
+        <div>
+          {node.children.map((child) => (
+            <FilesTreeNode
+              key={child.path}
+              node={child}
+              depth={depth + 1}
+              selectedFile={selectedFile}
+              expandedPaths={expandedPaths}
+              onToggle={onToggle}
+              onFileSelect={onFileSelect}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function FilesList({ files }: FilesListProps) {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -390,6 +577,31 @@ export function FilesList({ files }: FilesListProps) {
     () => fuzzyFilter(files, searchQuery, (f) => f.path),
     [files, searchQuery],
   );
+
+  // Build tree structure from files
+  const fileTree = useMemo(() => buildFileTree(files), [files]);
+
+  // All directories expanded by default
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(
+    () => collectDirectoryPaths(fileTree),
+  );
+
+  // Update expanded paths when files change (e.g. switching commits)
+  useEffect(() => {
+    setExpandedPaths(collectDirectoryPaths(fileTree));
+  }, [fileTree]);
+
+  const handleToggle = useCallback((path: string) => {
+    setExpandedPaths((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+      return next;
+    });
+  }, []);
 
   const scrollToFile = useCallback((path: string) => {
     setSelectedFile(path);
@@ -485,39 +697,65 @@ export function FilesList({ files }: FilesListProps) {
           />
         </div>
         <Scrollable.Vertical>
-          <div
-            ref={listRef}
-            className="p-2 space-y-1 outline-none"
-            tabIndex={0}
-            onKeyDown={handleListKeyDown}
-          >
-            {filteredFiles.map((file, index) => (
-              <div
-                key={file.path}
-                data-index={index}
-                className={`flex items-center gap-2 p-2 rounded text-sm cursor-pointer hover:bg-accent ${
-                  selectedFile === file.path ? "bg-accent" : ""
-                } ${focusedIndex === index ? "ring-2 ring-ring ring-offset-1" : ""}`}
-                onClick={() => scrollToFile(file.path)}
-              >
-                <FileText className="h-4 w-4 shrink-0" />
-                <div className="flex-1 min-w-0 overflow-x-auto scrollbar-thin">
-                  <span className="whitespace-nowrap">{file.path}</span>
+          {searchQuery ? (
+            // Flat filtered list when searching
+            <div
+              ref={listRef}
+              className="p-2 space-y-1 outline-none"
+              tabIndex={0}
+              onKeyDown={handleListKeyDown}
+            >
+              {filteredFiles.map((file, index) => (
+                <div
+                  key={file.path}
+                  data-index={index}
+                  className={cn(
+                    "flex items-center gap-2 p-2 rounded text-sm cursor-pointer hover:bg-accent",
+                    selectedFile === file.path && "bg-accent",
+                    focusedIndex === index && "ring-2 ring-ring ring-offset-1",
+                  )}
+                  onClick={() => scrollToFile(file.path)}
+                >
+                  <span className="shrink-0">
+                    <FileIcon
+                      fileName={file.path.split("/").pop() ?? file.path}
+                      autoAssign
+                      className="h-4 w-4"
+                    />
+                  </span>
+                  <div className="flex-1 min-w-0 overflow-x-auto scrollbar-thin">
+                    <span className="whitespace-nowrap">{file.path}</span>
+                  </div>
+                  <span className="text-green-600 text-xs shrink-0">
+                    +{file.additions}
+                  </span>
+                  <span className="text-red-600 text-xs shrink-0">
+                    -{file.deletions}
+                  </span>
                 </div>
-                <span className="text-green-600 text-xs shrink-0">
-                  +{file.additions}
-                </span>
-                <span className="text-red-600 text-xs shrink-0">
-                  -{file.deletions}
-                </span>
-              </div>
-            ))}
-            {filteredFiles.length === 0 && searchQuery && (
-              <div className="p-2 text-sm text-muted-foreground text-center">
-                No files match "{searchQuery}"
-              </div>
-            )}
-          </div>
+              ))}
+              {filteredFiles.length === 0 && (
+                <div className="p-2 text-sm text-muted-foreground text-center">
+                  No files match &quot;{searchQuery}&quot;
+                </div>
+              )}
+            </div>
+          ) : (
+            // Tree view when not searching
+            <div className="py-1">
+              {fileTree.map((node) => (
+                <FilesTreeNode
+                  key={node.path}
+                  node={node}
+                  depth={0}
+                  selectedFile={selectedFile}
+                  expandedPaths={expandedPaths}
+                  onToggle={handleToggle}
+                  onFileSelect={scrollToFile}
+                />
+              ))}
+            </div>
+          )}
         </Scrollable.Vertical>
       </div>
 
