@@ -23,8 +23,10 @@ export const GET_ISSUE_TIMELINE = gql`
                 login
                 avatarUrl
               }
+              body
               bodyHTML
               createdAt
+              viewerCanUpdate
               reactionGroups {
                 content
                 reactors(first: 11) {
@@ -376,8 +378,10 @@ export const GET_PR_TIMELINE = gql`
                 login
                 avatarUrl
               }
+              body
               bodyHTML
               createdAt
+              viewerCanUpdate
               reactionGroups {
                 content
                 reactors(first: 11) {
@@ -410,8 +414,10 @@ export const GET_PR_TIMELINE = gql`
                     login
                     avatarUrl
                   }
+                  body
                   bodyHTML
                   createdAt
+                  viewerCanUpdate
                   diffHunk
                   path
                   outdated

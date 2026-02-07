@@ -371,6 +371,11 @@ function ConversationTab({
           isLoading={isTimelineLoading}
           footer={commentFooter}
           onToggleReaction={mutations.toggleReaction}
+          onEditComment={mutations.editComment}
+          onEditReviewComment={mutations.editReviewComment}
+          accountId={accountId}
+          owner={owner}
+          repo={repo}
         />
       </div>
 

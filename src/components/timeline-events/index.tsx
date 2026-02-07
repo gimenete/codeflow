@@ -65,8 +65,10 @@ function extractReviewComments(event: TimelineNode): ReviewComment[] {
     .map((n) => ({
       id: n.id as string,
       author: (n.author ?? null) as Actor,
+      body: (n.body as string) ?? undefined,
       bodyHTML: n.bodyHTML as string,
       createdAt: n.createdAt as string,
+      viewerCanUpdate: (n.viewerCanUpdate as boolean) ?? false,
       diffHunk: n.diffHunk as string,
       path: n.path as string,
       outdated: n.outdated as boolean,
@@ -81,32 +83,46 @@ interface TimelineEventItemProps {
     content: ReactionContent,
     viewerHasReacted: boolean,
   ) => void;
+  onEditComment?: (commentId: string, body: string) => Promise<void>;
+  onEditReviewComment?: (commentId: string, body: string) => Promise<void>;
+  accountId?: string;
+  owner?: string;
+  repo?: string;
 }
 
 export function TimelineEventItem({
   event,
   onToggleReaction,
+  onEditComment,
+  onEditReviewComment,
+  accountId,
+  owner,
+  repo,
 }: TimelineEventItemProps) {
   switch (event.__typename) {
     case "IssueComment":
       return (
         <CommentEvent
           author={event.author as Actor}
+          body={event.body}
           bodyHTML={event.bodyHTML}
           createdAt={event.createdAt}
-          reactionGroups={
-            (
-              event as typeof event & {
-                reactionGroups?: ReactionGroup[] | null;
-              }
-            ).reactionGroups ?? null
-          }
+          viewerCanUpdate={event.viewerCanUpdate}
+          reactionGroups={event.reactionGroups ?? null}
           onToggleReaction={
             onToggleReaction
               ? (content, viewerHasReacted) =>
                   onToggleReaction(event.id, content, viewerHasReacted)
               : undefined
           }
+          onEdit={
+            onEditComment
+              ? (body) => onEditComment(event.id, body)
+              : undefined
+          }
+          accountId={accountId}
+          owner={owner}
+          repo={repo}
         />
       );
 
@@ -122,6 +138,10 @@ export function TimelineEventItem({
           createdAt={event.createdAt}
           comments={extractReviewComments(event)}
           onToggleReaction={onToggleReaction}
+          onEditReviewComment={onEditReviewComment}
+          accountId={accountId}
+          owner={owner}
+          repo={repo}
         />
       );
     }

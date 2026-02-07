@@ -120,6 +120,11 @@ export interface TimelineProps {
     content: ReactionContent,
     viewerHasReacted: boolean,
   ) => void;
+  onEditComment?: (commentId: string, body: string) => Promise<void>;
+  onEditReviewComment?: (commentId: string, body: string) => Promise<void>;
+  accountId?: string;
+  owner?: string;
+  repo?: string;
 }
 
 function TimelineEventSkeleton() {
@@ -147,6 +152,11 @@ export function Timeline({
   isLoading,
   footer,
   onToggleReaction,
+  onEditComment,
+  onEditReviewComment,
+  accountId,
+  owner,
+  repo,
 }: TimelineProps) {
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
@@ -200,6 +210,11 @@ export function Timeline({
             key={index}
             event={event}
             onToggleReaction={onToggleReaction}
+            onEditComment={onEditComment}
+            onEditReviewComment={onEditReviewComment}
+            accountId={accountId}
+            owner={owner}
+            repo={repo}
           />
         ))}
 
@@ -233,6 +248,11 @@ export function Timeline({
 function ProcessedEventItem({
   event,
   onToggleReaction,
+  onEditComment,
+  onEditReviewComment,
+  accountId,
+  owner,
+  repo,
 }: {
   event: ProcessedTimelineEvent;
   onToggleReaction?: (
@@ -240,6 +260,11 @@ function ProcessedEventItem({
     content: ReactionContent,
     viewerHasReacted: boolean,
   ) => void;
+  onEditComment?: (commentId: string, body: string) => Promise<void>;
+  onEditReviewComment?: (commentId: string, body: string) => Promise<void>;
+  accountId?: string;
+  owner?: string;
+  repo?: string;
 }) {
   if (event.__typename === "GroupedLabels") {
     return (
@@ -253,7 +278,15 @@ function ProcessedEventItem({
   }
 
   return (
-    <TimelineEventItem event={event} onToggleReaction={onToggleReaction} />
+    <TimelineEventItem
+      event={event}
+      onToggleReaction={onToggleReaction}
+      onEditComment={onEditComment}
+      onEditReviewComment={onEditReviewComment}
+      accountId={accountId}
+      owner={owner}
+      repo={repo}
+    />
   );
 }
 
