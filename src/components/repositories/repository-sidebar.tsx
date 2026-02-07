@@ -3,6 +3,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAgentStatus } from "@/lib/agent-status";
@@ -32,6 +33,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Scrollable } from "../flex-layout";
+import { isElectron } from "@/lib/platform";
+import { AddRepositoryDialog } from "./add-repository-dialog";
 import { TrackBranchDialog } from "./track-branch-dialog";
 
 function BranchStatusIndicator({ branchId }: { branchId: string }) {
@@ -111,6 +114,7 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
   const repositories = useRepositories();
   const navigate = useNavigate();
   const [trackBranchOpen, setTrackBranchOpen] = useState(false);
+  const [addRepositoryOpen, setAddRepositoryOpen] = useState(false);
 
   const remoteInfo = parseRemoteUrl(repository.remoteUrl);
   const hasRemote = repository.accountId && remoteInfo;
@@ -164,6 +168,15 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
                   </DropdownMenuItem>
                 );
               })
+            )}
+            {isElectron() && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setAddRepositoryOpen(true)}>
+                  <Plus className="h-4 w-4" />
+                  Add Repository
+                </DropdownMenuItem>
+              </>
             )}
           </DropdownMenuContent>
         </DropdownMenu>
@@ -307,6 +320,11 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
         repository={repository}
         open={trackBranchOpen}
         onOpenChange={setTrackBranchOpen}
+      />
+
+      <AddRepositoryDialog
+        open={addRepositoryOpen}
+        onOpenChange={setAddRepositoryOpen}
       />
     </div>
   );
