@@ -29,6 +29,7 @@ import {
 import { isElectron, isTauri } from "@/lib/platform";
 import { setupClaudeChatIPC } from "@/lib/claude-ipc";
 import { requestNotificationPermission } from "@/lib/notifications";
+import { useTheme } from "@/lib/use-theme";
 import { cn } from "@/lib/utils";
 import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
 import {
@@ -143,6 +144,9 @@ function NavbarBreadcrumbs({ breadcrumbs }: { breadcrumbs: BreadcrumbItem[] }) {
 }
 
 function RootLayoutContent() {
+  // Keep document .dark class in sync with theme preference + system setting
+  useTheme();
+
   const { breadcrumbs } = useBreadcrumbContext();
   const shouldHideOnScroll = useHideOnScroll();
   const isLargeScreen = useIsLargeScreen();

@@ -3,7 +3,11 @@ import ReactDOM from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { routeTree } from "./routeTree.gen";
+import { initializeTheme } from "./lib/use-theme";
 import "./index.css";
+
+// Apply theme class before first render to avoid flash of wrong theme
+initializeTheme();
 
 const queryClient = new QueryClient({
   defaultOptions: {

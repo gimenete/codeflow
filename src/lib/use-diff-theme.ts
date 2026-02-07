@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { useAppearanceStore } from "./appearance-store";
 
 type DiffTheme = "light" | "dark";
 
@@ -19,5 +20,15 @@ function getServerSnapshot(): DiffTheme {
 }
 
 export function useDiffTheme(): DiffTheme {
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const preference = useAppearanceStore((s) => s.theme);
+  const systemTheme = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getServerSnapshot,
+  );
+
+  if (preference === "auto") {
+    return systemTheme;
+  }
+  return preference;
 }
