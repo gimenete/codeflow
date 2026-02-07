@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useGitHubUserProfile } from "@/lib/queries";
 import { RelativeTime } from "@/components/relative-time";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -15,13 +15,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import {
-  Building,
-  MapPin,
-  Users,
-  GitFork,
-  ExternalLink,
-} from "lucide-react";
+import { Building, MapPin, Users, GitFork, ExternalLink } from "lucide-react";
 
 /**
  * Controls how user info is displayed when interacting with usernames.
@@ -38,7 +32,11 @@ function UserInfoContent({
   login: string;
   accountId: string;
 }) {
-  const { data: profile, isLoading, error } = useGitHubUserProfile(accountId, login);
+  const {
+    data: profile,
+    isLoading,
+    error,
+  } = useGitHubUserProfile(accountId, login);
 
   if (isLoading) {
     return (
@@ -156,8 +154,20 @@ function UserInfoPopover({
 }) {
   const [open, setOpen] = useState(false);
   const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
+      if (closeTimeout.current) clearTimeout(closeTimeout.current);
+    };
+  }, []);
 
   const handleMouseEnter = useCallback(() => {
+    if (closeTimeout.current) {
+      clearTimeout(closeTimeout.current);
+      closeTimeout.current = null;
+    }
     hoverTimeout.current = setTimeout(() => setOpen(true), 300);
   }, []);
 
@@ -166,7 +176,7 @@ function UserInfoPopover({
       clearTimeout(hoverTimeout.current);
       hoverTimeout.current = null;
     }
-    setOpen(false);
+    closeTimeout.current = setTimeout(() => setOpen(false), 100);
   }, []);
 
   return (
@@ -185,6 +195,10 @@ function UserInfoPopover({
           if (hoverTimeout.current) {
             clearTimeout(hoverTimeout.current);
             hoverTimeout.current = null;
+          }
+          if (closeTimeout.current) {
+            clearTimeout(closeTimeout.current);
+            closeTimeout.current = null;
           }
         }}
         onMouseLeave={handleMouseLeave}
