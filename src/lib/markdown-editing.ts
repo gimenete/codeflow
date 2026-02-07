@@ -5,10 +5,13 @@
  * them via `document.execCommand('insertText')` to preserve native undo history.
  */
 
-const URL_RE = /^https?:\/\/\S+$/i;
-
 export function isUrl(text: string): boolean {
-  return URL_RE.test(text.trim());
+  try {
+    new URL(text.trim());
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Describes a text replacement that can be applied with execCommand. */
