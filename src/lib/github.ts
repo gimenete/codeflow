@@ -1631,6 +1631,7 @@ export interface CreatePullRequestParams {
   body: string;
   head: string; // For forks: "username:branch", for same repo: "branch"
   base: string;
+  draft?: boolean;
 }
 
 export interface CreatedPullRequest {
@@ -1652,6 +1653,7 @@ export async function createPullRequest(
     body: params.body,
     head: params.head,
     base: params.base,
+    draft: params.draft,
   });
 
   return {
@@ -2002,6 +2004,16 @@ export function useTimelineMutations(
     invalidate();
   };
 
+  const toggleDraft = async (pullRequestId: string, isDraft: boolean) => {
+    if (!account) throw new Error("Account not found");
+    if (isDraft) {
+      await markPullRequestReadyForReview(account, pullRequestId);
+    } else {
+      await convertPullRequestToDraft(account, pullRequestId);
+    }
+    invalidate();
+  };
+
   return {
     submitComment,
     changeState,
@@ -2013,6 +2025,7 @@ export function useTimelineMutations(
     submitReview,
     mergePull,
     toggleReaction,
+    toggleDraft,
   };
 }
 
@@ -2054,4 +2067,44 @@ export async function removeReaction(
 ): Promise<void> {
   const client = getGraphQLClient(account);
   await client.request(REMOVE_REACTION, { subjectId, content });
+}
+
+// Draft pull request mutations via GraphQL
+
+const CONVERT_PULL_REQUEST_TO_DRAFT = gql`
+  mutation ConvertPullRequestToDraft($pullRequestId: ID!) {
+    convertPullRequestToDraft(input: { pullRequestId: $pullRequestId }) {
+      pullRequest {
+        id
+        isDraft
+      }
+    }
+  }
+`;
+
+const MARK_PULL_REQUEST_READY_FOR_REVIEW = gql`
+  mutation MarkPullRequestReadyForReview($pullRequestId: ID!) {
+    markPullRequestReadyForReview(input: { pullRequestId: $pullRequestId }) {
+      pullRequest {
+        id
+        isDraft
+      }
+    }
+  }
+`;
+
+export async function convertPullRequestToDraft(
+  account: Account,
+  pullRequestId: string,
+): Promise<void> {
+  const client = getGraphQLClient(account);
+  await client.request(CONVERT_PULL_REQUEST_TO_DRAFT, { pullRequestId });
+}
+
+export async function markPullRequestReadyForReview(
+  account: Account,
+  pullRequestId: string,
+): Promise<void> {
+  const client = getGraphQLClient(account);
+  await client.request(MARK_PULL_REQUEST_READY_FOR_REVIEW, { pullRequestId });
 }
