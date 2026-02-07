@@ -268,6 +268,7 @@ export interface PullRequestMetadata {
   repository: string;
   createdAt: string;
   updatedAt: string;
+  body: string;
   bodyHTML: string;
   headRef: string;
   baseRef: string;
@@ -294,6 +295,7 @@ export interface IssueMetadata {
   repository: string;
   createdAt: string;
   updatedAt: string;
+  body: string;
   bodyHTML: string;
 }
 

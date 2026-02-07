@@ -111,6 +111,7 @@ function IssueConversationTab() {
           footer={commentFooter}
           onToggleReaction={mutations.toggleReaction}
           onEditComment={mutations.editComment}
+          onEditBody={mutations.editBody}
           accountId={account.id}
           owner={owner}
           repo={repo}

@@ -373,6 +373,7 @@ function ConversationTab({
           onToggleReaction={mutations.toggleReaction}
           onEditComment={mutations.editComment}
           onEditReviewComment={mutations.editReviewComment}
+          onEditBody={mutations.editBody}
           accountId={accountId}
           owner={owner}
           repo={repo}
