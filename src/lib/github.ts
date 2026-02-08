@@ -174,6 +174,10 @@ export function buildSearchQuery(
     parts.push(`milestone:"${filters.milestone}"`);
   }
 
+  if (filters.rawQuery) {
+    parts.push(filters.rawQuery);
+  }
+
   return parts.join(" ");
 }
 
