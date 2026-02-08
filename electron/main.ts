@@ -492,31 +492,16 @@ ipcMain.handle(
   },
 );
 
-// Stage a file
-ipcMain.handle("git:stage", async (_event, repoPath: string, file: string) => {
-  try {
-    const git = getGit(repoPath);
-    await git.add([file]);
-    return { success: true };
-  } catch (error) {
-    console.error("git:stage error:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
-});
-
-// Stage multiple files in a single operation
+// Stage files
 ipcMain.handle(
-  "git:stage-files",
+  "git:stage",
   async (_event, repoPath: string, files: string[]) => {
     try {
       const git = getGit(repoPath);
       await git.add(files);
       return { success: true };
     } catch (error) {
-      console.error("git:stage-files error:", error);
+      console.error("git:stage error:", error);
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error),
@@ -525,13 +510,13 @@ ipcMain.handle(
   },
 );
 
-// Unstage a file
+// Unstage files
 ipcMain.handle(
   "git:unstage",
-  async (_event, repoPath: string, file: string) => {
+  async (_event, repoPath: string, files: string[]) => {
     try {
       const git = getGit(repoPath);
-      await git.reset(["HEAD", "--", file]);
+      await git.reset(["HEAD", "--", ...files]);
       return { success: true };
     } catch (error) {
       console.error("git:unstage error:", error);
@@ -543,31 +528,13 @@ ipcMain.handle(
   },
 );
 
-// Unstage multiple files in a single operation
+// Discard changes to files
 ipcMain.handle(
-  "git:unstage-files",
+  "git:discard",
   async (_event, repoPath: string, files: string[]) => {
     try {
       const git = getGit(repoPath);
-      await git.reset(["HEAD", "--", ...files]);
-      return { success: true };
-    } catch (error) {
-      console.error("git:unstage-files error:", error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  },
-);
-
-// Discard changes to a file
-ipcMain.handle(
-  "git:discard",
-  async (_event, repoPath: string, file: string) => {
-    try {
-      const git = getGit(repoPath);
-      await git.checkout(["--", file]);
+      await git.checkout(["--", ...files]);
       return { success: true };
     } catch (error) {
       console.error("git:discard error:", error);

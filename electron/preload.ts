@@ -84,24 +84,16 @@ const gitAPI = {
     return ipcRenderer.invoke("git:diff-head", path, file);
   },
 
-  stage: (path: string, file: string): Promise<OperationResult> => {
-    return ipcRenderer.invoke("git:stage", path, file);
+  stage: (path: string, files: string[]): Promise<OperationResult> => {
+    return ipcRenderer.invoke("git:stage", path, files);
   },
 
-  stageFiles: (path: string, files: string[]): Promise<OperationResult> => {
-    return ipcRenderer.invoke("git:stage-files", path, files);
+  unstage: (path: string, files: string[]): Promise<OperationResult> => {
+    return ipcRenderer.invoke("git:unstage", path, files);
   },
 
-  unstage: (path: string, file: string): Promise<OperationResult> => {
-    return ipcRenderer.invoke("git:unstage", path, file);
-  },
-
-  unstageFiles: (path: string, files: string[]): Promise<OperationResult> => {
-    return ipcRenderer.invoke("git:unstage-files", path, files);
-  },
-
-  discard: (path: string, file: string): Promise<OperationResult> => {
-    return ipcRenderer.invoke("git:discard", path, file);
+  discard: (path: string, files: string[]): Promise<OperationResult> => {
+    return ipcRenderer.invoke("git:discard", path, files);
   },
 
   stageHunk: (path: string, patch: string): Promise<OperationResult> => {
