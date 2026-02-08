@@ -80,7 +80,10 @@ import { useRepositoriesStore } from "@/lib/repositories-store";
 import {
   useSuggestionBatchStore,
   getPrKey,
+  type BatchedSuggestion,
 } from "@/lib/suggestion-batch-store";
+
+const EMPTY_BATCH: BatchedSuggestion[] = [];
 
 export interface GitHubPullProps {
   accountId: string;
@@ -421,16 +424,19 @@ function ConversationTab({
   const prKey = getPrKey(owner, repo, number);
   const addSuggestion = useSuggestionBatchStore((s) => s.addSuggestion);
   const removeSuggestion = useSuggestionBatchStore((s) => s.removeSuggestion);
-  const batchForPr = useSuggestionBatchStore((s) => s.batches[prKey] ?? []);
+  const batchForPr = useSuggestionBatchStore(
+    (s) => s.batches[prKey] ?? EMPTY_BATCH,
+  );
 
   const canCommitSuggestions =
     data?.viewerCanUpdate && data?.state === "open" && !data?.merged;
 
+  const { commitSuggestions } = mutations;
   const handleCommitSuggestion = useCallback(
     async (suggestionId: string, headline: string, body: string) => {
-      await mutations.commitSuggestions([suggestionId], headline, body);
+      await commitSuggestions([suggestionId], headline, body);
     },
-    [mutations],
+    [commitSuggestions],
   );
 
   const handleAddToBatch = useCallback(
@@ -931,7 +937,7 @@ function BatchCommitButton({
   ) => Promise<void>;
 }) {
   const prKey = getPrKey(owner, repo, number);
-  const batch = useSuggestionBatchStore((s) => s.batches[prKey] ?? []);
+  const batch = useSuggestionBatchStore((s) => s.batches[prKey] ?? EMPTY_BATCH);
   const clearBatch = useSuggestionBatchStore((s) => s.clearBatch);
 
   if (batch.length === 0) return null;

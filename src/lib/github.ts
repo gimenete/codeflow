@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { useMemo } from "react";
 import {
   useQuery,
   useInfiniteQuery,
@@ -2061,226 +2062,235 @@ export function useTimelineMutations(
   number: number,
   isPR: boolean,
 ) {
-  const account = getAccount(accountId);
   const queryClient = useQueryClient();
 
-  const invalidate = () => {
-    void queryClient.invalidateQueries({
-      queryKey: ["github-timeline", accountId, owner, repo, number, isPR],
-    });
-    void queryClient.invalidateQueries({
-      queryKey: ["github-metadata", accountId, owner, repo, number],
-    });
-  };
+  return useMemo(() => {
+    const account = getAccount(accountId);
 
-  const submitComment = async (body: string) => {
-    if (!account) throw new Error("Account not found");
-    await createComment(account, owner, repo, number, body);
-    invalidate();
-  };
+    const invalidate = () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["github-timeline", accountId, owner, repo, number, isPR],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["github-metadata", accountId, owner, repo, number],
+      });
+    };
 
-  const changeState = async (state: "open" | "closed") => {
-    if (!account) throw new Error("Account not found");
-    await updateIssueOrPullState(account, owner, repo, number, state, isPR);
-    invalidate();
-  };
+    const submitComment = async (body: string) => {
+      if (!account) throw new Error("Account not found");
+      await createComment(account, owner, repo, number, body);
+      invalidate();
+    };
 
-  const commentAndChangeState = async (
-    body: string,
-    state: "open" | "closed",
-  ) => {
-    if (!account) throw new Error("Account not found");
-    await createComment(account, owner, repo, number, body);
-    await updateIssueOrPullState(account, owner, repo, number, state, isPR);
-    invalidate();
-  };
+    const changeState = async (state: "open" | "closed") => {
+      if (!account) throw new Error("Account not found");
+      await updateIssueOrPullState(account, owner, repo, number, state, isPR);
+      invalidate();
+    };
 
-  const updateLabels = async (labels: string[]) => {
-    if (!account) throw new Error("Account not found");
-    await setLabels(account, owner, repo, number, labels);
-    invalidate();
-  };
+    const commentAndChangeState = async (
+      body: string,
+      state: "open" | "closed",
+    ) => {
+      if (!account) throw new Error("Account not found");
+      await createComment(account, owner, repo, number, body);
+      await updateIssueOrPullState(account, owner, repo, number, state, isPR);
+      invalidate();
+    };
 
-  const mutateAssignees = async (add: string[], remove: string[]) => {
-    if (!account) throw new Error("Account not found");
-    await updateAssignees(account, owner, repo, number, add, remove);
-    invalidate();
-  };
+    const updateLabels = async (labels: string[]) => {
+      if (!account) throw new Error("Account not found");
+      await setLabels(account, owner, repo, number, labels);
+      invalidate();
+    };
 
-  const mutateReviewRequests = async (
-    addUsers: string[],
-    removeUsers: string[],
-    addTeamSlugs?: string[],
-    removeTeamSlugs?: string[],
-  ) => {
-    if (!account) throw new Error("Account not found");
-    await updateReviewRequests(
-      account,
-      owner,
-      repo,
-      number,
-      addUsers,
-      removeUsers,
-      addTeamSlugs,
-      removeTeamSlugs,
-    );
-    invalidate();
-  };
+    const mutateAssignees = async (add: string[], remove: string[]) => {
+      if (!account) throw new Error("Account not found");
+      await updateAssignees(account, owner, repo, number, add, remove);
+      invalidate();
+    };
 
-  const mutateMilestone = async (milestoneNumber: number | null) => {
-    if (!account) throw new Error("Account not found");
-    await updateMilestoneOnIssue(account, owner, repo, number, milestoneNumber);
-    invalidate();
-  };
+    const mutateReviewRequests = async (
+      addUsers: string[],
+      removeUsers: string[],
+      addTeamSlugs?: string[],
+      removeTeamSlugs?: string[],
+    ) => {
+      if (!account) throw new Error("Account not found");
+      await updateReviewRequests(
+        account,
+        owner,
+        repo,
+        number,
+        addUsers,
+        removeUsers,
+        addTeamSlugs,
+        removeTeamSlugs,
+      );
+      invalidate();
+    };
 
-  const submitReview = async (
-    body: string,
-    event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT",
-  ) => {
-    if (!account) throw new Error("Account not found");
-    await createPullReview(account, owner, repo, number, body, event);
-    invalidate();
-  };
+    const mutateMilestone = async (milestoneNumber: number | null) => {
+      if (!account) throw new Error("Account not found");
+      await updateMilestoneOnIssue(
+        account,
+        owner,
+        repo,
+        number,
+        milestoneNumber,
+      );
+      invalidate();
+    };
 
-  const mergePull = async (mergeMethod: MergeMethod) => {
-    if (!account) throw new Error("Account not found");
-    await mergePullRequest(account, owner, repo, number, mergeMethod);
-    invalidate();
-    void queryClient.invalidateQueries({
-      queryKey: ["pr-merge-status", accountId, owner, repo, number],
-    });
-    void queryClient.invalidateQueries({
-      queryKey: ["pr-status", accountId, owner, repo, number],
-    });
-  };
+    const submitReview = async (
+      body: string,
+      event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT",
+    ) => {
+      if (!account) throw new Error("Account not found");
+      await createPullReview(account, owner, repo, number, body, event);
+      invalidate();
+    };
 
-  const toggleReaction = async (
-    subjectId: string,
-    content: ReactionContent,
-    hasReacted: boolean,
-  ) => {
-    if (!account) throw new Error("Account not found");
-    if (hasReacted) {
-      await removeReaction(account, subjectId, content);
-    } else {
-      await addReaction(account, subjectId, content);
-    }
-    invalidate();
-  };
+    const mergePull = async (mergeMethod: MergeMethod) => {
+      if (!account) throw new Error("Account not found");
+      await mergePullRequest(account, owner, repo, number, mergeMethod);
+      invalidate();
+      void queryClient.invalidateQueries({
+        queryKey: ["pr-merge-status", accountId, owner, repo, number],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["pr-status", accountId, owner, repo, number],
+      });
+    };
 
-  const toggleDraft = async (pullRequestId: string, isDraft: boolean) => {
-    if (!account) throw new Error("Account not found");
-    if (isDraft) {
-      await markPullRequestReadyForReview(account, pullRequestId);
-    } else {
-      await convertPullRequestToDraft(account, pullRequestId);
-    }
-    invalidate();
-  };
+    const toggleReaction = async (
+      subjectId: string,
+      content: ReactionContent,
+      hasReacted: boolean,
+    ) => {
+      if (!account) throw new Error("Account not found");
+      if (hasReacted) {
+        await removeReaction(account, subjectId, content);
+      } else {
+        await addReaction(account, subjectId, content);
+      }
+      invalidate();
+    };
 
-  const editComment = async (commentId: string, body: string) => {
-    if (!account) throw new Error("Account not found");
-    await updateIssueComment(account, commentId, body);
-    invalidate();
-  };
+    const toggleDraft = async (pullRequestId: string, isDraft: boolean) => {
+      if (!account) throw new Error("Account not found");
+      if (isDraft) {
+        await markPullRequestReadyForReview(account, pullRequestId);
+      } else {
+        await convertPullRequestToDraft(account, pullRequestId);
+      }
+      invalidate();
+    };
 
-  const editReviewComment = async (commentId: string, body: string) => {
-    if (!account) throw new Error("Account not found");
-    await updatePullRequestReviewComment(account, commentId, body);
-    invalidate();
-  };
+    const editComment = async (commentId: string, body: string) => {
+      if (!account) throw new Error("Account not found");
+      await updateIssueComment(account, commentId, body);
+      invalidate();
+    };
 
-  const editDescription = async (id: string, body: string) => {
-    if (!account) throw new Error("Account not found");
-    if (isPR) {
-      await updatePullRequestBody(account, id, body);
-    } else {
-      await updateIssueBody(account, id, body);
-    }
-    invalidate();
-  };
+    const editReviewComment = async (commentId: string, body: string) => {
+      if (!account) throw new Error("Account not found");
+      await updatePullRequestReviewComment(account, commentId, body);
+      invalidate();
+    };
 
-  const editTitle = async (id: string, title: string) => {
-    if (!account) throw new Error("Account not found");
-    if (isPR) {
-      await updatePullRequestTitle(account, id, title);
-    } else {
-      await updateIssueTitle(account, id, title);
-    }
-    invalidate();
-  };
+    const editDescription = async (id: string, body: string) => {
+      if (!account) throw new Error("Account not found");
+      if (isPR) {
+        await updatePullRequestBody(account, id, body);
+      } else {
+        await updateIssueBody(account, id, body);
+      }
+      invalidate();
+    };
 
-  const deleteBranch = async (branch: string) => {
-    if (!account) throw new Error("Account not found");
-    await deleteRemoteBranch(account, owner, repo, branch);
-    invalidate();
-  };
+    const editTitle = async (id: string, title: string) => {
+      if (!account) throw new Error("Account not found");
+      if (isPR) {
+        await updatePullRequestTitle(account, id, title);
+      } else {
+        await updateIssueTitle(account, id, title);
+      }
+      invalidate();
+    };
 
-  const updateBaseBranch = async (
-    pullRequestId: string,
-    baseRefName: string,
-  ) => {
-    if (!account) throw new Error("Account not found");
-    await updatePullRequestBaseBranch(account, pullRequestId, baseRefName);
-    invalidate();
-    void queryClient.invalidateQueries({
-      queryKey: ["pr-merge-status", accountId, owner, repo, number],
-    });
-    void queryClient.invalidateQueries({
-      queryKey: ["pr-status", accountId, owner, repo, number],
-    });
-  };
+    const deleteBranch = async (branch: string) => {
+      if (!account) throw new Error("Account not found");
+      await deleteRemoteBranch(account, owner, repo, branch);
+      invalidate();
+    };
 
-  const commitSuggestions = async (
-    suggestionIds: string[],
-    commitHeadline: string,
-    commitBody?: string,
-  ) => {
-    if (!account) throw new Error("Account not found");
-    await applySuggestedChanges(
-      account,
-      suggestionIds,
-      commitHeadline,
-      commitBody,
-    );
-    invalidate();
-    void queryClient.invalidateQueries({
-      queryKey: ["pr-merge-status", accountId, owner, repo, number],
-    });
-    void queryClient.invalidateQueries({
-      queryKey: ["pr-status", accountId, owner, repo, number],
-    });
-    void queryClient.invalidateQueries({
-      queryKey: ["github-pr-commits", accountId, owner, repo, number],
-    });
-    void queryClient.invalidateQueries({
-      queryKey: ["pr-diff", accountId, owner, repo, number],
-    });
-    void queryClient.invalidateQueries({
-      queryKey: ["github-pr-files", accountId, owner, repo, number],
-    });
-  };
+    const updateBaseBranch = async (
+      pullRequestId: string,
+      baseRefName: string,
+    ) => {
+      if (!account) throw new Error("Account not found");
+      await updatePullRequestBaseBranch(account, pullRequestId, baseRefName);
+      invalidate();
+      void queryClient.invalidateQueries({
+        queryKey: ["pr-merge-status", accountId, owner, repo, number],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["pr-status", accountId, owner, repo, number],
+      });
+    };
 
-  return {
-    submitComment,
-    changeState,
-    commentAndChangeState,
-    updateLabels,
-    updateAssignees: mutateAssignees,
-    updateReviewRequests: mutateReviewRequests,
-    updateMilestone: mutateMilestone,
-    submitReview,
-    mergePull,
-    deleteBranch,
-    toggleReaction,
-    toggleDraft,
-    editComment,
-    editReviewComment,
-    editDescription,
-    editTitle,
-    updateBaseBranch,
-    commitSuggestions,
-  };
+    const commitSuggestions = async (
+      suggestionIds: string[],
+      commitHeadline: string,
+      commitBody?: string,
+    ) => {
+      if (!account) throw new Error("Account not found");
+      await applySuggestedChanges(
+        account,
+        suggestionIds,
+        commitHeadline,
+        commitBody,
+      );
+      invalidate();
+      void queryClient.invalidateQueries({
+        queryKey: ["pr-merge-status", accountId, owner, repo, number],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["pr-status", accountId, owner, repo, number],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["github-pr-commits", accountId, owner, repo, number],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["pr-diff", accountId, owner, repo, number],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["github-pr-files", accountId, owner, repo, number],
+      });
+    };
+
+    return {
+      submitComment,
+      changeState,
+      commentAndChangeState,
+      updateLabels,
+      updateAssignees: mutateAssignees,
+      updateReviewRequests: mutateReviewRequests,
+      updateMilestone: mutateMilestone,
+      submitReview,
+      mergePull,
+      deleteBranch,
+      toggleReaction,
+      toggleDraft,
+      editComment,
+      editReviewComment,
+      editDescription,
+      editTitle,
+      updateBaseBranch,
+      commitSuggestions,
+    };
+  }, [accountId, owner, repo, number, isPR, queryClient]);
 }
 
 // Reaction mutations via GraphQL
