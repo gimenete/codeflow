@@ -2243,6 +2243,18 @@ export function useTimelineMutations(
     void queryClient.invalidateQueries({
       queryKey: ["pr-merge-status", accountId, owner, repo, number],
     });
+    void queryClient.invalidateQueries({
+      queryKey: ["pr-status", accountId, owner, repo, number],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["github-pr-commits", accountId, owner, repo, number],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["pr-diff", accountId, owner, repo, number],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["github-pr-files", accountId, owner, repo, number],
+    });
   };
 
   return {
