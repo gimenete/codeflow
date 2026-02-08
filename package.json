@@ -90,7 +90,8 @@
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.1.18",
     "zod": "^4.3.5",
-    "zustand": "^5.0.10"
+    "zustand": "^5.0.10",
+    "electron-updater": "^6.3.9"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.1",
@@ -136,8 +137,14 @@
       "dist/**/*",
       "dist-electron/**/*"
     ],
+    "publish": {
+      "provider": "github"
+    },
     "mac": {
-      "target": "dmg"
+      "target": [
+        "dmg",
+        "zip"
+      ]
     },
     "win": {
       "target": "nsis"
