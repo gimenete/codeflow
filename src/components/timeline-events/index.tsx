@@ -88,6 +88,7 @@ interface TimelineEventItemProps {
   ) => void;
   onEditComment?: (commentId: string, body: string) => Promise<void>;
   onEditReviewComment?: (commentId: string, body: string) => Promise<void>;
+  onEditReview?: (reviewId: string, body: string) => Promise<void>;
   onCommitSuggestion?: (
     suggestionId: string,
     headline: string,
@@ -108,6 +109,7 @@ export function TimelineEventItem({
   onToggleReaction,
   onEditComment,
   onEditReviewComment,
+  onEditReview,
   onCommitSuggestion,
   onAddSuggestionToBatch,
   onRemoveSuggestionFromBatch,
@@ -155,12 +157,17 @@ export function TimelineEventItem({
     case "PullRequestReview": {
       return (
         <ReviewEvent
+          id={event.id}
           author={event.author as Actor}
+          body={event.body}
           bodyHTML={event.bodyHTML}
           state={event.state}
           createdAt={event.createdAt}
+          viewerCanUpdate={event.viewerCanUpdate}
+          reactionGroups={event.reactionGroups as ReactionGroup[] | null}
           comments={extractReviewComments(event)}
           onToggleReaction={onToggleReaction}
+          onEditReview={onEditReview}
           onEditReviewComment={onEditReviewComment}
           onCommitSuggestion={onCommitSuggestion}
           onAddSuggestionToBatch={onAddSuggestionToBatch}

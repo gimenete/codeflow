@@ -15,6 +15,7 @@ import {
 } from "@/lib/checkbox-utils";
 import { UserLogin } from "@/components/user-info";
 import { getActorLogin, getActorAvatarUrl, type Actor } from "./types";
+import { CommentEvent } from "./comment-event";
 import { DiffHunk } from "./diff-hunk";
 
 export interface ReviewComment {
@@ -32,16 +33,21 @@ export interface ReviewComment {
 }
 
 interface ReviewEventProps {
+  id: string;
   author: Actor;
+  body?: string | null;
   bodyHTML?: string | null;
   state: PullRequestReviewState;
   createdAt: string;
+  viewerCanUpdate?: boolean;
+  reactionGroups?: ReactionGroup[] | null;
   comments?: ReviewComment[];
   onToggleReaction?: (
     subjectId: string,
     content: ReactionContent,
     viewerHasReacted: boolean,
   ) => void;
+  onEditReview?: (reviewId: string, body: string) => Promise<void>;
   onEditReviewComment?: (commentId: string, body: string) => Promise<void>;
   onCommitSuggestion?: (
     suggestionId: string,
@@ -57,12 +63,17 @@ interface ReviewEventProps {
 }
 
 export function ReviewEvent({
+  id,
   author,
+  body,
   bodyHTML,
   state,
   createdAt,
+  viewerCanUpdate,
+  reactionGroups,
   comments,
   onToggleReaction,
+  onEditReview,
   onEditReviewComment,
   onCommitSuggestion,
   onAddSuggestionToBatch,
@@ -78,41 +89,75 @@ export function ReviewEvent({
 
   return (
     <div>
-      <div className="flex items-start gap-2 py-2">
-        {state === PullRequestReviewState.Approved ? (
-          <CheckIcon size={16} className="text-green-500 mt-0.5" />
-        ) : state === PullRequestReviewState.ChangesRequested ? (
-          <XIcon size={16} className="text-red-500 mt-0.5" />
-        ) : (
-          <CommentIcon size={16} className="text-muted-foreground mt-0.5" />
-        )}
-        <div className="text-sm">
-          <div className="flex items-center gap-2">
-            <Avatar className="h-5 w-5">
-              <AvatarImage src={avatarUrl} />
-              <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
-            </Avatar>
-            <UserLogin login={login} accountId={accountId}>
-              <span className="font-medium">{login}</span>
-            </UserLogin>
-            <span className="text-muted-foreground">
+      {bodyHTML ? (
+        <CommentEvent
+          author={author}
+          body={body ?? undefined}
+          bodyHTML={bodyHTML}
+          createdAt={createdAt}
+          viewerCanUpdate={viewerCanUpdate}
+          reactionGroups={reactionGroups}
+          onToggleReaction={
+            onToggleReaction
+              ? (content, viewerHasReacted) =>
+                  onToggleReaction(id, content, viewerHasReacted)
+              : undefined
+          }
+          onEdit={
+            onEditReview ? (newBody) => onEditReview(id, newBody) : undefined
+          }
+          headerAction={
+            <span className="inline-flex items-center gap-1 align-middle">
+              {state === PullRequestReviewState.Approved ? (
+                <CheckIcon size={14} className="text-green-500" />
+              ) : state === PullRequestReviewState.ChangesRequested ? (
+                <XIcon size={14} className="text-red-500" />
+              ) : (
+                <CommentIcon size={14} className="text-muted-foreground" />
+              )}
               {state === PullRequestReviewState.Approved
                 ? "approved these changes"
                 : state === PullRequestReviewState.ChangesRequested
                   ? "requested changes"
                   : "reviewed"}
             </span>
-            <span className="text-muted-foreground">
-              <RelativeTime date={createdAt} />
-            </span>
-          </div>
-          {bodyHTML && (
-            <div className="mt-2 prose prose-sm dark:prose-invert max-w-none">
-              <HtmlRenderer html={bodyHTML} />
-            </div>
+          }
+          accountId={accountId}
+          owner={owner}
+          repo={repo}
+        />
+      ) : (
+        <div className="flex items-start gap-2 py-2">
+          {state === PullRequestReviewState.Approved ? (
+            <CheckIcon size={16} className="text-green-500 mt-0.5" />
+          ) : state === PullRequestReviewState.ChangesRequested ? (
+            <XIcon size={16} className="text-red-500 mt-0.5" />
+          ) : (
+            <CommentIcon size={16} className="text-muted-foreground mt-0.5" />
           )}
+          <div className="text-sm">
+            <div className="flex items-center gap-2">
+              <Avatar className="h-5 w-5">
+                <AvatarImage src={avatarUrl} />
+                <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
+              </Avatar>
+              <UserLogin login={login} accountId={accountId}>
+                <span className="font-medium">{login}</span>
+              </UserLogin>
+              <span className="text-muted-foreground">
+                {state === PullRequestReviewState.Approved
+                  ? "approved these changes"
+                  : state === PullRequestReviewState.ChangesRequested
+                    ? "requested changes"
+                    : "reviewed"}
+              </span>
+              <span className="text-muted-foreground">
+                <RelativeTime date={createdAt} />
+              </span>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {hasComments && (
         <div className="ml-6 mt-2 space-y-3">

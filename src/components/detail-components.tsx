@@ -47,7 +47,6 @@ interface GroupedLabelEvent {
   labels: Label[];
 }
 
- 
 type ProcessedTimelineEvent = TimelineNode | GroupedLabelEvent;
 
 // Helper to get actor from different event types
@@ -139,6 +138,7 @@ export interface TimelineProps {
   ) => void;
   onEditComment?: (commentId: string, body: string) => Promise<void>;
   onEditReviewComment?: (commentId: string, body: string) => Promise<void>;
+  onEditReview?: (reviewId: string, body: string) => Promise<void>;
   onEditDescription?: (body: string) => Promise<void>;
   onCommitSuggestion?: (
     suggestionId: string,
@@ -202,6 +202,7 @@ export function Timeline({
   onToggleReaction,
   onEditComment,
   onEditReviewComment,
+  onEditReview,
   onEditDescription,
   onCommitSuggestion,
   onAddSuggestionToBatch,
@@ -303,6 +304,7 @@ export function Timeline({
               onToggleReaction={onToggleReaction}
               onEditComment={onEditComment}
               onEditReviewComment={onEditReviewComment}
+              onEditReview={onEditReview}
               onCommitSuggestion={onCommitSuggestion}
               onAddSuggestionToBatch={onAddSuggestionToBatch}
               onRemoveSuggestionFromBatch={onRemoveSuggestionFromBatch}
@@ -470,6 +472,7 @@ function ProcessedEventItem({
   onToggleReaction,
   onEditComment,
   onEditReviewComment,
+  onEditReview,
   onCommitSuggestion,
   onAddSuggestionToBatch,
   onRemoveSuggestionFromBatch,
@@ -488,6 +491,7 @@ function ProcessedEventItem({
   ) => void;
   onEditComment?: (commentId: string, body: string) => Promise<void>;
   onEditReviewComment?: (commentId: string, body: string) => Promise<void>;
+  onEditReview?: (reviewId: string, body: string) => Promise<void>;
   onCommitSuggestion?: (
     suggestionId: string,
     headline: string,
@@ -520,6 +524,7 @@ function ProcessedEventItem({
       onToggleReaction={onToggleReaction}
       onEditComment={onEditComment}
       onEditReviewComment={onEditReviewComment}
+      onEditReview={onEditReview}
       onCommitSuggestion={onCommitSuggestion}
       onAddSuggestionToBatch={onAddSuggestionToBatch}
       onRemoveSuggestionFromBatch={onRemoveSuggestionFromBatch}

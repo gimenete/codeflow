@@ -541,6 +541,7 @@ function ConversationTab({
           onToggleReaction={mutations.toggleReaction}
           onEditComment={mutations.editComment}
           onEditReviewComment={mutations.editReviewComment}
+          onEditReview={mutations.editReview}
           onEditDescription={(body) => mutations.editDescription(data.id, body)}
           onCommitSuggestion={
             canCommitSuggestions ? handleCommitSuggestion : undefined

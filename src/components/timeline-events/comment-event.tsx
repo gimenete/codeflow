@@ -26,6 +26,7 @@ interface CommentEventProps {
     viewerHasReacted: boolean,
   ) => void;
   onEdit?: (body: string) => Promise<void>;
+  headerAction?: React.ReactNode;
   accountId?: string;
   owner?: string;
   repo?: string;
@@ -40,6 +41,7 @@ export function CommentEvent({
   reactionGroups,
   onToggleReaction,
   onEdit,
+  headerAction,
   accountId,
   owner,
   repo,
@@ -122,7 +124,7 @@ export function CommentEvent({
           <span className="font-medium">{login}</span>
         </UserLogin>
         <span className="text-sm text-muted-foreground">
-          commented <RelativeTime date={createdAt} />
+          {headerAction ?? "commented"} <RelativeTime date={createdAt} />
         </span>
         {canEdit && !isEditing && (
           <div

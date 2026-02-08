@@ -396,9 +396,26 @@ export const GET_PR_TIMELINE = gql`
                 login
                 avatarUrl
               }
+              body
               bodyHTML
               state
               createdAt
+              viewerCanUpdate
+              reactionGroups {
+                content
+                reactors(first: 11) {
+                  totalCount
+                  nodes {
+                    ... on User {
+                      login
+                    }
+                    ... on Bot {
+                      login
+                    }
+                  }
+                }
+                viewerHasReacted
+              }
               comments(first: 50) {
                 nodes {
                   id

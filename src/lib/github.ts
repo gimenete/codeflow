@@ -2285,6 +2285,12 @@ export function useTimelineMutations(
       invalidate();
     };
 
+    const editReview = async (reviewId: string, body: string) => {
+      if (!account) throw new Error("Account not found");
+      await updatePullRequestReview(account, reviewId, body);
+      invalidate();
+    };
+
     const editDescription = async (id: string, body: string) => {
       if (!account) throw new Error("Account not found");
       if (isPR) {
@@ -2371,6 +2377,7 @@ export function useTimelineMutations(
       toggleDraft,
       editComment,
       editReviewComment,
+      editReview,
       editDescription,
       editTitle,
       updateBaseBranch,
@@ -2470,6 +2477,32 @@ export async function updatePullRequestReviewComment(
   const client = getGraphQLClient(account);
   await client.request(UPDATE_PULL_REQUEST_REVIEW_COMMENT, {
     pullRequestReviewCommentId: commentId,
+    body,
+  });
+}
+
+const UPDATE_PULL_REQUEST_REVIEW = gql`
+  mutation UpdatePullRequestReview($pullRequestReviewId: ID!, $body: String!) {
+    updatePullRequestReview(
+      input: { pullRequestReviewId: $pullRequestReviewId, body: $body }
+    ) {
+      pullRequestReview {
+        id
+        body
+        bodyHTML
+      }
+    }
+  }
+`;
+
+export async function updatePullRequestReview(
+  account: Account,
+  reviewId: string,
+  body: string,
+): Promise<void> {
+  const client = getGraphQLClient(account);
+  await client.request(UPDATE_PULL_REQUEST_REVIEW, {
+    pullRequestReviewId: reviewId,
     body,
   });
 }
