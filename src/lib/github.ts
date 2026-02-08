@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import {
   useQuery,
   useInfiniteQuery,
@@ -55,6 +55,7 @@ import type {
   NormalizedCheck,
   MergeMethod,
   OrgTeam,
+  NotificationInfo,
 } from "./github-types";
 import type {
   GetIssueOrPrMetadataQuery,
@@ -2581,4 +2582,90 @@ export async function applySuggestedChanges(
     commitHeadline,
     commitBody: commitBody || undefined,
   });
+}
+
+// --- Notifications ---
+
+export async function fetchRepoNotifications(
+  account: Account,
+  owner: string,
+  repo: string,
+): Promise<Map<number, NotificationInfo>> {
+  const octokit = getOctokit(account);
+  const response =
+    await octokit.activity.listRepoNotificationsForAuthenticatedUser({
+      owner,
+      repo,
+      all: false, // Only unread
+      per_page: 100,
+    });
+
+  const map = new Map<number, NotificationInfo>();
+  for (const thread of response.data) {
+    const match = thread.subject.url?.match(/\/(\d+)$/);
+    if (match) {
+      const number = parseInt(match[1]);
+      map.set(number, {
+        threadId: thread.id,
+        unread: thread.unread,
+        lastReadAt: thread.last_read_at ?? null,
+      });
+    }
+  }
+  return map;
+}
+
+export function useRepoNotifications(
+  accountId: string,
+  owner: string,
+  repo: string,
+) {
+  const account = getAccount(accountId);
+  return useQuery({
+    queryKey: ["github-notifications", accountId, owner, repo],
+    queryFn: async () => {
+      if (!account) throw new Error("Account not found");
+      return fetchRepoNotifications(account, owner, repo);
+    },
+    staleTime: 30000,
+    enabled: !!account,
+  });
+}
+
+export async function markNotificationAsRead(
+  account: Account,
+  threadId: string,
+): Promise<void> {
+  const octokit = getOctokit(account);
+  await octokit.activity.markThreadAsRead({
+    thread_id: parseInt(threadId),
+  });
+}
+
+export function useMarkAsReadOnMount(
+  accountId: string,
+  owner: string,
+  repo: string,
+  number: number,
+) {
+  const account = getAccount(accountId);
+  const queryClient = useQueryClient();
+  const { data: notifications } = useRepoNotifications(
+    accountId,
+    owner,
+    repo,
+  );
+
+  const notification = notifications?.get(number);
+
+  useEffect(() => {
+    if (!account || !notification?.unread) return;
+    void markNotificationAsRead(account, notification.threadId).then(() => {
+      void queryClient.invalidateQueries({
+        queryKey: ["github-notifications", accountId, owner, repo],
+      });
+    });
+  }, [account, notification, accountId, owner, repo, queryClient]);
+
+  return notification ?? null;
 }

@@ -397,6 +397,12 @@ export interface TrackedBranch {
   updatedAt: string;
 }
 
+export interface NotificationInfo {
+  threadId: string;
+  unread: boolean;
+  lastReadAt: string | null;
+}
+
 export interface RepositoryForkInfo {
   isFork: boolean;
   defaultBranch: string;
