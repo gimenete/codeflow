@@ -683,7 +683,7 @@ export function BranchFilesView({
     async (filePath: string, e: React.MouseEvent) => {
       e.stopPropagation();
       if (!window.gitAPI) return;
-      await window.gitAPI.stage(repositoryPath, filePath);
+      await window.gitAPI.stage(repositoryPath, [filePath]);
       await refresh();
       emitGitChanged();
     },
@@ -694,7 +694,7 @@ export function BranchFilesView({
     async (filePath: string, e: React.MouseEvent) => {
       e.stopPropagation();
       if (!window.gitAPI) return;
-      await window.gitAPI.unstage(repositoryPath, filePath);
+      await window.gitAPI.unstage(repositoryPath, [filePath]);
       await refresh();
       emitGitChanged();
     },
@@ -705,9 +705,10 @@ export function BranchFilesView({
     async (e: React.MouseEvent) => {
       e.stopPropagation();
       if (!window.gitAPI) return;
-      for (const file of unstagedFiles) {
-        await window.gitAPI.stage(repositoryPath, file.path);
-      }
+      await window.gitAPI.stage(
+        repositoryPath,
+        unstagedFiles.map((file) => file.path),
+      );
       await refresh();
       emitGitChanged();
     },
@@ -721,7 +722,7 @@ export function BranchFilesView({
 
   const confirmFileDiscard = useCallback(async () => {
     if (!window.gitAPI || !pendingFileDiscard) return;
-    await window.gitAPI.discard(repositoryPath, pendingFileDiscard);
+    await window.gitAPI.discard(repositoryPath, [pendingFileDiscard]);
     setPendingFileDiscard(null);
     await refresh();
     emitGitChanged();

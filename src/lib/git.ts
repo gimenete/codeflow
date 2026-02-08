@@ -109,15 +109,15 @@ interface GitAPI {
   getDiffHead(path: string, file: string): Promise<string>;
   stage(
     path: string,
-    file: string,
+    files: string[],
   ): Promise<{ success: boolean; error?: string }>;
   unstage(
     path: string,
-    file: string,
+    files: string[],
   ): Promise<{ success: boolean; error?: string }>;
   discard(
     path: string,
-    file: string,
+    files: string[],
   ): Promise<{ success: boolean; error?: string }>;
   stageHunk(
     path: string,

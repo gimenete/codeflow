@@ -492,28 +492,31 @@ ipcMain.handle(
   },
 );
 
-// Stage a file
-ipcMain.handle("git:stage", async (_event, repoPath: string, file: string) => {
-  try {
-    const git = getGit(repoPath);
-    await git.add([file]);
-    return { success: true };
-  } catch (error) {
-    console.error("git:stage error:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
-});
-
-// Unstage a file
+// Stage files
 ipcMain.handle(
-  "git:unstage",
-  async (_event, repoPath: string, file: string) => {
+  "git:stage",
+  async (_event, repoPath: string, files: string[]) => {
     try {
       const git = getGit(repoPath);
-      await git.reset(["HEAD", "--", file]);
+      await git.add(files);
+      return { success: true };
+    } catch (error) {
+      console.error("git:stage error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  },
+);
+
+// Unstage files
+ipcMain.handle(
+  "git:unstage",
+  async (_event, repoPath: string, files: string[]) => {
+    try {
+      const git = getGit(repoPath);
+      await git.reset(["HEAD", "--", ...files]);
       return { success: true };
     } catch (error) {
       console.error("git:unstage error:", error);
@@ -525,13 +528,13 @@ ipcMain.handle(
   },
 );
 
-// Discard changes to a file
+// Discard changes to files
 ipcMain.handle(
   "git:discard",
-  async (_event, repoPath: string, file: string) => {
+  async (_event, repoPath: string, files: string[]) => {
     try {
       const git = getGit(repoPath);
-      await git.checkout(["--", file]);
+      await git.checkout(["--", ...files]);
       return { success: true };
     } catch (error) {
       console.error("git:discard error:", error);
