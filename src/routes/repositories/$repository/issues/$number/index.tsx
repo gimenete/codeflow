@@ -5,6 +5,7 @@ import {
   useIssueMetadata,
   useIssueTimeline,
   useTimelineMutations,
+  useMarkAsReadOnMount,
 } from "@/lib/github";
 import { useIsLargeScreen } from "@/lib/hooks";
 import { CommentForm } from "@/components/comment-form";
@@ -51,6 +52,14 @@ function IssueConversationTab() {
     isFetchingNextPage,
     isLoading: isTimelineLoading,
   } = useIssueTimeline(account.id, owner, repo, issueNumber);
+
+  // Mark notification as read and get lastReadAt for NEW divider
+  const notification = useMarkAsReadOnMount(
+    account.id,
+    owner,
+    repo,
+    issueNumber,
+  );
 
   const mutations = useTimelineMutations(
     account.id,
@@ -108,6 +117,7 @@ function IssueConversationTab() {
           isFetchingNextPage={isFetchingNextPage}
           fetchNextPage={fetchNextPage}
           isLoading={isTimelineLoading}
+          lastReadAt={notification ? notification.lastReadAt : undefined}
           footer={commentFooter}
           onToggleReaction={mutations.toggleReaction}
           onEditComment={mutations.editComment}

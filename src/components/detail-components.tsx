@@ -130,6 +130,7 @@ export interface TimelineProps {
   isFetchingNextPage: boolean;
   fetchNextPage: () => void;
   isLoading?: boolean;
+  lastReadAt?: string | null;
   footer?: React.ReactNode;
   onToggleReaction?: (
     subjectId: string,
@@ -169,6 +170,26 @@ function TimelineEventSkeleton() {
   );
 }
 
+// Helper to get createdAt from a processed event (regular or grouped)
+function getEventCreatedAt(event: ProcessedTimelineEvent): string | null {
+  if ("createdAt" in event) {
+    return event.createdAt;
+  }
+  return null;
+}
+
+function NewDivider({ dividerRef }: { dividerRef: React.Ref<HTMLDivElement> }) {
+  return (
+    <div ref={dividerRef} className="flex items-center gap-3 py-1">
+      <div className="flex-1 border-t border-blue-500" />
+      <span className="text-xs font-semibold text-blue-500 uppercase tracking-wider">
+        New
+      </span>
+      <div className="flex-1 border-t border-blue-500" />
+    </div>
+  );
+}
+
 export function Timeline({
   data,
   timelineItems,
@@ -176,6 +197,7 @@ export function Timeline({
   isFetchingNextPage,
   fetchNextPage,
   isLoading,
+  lastReadAt,
   footer,
   onToggleReaction,
   onEditComment,
@@ -191,12 +213,55 @@ export function Timeline({
   repo,
 }: TimelineProps) {
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  const newDividerRef = useRef<HTMLDivElement>(null);
+  const hasScrolledRef = useRef(false);
 
   // Group consecutive label events
   const processedEvents = useMemo(
     () => groupLabelEvents(timelineItems),
     [timelineItems],
   );
+
+  // Compute the index after which to show the NEW divider.
+  // lastReadAt === undefined → not unread, no divider
+  // lastReadAt === null → unread, never opened before, divider before first event (-1)
+  // lastReadAt === string → divider after last event with createdAt <= lastReadAt
+  const newDividerIndex = useMemo(() => {
+    if (lastReadAt === undefined) return null;
+    if (lastReadAt === null) {
+      // Never read before - all events are new
+      return processedEvents.length > 0 ? -1 : null;
+    }
+    // lastReadAt is set: find the last event created at or before lastReadAt
+    let lastReadIndex = -1;
+    for (let i = 0; i < processedEvents.length; i++) {
+      const createdAt = getEventCreatedAt(processedEvents[i]);
+      if (createdAt && createdAt <= lastReadAt) {
+        lastReadIndex = i;
+      }
+    }
+    // If all events are before lastReadAt, no new events - don't show divider
+    if (lastReadIndex === processedEvents.length - 1) return null;
+    return lastReadIndex;
+  }, [lastReadAt, processedEvents]);
+
+  // Scroll to the NEW divider when it first appears
+  useEffect(() => {
+    if (
+      newDividerRef.current &&
+      !hasScrolledRef.current &&
+      processedEvents.length > 0
+    ) {
+      hasScrolledRef.current = true;
+      // Small delay to ensure the DOM has settled
+      requestAnimationFrame(() => {
+        newDividerRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      });
+    }
+  }, [newDividerIndex, processedEvents.length]);
 
   // Intersection observer for infinite scroll
   useEffect(() => {
@@ -227,22 +292,31 @@ export function Timeline({
           repo={repo}
         />
 
+        {/* NEW divider before first event (when lastReadAt is null or all events are new) */}
+        {newDividerIndex === -1 && <NewDivider dividerRef={newDividerRef} />}
+
         {processedEvents.map((event, index) => (
-          <ProcessedEventItem
-            key={index}
-            event={event}
-            onToggleReaction={onToggleReaction}
-            onEditComment={onEditComment}
-            onEditReviewComment={onEditReviewComment}
-            onCommitSuggestion={onCommitSuggestion}
-            onAddSuggestionToBatch={onAddSuggestionToBatch}
-            onRemoveSuggestionFromBatch={onRemoveSuggestionFromBatch}
-            isSuggestionInBatch={isSuggestionInBatch}
-            onCommitClick={onCommitClick}
-            accountId={accountId}
-            owner={owner}
-            repo={repo}
-          />
+          <div key={index}>
+            <ProcessedEventItem
+              event={event}
+              onToggleReaction={onToggleReaction}
+              onEditComment={onEditComment}
+              onEditReviewComment={onEditReviewComment}
+              onCommitSuggestion={onCommitSuggestion}
+              onAddSuggestionToBatch={onAddSuggestionToBatch}
+              onRemoveSuggestionFromBatch={onRemoveSuggestionFromBatch}
+              isSuggestionInBatch={isSuggestionInBatch}
+              onCommitClick={onCommitClick}
+              accountId={accountId}
+              owner={owner}
+              repo={repo}
+            />
+            {newDividerIndex === index && (
+              <div className="mt-4">
+                <NewDivider dividerRef={newDividerRef} />
+              </div>
+            )}
+          </div>
         ))}
 
         {/* Timeline loading skeletons */}

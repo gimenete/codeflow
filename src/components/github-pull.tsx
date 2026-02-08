@@ -72,6 +72,7 @@ import {
   usePRFilesREST,
   useDiff,
   useTimelineMutations,
+  useMarkAsReadOnMount,
 } from "@/lib/github";
 import { useIsLargeScreen, useParseDiffAsync } from "@/lib/hooks";
 import type { DiffSource } from "@/lib/github-types";
@@ -419,6 +420,9 @@ function ConversationTab({
     isLoading: isTimelineLoading,
   } = usePullTimeline(accountId, owner, repo, number);
 
+  // Mark notification as read and get lastReadAt for NEW divider
+  const notification = useMarkAsReadOnMount(accountId, owner, repo, number);
+
   const mutations = useTimelineMutations(accountId, owner, repo, number, true);
 
   const prKey = getPrKey(owner, repo, number);
@@ -531,6 +535,7 @@ function ConversationTab({
           isFetchingNextPage={isFetchingNextPage}
           fetchNextPage={fetchNextPage}
           isLoading={isTimelineLoading}
+          lastReadAt={notification ? notification.lastReadAt : undefined}
           footer={commentFooter}
           onToggleReaction={mutations.toggleReaction}
           onEditComment={mutations.editComment}

@@ -19,6 +19,7 @@ import {
   buildSearchQuery,
   searchIssuesAndPulls,
   searchWithCursors,
+  useRepoNotifications,
 } from "@/lib/github";
 import type { Issue, PullRequest, QueryFilters } from "@/lib/github-types";
 import { parseRemoteUrl } from "@/lib/remote-url";
@@ -158,6 +159,9 @@ function SavedQueryResults() {
     },
     [urlFilters, navigate, repositorySlug, queryId, savedQuery?.filters],
   );
+
+  // Fetch unread notifications for the repo
+  const { data: notifications } = useRepoNotifications(account.id, owner, repo);
 
   // Main search query
   const {
@@ -543,6 +547,7 @@ function SavedQueryResults() {
                   accountId={account.id}
                   owner={owner}
                   repo={repo}
+                  isUnread={notifications?.get(item.number)?.unread ?? false}
                 />
               ))}
             </div>
@@ -569,6 +574,7 @@ function RepositorySearchResultItem({
   accountId,
   owner,
   repo,
+  isUnread,
 }: {
   item: (PullRequest | Issue) & { cursor?: string };
   repositorySlug: string;
@@ -576,6 +582,7 @@ function RepositorySearchResultItem({
   accountId: string;
   owner: string;
   repo: string;
+  isUnread: boolean;
 }) {
   return (
     <Link
@@ -596,6 +603,7 @@ function RepositorySearchResultItem({
         accountId={accountId}
         owner={owner}
         repo={repo}
+        isUnread={isUnread}
       />
     </Link>
   );
@@ -616,12 +624,14 @@ function SearchResultItemContent({
   accountId,
   owner,
   repo,
+  isUnread,
 }: {
   item: PullRequest | Issue;
   isPR: boolean;
   accountId: string;
   owner: string;
   repo: string;
+  isUnread: boolean;
 }) {
   return (
     <div className="px-4 py-2 hover:bg-accent/50 transition-colors">
@@ -642,7 +652,10 @@ function SearchResultItemContent({
 
         {/* Title */}
         <div className="min-w-0 flex-1">
-          <EmojiText className="font-medium" text={item.title} />
+          <EmojiText
+            className={isUnread ? "font-semibold" : "font-medium"}
+            text={item.title}
+          />
           <span className="text-muted-foreground ml-1">#{item.number}</span>
         </div>
 
