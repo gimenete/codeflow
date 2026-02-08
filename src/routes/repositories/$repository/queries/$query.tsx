@@ -1,6 +1,9 @@
 import { EmojiText } from "@/components/emoji-text";
+import { LabelFilterCombobox } from "@/components/label-filter-combobox";
 import { SaveQueryDialog } from "@/components/save-query-dialog";
 import { SearchResultItemSkeleton } from "@/components/search-result-item";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -32,7 +35,7 @@ import {
   redirect,
   useNavigate,
 } from "@tanstack/react-router";
-import { Filter } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 
@@ -44,12 +47,21 @@ const searchSchema = z.object({
   teamReviewRequested: z.string().optional(),
   mentioned: z.string().optional(),
   milestone: z.string().optional(),
+  label: z
+    .union([z.string().transform((s) => [s]), z.array(z.string())])
+    .optional(),
+  q: z.string().optional(),
 });
 
 type QuerySearchFilters = z.infer<typeof searchSchema>;
 
 function hasAdditionalUrlFilters(urlFilters: QuerySearchFilters): boolean {
-  return Object.values(urlFilters).some((v) => v !== undefined && v !== "");
+  return Object.values(urlFilters).some(
+    (v) =>
+      v !== undefined &&
+      v !== "" &&
+      !(Array.isArray(v) && v.length === 0),
+  );
 }
 
 export const Route = createFileRoute(
@@ -116,6 +128,10 @@ function SavedQueryResults() {
       base.mentioned = urlFilters.mentioned || undefined;
     if (urlFilters.milestone !== undefined)
       base.milestone = urlFilters.milestone || undefined;
+    if (urlFilters.label !== undefined)
+      base.label = urlFilters.label.length > 0 ? urlFilters.label : undefined;
+    if (urlFilters.q !== undefined)
+      base.rawQuery = urlFilters.q || undefined;
     return base;
   }, [savedQuery?.filters, urlFilters, owner, repo]);
 
@@ -234,6 +250,23 @@ function SavedQueryResults() {
     const mergedFilters: QueryFilters = { ...savedQuery.filters };
     // Apply URL filters
     for (const key of Object.keys(urlFilters) as (keyof QuerySearchFilters)[]) {
+      if (key === "label") {
+        const labels = urlFilters.label;
+        if (labels && labels.length > 0) {
+          mergedFilters.label = labels;
+        } else {
+          delete mergedFilters.label;
+        }
+        continue;
+      }
+      if (key === "q") {
+        if (urlFilters.q) {
+          mergedFilters.rawQuery = urlFilters.q;
+        } else {
+          delete mergedFilters.rawQuery;
+        }
+        continue;
+      }
       const value = urlFilters[key];
       if (value === "") {
         delete mergedFilters[key];
@@ -258,8 +291,61 @@ function SavedQueryResults() {
     queryId,
   ]);
 
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const [rawQueryInput, setRawQueryInput] = useState(urlFilters.q ?? "");
+  const rawQueryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleRawQueryChange = useCallback(
+    (value: string) => {
+      setRawQueryInput(value);
+      if (rawQueryTimerRef.current) clearTimeout(rawQueryTimerRef.current);
+      rawQueryTimerRef.current = setTimeout(() => {
+        const newFilters = { ...urlFilters };
+        if (value) {
+          newFilters.q = value;
+        } else {
+          delete newFilters.q;
+        }
+        void navigate({
+          to: "/repositories/$repository/queries/$query",
+          params: { repository: repositorySlug, query: queryId },
+          search: newFilters,
+          replace: true,
+        });
+      }, 500);
+    },
+    [urlFilters, navigate, repositorySlug, queryId],
+  );
+
+  // Keep local input in sync when URL changes externally
+  useEffect(() => {
+    setRawQueryInput(urlFilters.q ?? "");
+  }, [urlFilters.q]);
+
+  const updateLabels = useCallback(
+    (labels: string[]) => {
+      const newFilters = { ...urlFilters };
+      if (labels.length > 0) {
+        newFilters.label = labels;
+      } else {
+        delete newFilters.label;
+      }
+      void navigate({
+        to: "/repositories/$repository/queries/$query",
+        params: { repository: repositorySlug, query: queryId },
+        search: newFilters,
+        replace: true,
+      });
+    },
+    [urlFilters, navigate, repositorySlug, queryId],
+  );
+
   const hasUrlFilters = hasAdditionalUrlFilters(urlFilters);
   const canUpdateCurrent = savedQuery && !isSystemQuery(queryId);
+
+  // Auto-expand if label or query filters are active
+  const hasExpandedFilters =
+    (urlFilters.label && urlFilters.label.length > 0) || !!urlFilters.q;
 
   return (
     <div className="flex flex-col h-full">
@@ -297,7 +383,19 @@ function SavedQueryResults() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="shrink-0"
+            onClick={() => setFiltersExpanded((prev) => !prev)}
+            aria-label={filtersExpanded ? "Collapse filters" : "Expand filters"}
+          >
+            {filtersExpanded || hasExpandedFilters ? (
+              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            )}
+          </Button>
 
           {/* State filter */}
           <Select
@@ -388,6 +486,27 @@ function SavedQueryResults() {
             className="w-40"
           />
         </div>
+
+        {/* Expandable filters row */}
+        {(filtersExpanded || hasExpandedFilters) && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <LabelFilterCombobox
+              value={filters.label ?? []}
+              onChange={updateLabels}
+              accountId={account.id}
+              owner={owner}
+              repo={repo}
+              className="w-48"
+            />
+
+            <Input
+              value={rawQueryInput}
+              onChange={(e) => handleRawQueryChange(e.target.value)}
+              placeholder="Additional query (e.g. language:go linked:pr)"
+              className="h-8 flex-1 min-w-48 text-sm"
+            />
+          </div>
+        )}
       </div>
 
       <SaveQueryDialog

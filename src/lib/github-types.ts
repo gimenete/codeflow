@@ -262,6 +262,7 @@ export interface QueryFilters {
   teamReviewRequested?: string;
   mentioned?: string;
   milestone?: string;
+  rawQuery?: string;
 }
 
 export interface PageInfo {
