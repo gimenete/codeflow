@@ -260,6 +260,65 @@ function createWindow(): void {
   }
 }
 
+// ==================== Auto-Updater ====================
+
+interface UpdateInfo {
+  version: string;
+  releaseNotes?: string;
+}
+
+let updateAvailable: UpdateInfo | null = null;
+let updateDownloaded = false;
+
+async function setupAutoUpdater() {
+  if (isDev) return;
+
+  try {
+    const { autoUpdater } = await import("electron-updater");
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
+
+    autoUpdater.on("update-available", (info) => {
+      updateAvailable = {
+        version: info.version,
+        releaseNotes:
+          typeof info.releaseNotes === "string"
+            ? info.releaseNotes
+            : undefined,
+      };
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("updater:update-available", updateAvailable);
+      }
+    });
+
+    autoUpdater.on("update-downloaded", () => {
+      updateDownloaded = true;
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("updater:update-downloaded");
+      }
+    });
+
+    autoUpdater.on("error", (err) => {
+      console.error("Auto-updater error:", err);
+    });
+
+    // Check for updates now and every 30 minutes
+    autoUpdater.checkForUpdates().catch((err: Error) => {
+      console.error("Update check failed:", err);
+    });
+    setInterval(
+      () => {
+        autoUpdater.checkForUpdates().catch((err: Error) => {
+          console.error("Update check failed:", err);
+        });
+      },
+      30 * 60 * 1000,
+    );
+  } catch (err) {
+    console.error("Failed to setup auto-updater:", err);
+  }
+}
+
 app.whenReady().then(async () => {
   if (isDev) {
     try {
@@ -280,6 +339,7 @@ app.whenReady().then(async () => {
   }
 
   createWindow();
+  setupAutoUpdater();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -2056,6 +2116,37 @@ ipcMain.handle("app:get-info", async () => {
       claudeCliVersion,
       claudeSdkVersion: "unknown",
     };
+  }
+});
+
+// ==================== Auto-Updater IPC Handlers ====================
+
+ipcMain.handle("updater:get-status", () => {
+  return {
+    updateAvailable,
+    updateDownloaded,
+  };
+});
+
+ipcMain.handle("updater:install", async () => {
+  if (!updateDownloaded) return;
+  try {
+    const { autoUpdater } = await import("electron-updater");
+    autoUpdater.quitAndInstall(false, true);
+  } catch (err) {
+    console.error("Failed to install update:", err);
+  }
+});
+
+ipcMain.handle("updater:check", async () => {
+  if (isDev) return { updateAvailable: null };
+  try {
+    const { autoUpdater } = await import("electron-updater");
+    const result = await autoUpdater.checkForUpdates();
+    return { updateAvailable: result?.updateInfo?.version || null };
+  } catch (err) {
+    console.error("Update check failed:", err);
+    return { updateAvailable: null };
   }
 });
 

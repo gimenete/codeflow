@@ -540,6 +540,49 @@ const fsAPI = {
   },
 };
 
+// Updater API
+interface UpdateInfo {
+  version: string;
+  releaseNotes?: string;
+}
+
+interface UpdateStatus {
+  updateAvailable: UpdateInfo | null;
+  updateDownloaded: boolean;
+}
+
+type UpdateAvailableCallback = (info: UpdateInfo) => void;
+type UpdateDownloadedCallback = () => void;
+
+const updaterAPI = {
+  getStatus: (): Promise<UpdateStatus> => {
+    return ipcRenderer.invoke("updater:get-status");
+  },
+
+  install: (): Promise<void> => {
+    return ipcRenderer.invoke("updater:install");
+  },
+
+  check: (): Promise<{ updateAvailable: string | null }> => {
+    return ipcRenderer.invoke("updater:check");
+  },
+
+  onUpdateAvailable: (callback: UpdateAvailableCallback): void => {
+    ipcRenderer.on("updater:update-available", (_event, info) =>
+      callback(info),
+    );
+  },
+
+  onUpdateDownloaded: (callback: UpdateDownloadedCallback): void => {
+    ipcRenderer.on("updater:update-downloaded", () => callback());
+  },
+
+  removeAllListeners: (): void => {
+    ipcRenderer.removeAllListeners("updater:update-available");
+    ipcRenderer.removeAllListeners("updater:update-downloaded");
+  },
+};
+
 // App Info API
 interface AppInfo {
   appVersion: string;
@@ -567,6 +610,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   watcher: watcherAPI,
   pty: ptyAPI,
   app: appAPI,
+  updater: updaterAPI,
   isElectron: true,
 });
 
@@ -581,3 +625,4 @@ contextBridge.exposeInMainWorld("watcherAPI", watcherAPI);
 contextBridge.exposeInMainWorld("ptyAPI", ptyAPI);
 contextBridge.exposeInMainWorld("fsAPI", fsAPI);
 contextBridge.exposeInMainWorld("appAPI", appAPI);
+contextBridge.exposeInMainWorld("updaterAPI", updaterAPI);

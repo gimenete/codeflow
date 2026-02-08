@@ -37,10 +37,18 @@ import {
   ChevronLeft,
   ChevronRight,
   Command,
+  Download,
+  Loader2,
   Settings,
 } from "lucide-react";
 import { useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
+import { useUpdater } from "@/lib/updater";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 function RootLayout() {
   return (
@@ -152,6 +160,8 @@ function RootLayoutContent() {
   const isLargeScreen = useIsLargeScreen();
   const { canGoBack, canGoForward, goBack, goForward } = useNavigationHistory();
   const { toggle: toggleCommandPalette } = useOpenCommandPalette();
+  const { updateAvailable, updateDownloaded, installing, installUpdate } =
+    useUpdater();
 
   // Request notification permission and setup IPC listeners on mount
   useEffect(() => {
@@ -241,6 +251,38 @@ function RootLayoutContent() {
           </nav>
 
           <div className="flex-1" />
+
+          {updateAvailable && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 app-region-no-drag border-blue-500/50 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400"
+                  onClick={installUpdate}
+                  disabled={!updateDownloaded || installing}
+                >
+                  {installing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  <span className="text-xs">
+                    {installing
+                      ? "Restarting..."
+                      : updateDownloaded
+                        ? `Update to v${updateAvailable.version}`
+                        : "Downloading..."}
+                  </span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {updateDownloaded
+                  ? "Click to update and restart"
+                  : `Downloading v${updateAvailable.version}...`}
+              </TooltipContent>
+            </Tooltip>
+          )}
 
           <Button
             variant="outline"
