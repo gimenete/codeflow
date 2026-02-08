@@ -237,15 +237,6 @@ export function GitHubPull({
               </div>
             </div>
             <div className="flex items-center gap-1 self-start ml-auto">
-              {data.viewerCanUpdate &&
-                data.state === "open" &&
-                !data.merged && (
-                  <DraftToggleButton
-                    isDraft={data.isDraft}
-                    pullRequestId={data.id}
-                    onToggleDraft={mutations.toggleDraft}
-                  />
-                )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon-sm">
@@ -316,6 +307,15 @@ export function GitHubPull({
                     repo={repo}
                     number={number}
                     onCommit={mutations.commitSuggestions}
+                  />
+                )}
+              {data.viewerCanUpdate &&
+                data.state === "open" &&
+                !data.merged && (
+                  <DraftToggleButton
+                    isDraft={data.isDraft}
+                    pullRequestId={data.id}
+                    onToggleDraft={mutations.toggleDraft}
                   />
                 )}
               <ReviewPopover
