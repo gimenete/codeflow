@@ -2227,6 +2227,36 @@ export function useTimelineMutations(
     });
   };
 
+  const commitSuggestions = async (
+    suggestionIds: string[],
+    commitHeadline: string,
+    commitBody?: string,
+  ) => {
+    if (!account) throw new Error("Account not found");
+    await applySuggestedChanges(
+      account,
+      suggestionIds,
+      commitHeadline,
+      commitBody,
+    );
+    invalidate();
+    void queryClient.invalidateQueries({
+      queryKey: ["pr-merge-status", accountId, owner, repo, number],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["pr-status", accountId, owner, repo, number],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["github-pr-commits", accountId, owner, repo, number],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["pr-diff", accountId, owner, repo, number],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["github-pr-files", accountId, owner, repo, number],
+    });
+  };
+
   return {
     submitComment,
     changeState,
@@ -2245,6 +2275,7 @@ export function useTimelineMutations(
     editDescription,
     editTitle,
     updateBaseBranch,
+    commitSuggestions,
   };
 }
 
@@ -2499,5 +2530,39 @@ export async function updatePullRequestBaseBranch(
   await client.request(UPDATE_PULL_REQUEST_BASE_BRANCH, {
     pullRequestId,
     baseRefName,
+  });
+}
+
+// Apply suggested changes mutations
+
+const APPLY_SUGGESTED_CHANGES = gql`
+  mutation ApplySuggestedChanges(
+    $suggestionIds: [ID!]!
+    $commitHeadline: String!
+    $commitBody: String
+  ) {
+    applySuggestedChanges(
+      input: {
+        suggestionIds: $suggestionIds
+        commitHeadline: $commitHeadline
+        commitBody: $commitBody
+      }
+    ) {
+      clientMutationId
+    }
+  }
+`;
+
+export async function applySuggestedChanges(
+  account: Account,
+  suggestionIds: string[],
+  commitHeadline: string,
+  commitBody?: string,
+): Promise<void> {
+  const client = getGraphQLClient(account);
+  await client.request(APPLY_SUGGESTED_CHANGES, {
+    suggestionIds,
+    commitHeadline,
+    commitBody: commitBody || undefined,
   });
 }
