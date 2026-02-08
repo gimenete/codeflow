@@ -97,6 +97,7 @@ interface TimelineEventItemProps {
   onRemoveSuggestionFromBatch?: (suggestionId: string) => void;
   isSuggestionInBatch?: (suggestionId: string) => boolean;
   onCommitClick?: (sha: string) => void;
+  isPullRequest?: boolean;
   accountId?: string;
   owner?: string;
   repo?: string;
@@ -112,6 +113,7 @@ export function TimelineEventItem({
   onRemoveSuggestionFromBatch,
   isSuggestionInBatch,
   onCommitClick,
+  isPullRequest,
   accountId,
   owner,
   repo,
@@ -199,6 +201,7 @@ export function TimelineEventItem({
           actor={event.actor as Actor}
           createdAt={event.createdAt}
           stateReason={event.stateReason}
+          isPullRequest={isPullRequest}
           accountId={accountId}
         />
       );

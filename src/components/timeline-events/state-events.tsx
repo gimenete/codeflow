@@ -3,6 +3,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserLogin } from "@/components/user-info";
 import {
   GitMergeIcon,
+  GitPullRequestClosedIcon,
   IssueClosedIcon,
   IssueReopenedIcon,
   LockIcon,
@@ -17,6 +18,7 @@ interface ClosedEventProps {
   actor: Actor;
   createdAt: string;
   stateReason?: IssueStateReason | null;
+  isPullRequest?: boolean;
   accountId?: string;
 }
 
@@ -24,6 +26,7 @@ export function ClosedEvent({
   actor,
   createdAt,
   stateReason,
+  isPullRequest,
   accountId,
 }: ClosedEventProps) {
   const login = getActorLogin(actor);
@@ -36,7 +39,11 @@ export function ClosedEvent({
   return (
     <TimelineEventWrapper>
       <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-        <IssueClosedIcon size={16} className="text-purple-500" />
+        {isPullRequest ? (
+          <GitPullRequestClosedIcon size={16} className="text-red-500" />
+        ) : (
+          <IssueClosedIcon size={16} className="text-purple-500" />
+        )}
         <Avatar className="h-5 w-5">
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>

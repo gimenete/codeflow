@@ -47,7 +47,7 @@ interface GroupedLabelEvent {
   labels: Label[];
 }
 
-// eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
+ 
 type ProcessedTimelineEvent = TimelineNode | GroupedLabelEvent;
 
 // Helper to get actor from different event types
@@ -299,6 +299,7 @@ export function Timeline({
           <div key={index}>
             <ProcessedEventItem
               event={event}
+              isPullRequest={"merged" in data}
               onToggleReaction={onToggleReaction}
               onEditComment={onEditComment}
               onEditReviewComment={onEditReviewComment}
@@ -465,6 +466,7 @@ function EditableDescription({
 // Component that handles both regular timeline events and grouped labels
 function ProcessedEventItem({
   event,
+  isPullRequest,
   onToggleReaction,
   onEditComment,
   onEditReviewComment,
@@ -478,6 +480,7 @@ function ProcessedEventItem({
   repo,
 }: {
   event: ProcessedTimelineEvent;
+  isPullRequest?: boolean;
   onToggleReaction?: (
     subjectId: string,
     content: ReactionContent,
@@ -513,6 +516,7 @@ function ProcessedEventItem({
   return (
     <TimelineEventItem
       event={event}
+      isPullRequest={isPullRequest}
       onToggleReaction={onToggleReaction}
       onEditComment={onEditComment}
       onEditReviewComment={onEditReviewComment}
