@@ -22,6 +22,7 @@ export const GET_PR_COMMITS = gql`
               message
               author {
                 name
+                email
                 avatarUrl
                 user {
                   login

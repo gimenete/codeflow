@@ -413,14 +413,6 @@ export const GET_PR_TIMELINE = gql`
                   diffHunk
                   path
                   outdated
-                  suggestedChanges(first: 10) {
-                    nodes {
-                      id
-                      suggestion
-                      isApplied
-                      isOutdated
-                    }
-                  }
                   reactionGroups {
                     content
                     reactors(first: 11) {

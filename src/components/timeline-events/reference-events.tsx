@@ -8,6 +8,7 @@ import {
   GitCommitIcon,
   IssueOpenedIcon,
   GitPullRequestIcon,
+  PencilIcon,
 } from "@primer/octicons-react";
 import { TimelineEventWrapper } from "./timeline-event-wrapper";
 import { getActorLogin, getActorAvatarUrl, type Actor } from "./types";
@@ -63,7 +64,9 @@ export function CrossReferencedEvent({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <UserLogin login={login} accountId={accountId}><span>{login}</span></UserLogin>
+        <UserLogin login={login} accountId={accountId}>
+          <span>{login}</span>
+        </UserLogin>
         <span>mentioned this in</span>
         {isPR ? (
           <GitPullRequestIcon
@@ -117,13 +120,18 @@ export function ReferencedEvent({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <UserLogin login={login} accountId={accountId}><span>{login}</span></UserLogin>
+        <UserLogin login={login} accountId={accountId}>
+          <span>{login}</span>
+        </UserLogin>
         <span>referenced this</span>
         {commit && (
           <>
             <span>in commit</span>
             <CommitHash sha={commit.oid} />
-            <EmojiText className="truncate font-mono" text={commit.message.split("\n")[0]} />
+            <EmojiText
+              className="truncate font-mono"
+              text={commit.message.split("\n")[0]}
+            />
           </>
         )}
         {isCrossRepository && <span>(from another repository)</span>}
@@ -157,11 +165,14 @@ export function RenamedTitleEvent({
   return (
     <TimelineEventWrapper>
       <div className="flex items-center gap-2 text-sm text-muted-foreground py-2 flex-wrap">
+        <PencilIcon size={16} />
         <Avatar className="h-5 w-5">
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <UserLogin login={login} accountId={accountId}><span>{login}</span></UserLogin>
+        <UserLogin login={login} accountId={accountId}>
+          <span>{login}</span>
+        </UserLogin>
         <span>changed the title</span>
         <EmojiText className="line-through" text={previousTitle} />
         <EmojiText className="font-medium" text={currentTitle} />

@@ -63,7 +63,6 @@ function extractReviewComments(event: TimelineNode): ReviewComment[] {
   return comments.nodes
     .filter((n): n is Record<string, unknown> => n != null)
     .map((n) => {
-      const sc = n.suggestedChanges as { nodes?: SuggestionInfo[] } | undefined;
       return {
         id: n.id as string,
         author: (n.author ?? null) as Actor,
@@ -75,7 +74,7 @@ function extractReviewComments(event: TimelineNode): ReviewComment[] {
         path: n.path as string,
         outdated: n.outdated as boolean,
         reactionGroups: (n.reactionGroups as ReactionGroup[] | null) ?? null,
-        suggestedChanges: sc?.nodes ?? undefined,
+        suggestedChanges: undefined,
       };
     });
 }

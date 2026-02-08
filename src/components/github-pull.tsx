@@ -500,6 +500,7 @@ function ConversationTab({
         owner={owner}
         repo={repo}
         number={number}
+        title={data.title}
         state={data.state}
         merged={data.merged}
         isDraft={data.isDraft}

@@ -25,6 +25,8 @@ export interface Label {
 export interface Author {
   login: string;
   avatarUrl: string;
+  name?: string;
+  email?: string;
 }
 
 export type MergeMethod = "merge" | "squash" | "rebase";

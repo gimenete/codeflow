@@ -845,6 +845,8 @@ export async function fetchPRCommits(
     author: {
       login: n.commit.author?.user?.login ?? n.commit.author?.name ?? "unknown",
       avatarUrl: n.commit.author?.avatarUrl ?? "",
+      name: n.commit.author?.name ?? undefined,
+      email: n.commit.author?.email ?? undefined,
     },
     date: n.commit.committedDate,
   }));
@@ -1064,6 +1066,8 @@ export async function mergePullRequest(
   repo: string,
   pullNumber: number,
   mergeMethod: MergeMethod,
+  commitTitle?: string,
+  commitBody?: string,
 ): Promise<void> {
   const octokit = getOctokit(account);
   await octokit.pulls.merge({
@@ -1071,6 +1075,8 @@ export async function mergePullRequest(
     repo,
     pull_number: pullNumber,
     merge_method: mergeMethod,
+    commit_title: commitTitle,
+    commit_message: commitBody,
   });
 }
 
@@ -2154,9 +2160,21 @@ export function useTimelineMutations(
       invalidate();
     };
 
-    const mergePull = async (mergeMethod: MergeMethod) => {
+    const mergePull = async (
+      mergeMethod: MergeMethod,
+      commitTitle?: string,
+      commitBody?: string,
+    ) => {
       if (!account) throw new Error("Account not found");
-      await mergePullRequest(account, owner, repo, number, mergeMethod);
+      await mergePullRequest(
+        account,
+        owner,
+        repo,
+        number,
+        mergeMethod,
+        commitTitle,
+        commitBody,
+      );
       invalidate();
       void queryClient.invalidateQueries({
         queryKey: ["pr-merge-status", accountId, owner, repo, number],
@@ -2650,11 +2668,7 @@ export function useMarkAsReadOnMount(
 ) {
   const account = getAccount(accountId);
   const queryClient = useQueryClient();
-  const { data: notifications } = useRepoNotifications(
-    accountId,
-    owner,
-    repo,
-  );
+  const { data: notifications } = useRepoNotifications(accountId, owner, repo);
 
   const notification = notifications?.get(number);
 

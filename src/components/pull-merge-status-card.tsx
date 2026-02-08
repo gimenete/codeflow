@@ -1,4 +1,27 @@
-import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Textarea } from "@/components/ui/textarea";
+import { openInBrowser } from "@/lib/actions";
+import { getAccount } from "@/lib/auth";
+import { usePRCommits, usePullMergeStatus } from "@/lib/github";
+import type {
+  MergeMethod,
+  NormalizedCheck,
+  PullMergeStatus,
+} from "@/lib/github-types";
+import { cn } from "@/lib/utils";
 import {
   AlertCircle,
   Check,
@@ -12,33 +35,14 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { Label } from "@/components/ui/label";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { openInBrowser } from "@/lib/actions";
-import { usePullMergeStatus } from "@/lib/github";
-import type {
-  MergeMethod,
-  NormalizedCheck,
-  PullMergeStatus,
-} from "@/lib/github-types";
-import { cn } from "@/lib/utils";
+import { useMemo, useState } from "react";
 
 interface PullMergeStatusCardProps {
   accountId: string;
   owner: string;
   repo: string;
   number: number;
+  title: string;
   state: "open" | "closed";
   merged: boolean;
   isDraft: boolean;
@@ -46,7 +50,11 @@ interface PullMergeStatusCardProps {
   headRef: string;
   headRefExists: boolean;
   isCrossRepository: boolean;
-  onMerge: (mergeMethod: MergeMethod) => Promise<void>;
+  onMerge: (
+    mergeMethod: MergeMethod,
+    commitTitle?: string,
+    commitBody?: string,
+  ) => Promise<void>;
   onDeleteBranch: () => Promise<void>;
 }
 
@@ -55,6 +63,7 @@ export function PullMergeStatusCard({
   owner,
   repo,
   number,
+  title,
   state,
   merged,
   isDraft,
@@ -91,6 +100,11 @@ export function PullMergeStatusCard({
         />
       )}
       <MergeRow
+        accountId={accountId}
+        owner={owner}
+        repo={repo}
+        number={number}
+        title={title}
         mergeStatus={mergeStatus}
         viewerCanUpdate={viewerCanUpdate}
         isDraft={isDraft}
@@ -318,16 +332,79 @@ const MERGE_BUTTON_LABELS: Record<MergeMethod, string> = {
   rebase: "Rebase and merge",
 };
 
+interface CommitInfo {
+  message: string;
+  author: { login: string; name?: string; email?: string };
+}
+
+function buildSquashDefaults(
+  title: string,
+  number: number,
+  commits: CommitInfo[],
+  viewerLogin: string,
+): { title: string; body: string } {
+  const commitTitle = `${title} (#${number})`;
+
+  const bodyLines: string[] = [];
+  const coAuthors = new Set<string>();
+
+  for (const commit of commits) {
+    // First line of the commit message is the summary
+    const lines = commit.message.split("\n");
+    bodyLines.push(`+ ${lines[0]}`);
+
+    // Extract Co-authored-by trailers
+    for (const line of lines) {
+      const match = line.match(/^Co-authored-by:\s*(.+)/i);
+      if (match) {
+        coAuthors.add(match[1].trim());
+      }
+    }
+
+    // Derive co-author from commit author metadata (skip viewer's own commits)
+    if (
+      commit.author.name &&
+      commit.author.email &&
+      commit.author.login !== viewerLogin
+    ) {
+      coAuthors.add(`${commit.author.name} <${commit.author.email}>`);
+    }
+  }
+
+  let body = bodyLines.join("\n");
+  if (coAuthors.size > 0) {
+    body +=
+      "\n\n---\n\n" +
+      [...coAuthors].map((a) => `Co-authored-by: ${a}`).join("\n");
+  }
+
+  return { title: commitTitle, body };
+}
+
 function MergeRow({
+  accountId,
+  owner,
+  repo,
+  number,
+  title,
   mergeStatus,
   viewerCanUpdate,
   isDraft,
   onMerge,
 }: {
+  accountId: string;
+  owner: string;
+  repo: string;
+  number: number;
+  title: string;
   mergeStatus: PullMergeStatus;
   viewerCanUpdate: boolean;
   isDraft: boolean;
-  onMerge: (mergeMethod: MergeMethod) => Promise<void>;
+  onMerge: (
+    mergeMethod: MergeMethod,
+    commitTitle?: string,
+    commitBody?: string,
+  ) => Promise<void>;
 }) {
   const [selectedMethod, setSelectedMethod] = useState<MergeMethod>(
     mergeStatus.defaultMergeMethod,
@@ -335,6 +412,22 @@ function MergeRow({
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showSquashForm, setShowSquashForm] = useState(false);
+  const [squashTitle, setSquashTitle] = useState("");
+  const [squashBody, setSquashBody] = useState("");
+
+  const { data: commitsData } = usePRCommits(accountId, owner, repo, number);
+
+  const commits = useMemo(
+    () =>
+      commitsData?.pages.flatMap((page) =>
+        page.items.map((c) => ({
+          message: c.message,
+          author: c.author,
+        })),
+      ) ?? [],
+    [commitsData],
+  );
 
   const canMerge = viewerCanUpdate || mergeStatus.viewerCanMergeAsAdmin;
   const { message, isError } = getMergeabilityMessage(
@@ -347,11 +440,32 @@ function MergeRow({
     !mergeStatus.viewerCanMergeAsAdmin;
   const mergeDisabled = isConflicting || isBlocked || isDraft || isMerging;
 
-  const handleMerge = async () => {
+  const handleMergeClick = () => {
+    if (selectedMethod === "squash") {
+      const account = getAccount(accountId);
+      const defaults = buildSquashDefaults(
+        title,
+        number,
+        commits,
+        account?.login ?? "",
+      );
+      setSquashTitle(defaults.title);
+      setSquashBody(defaults.body);
+      setShowSquashForm(true);
+      return;
+    }
+    void doMerge(selectedMethod);
+  };
+
+  const doMerge = async (
+    method: MergeMethod,
+    commitTitle?: string,
+    commitBody?: string,
+  ) => {
     setIsMerging(true);
     setError(null);
     try {
-      await onMerge(selectedMethod);
+      await onMerge(method, commitTitle, commitBody);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to merge pull request");
     } finally {
@@ -359,10 +473,64 @@ function MergeRow({
     }
   };
 
+  const handleSquashConfirm = () => {
+    void doMerge("squash", squashTitle, squashBody);
+  };
+
   const showAdminNote =
     mergeStatus.viewerCanMergeAsAdmin &&
     (mergeStatus.mergeStateStatus === "BLOCKED" ||
       mergeStatus.mergeStateStatus === "UNSTABLE");
+
+  if (showSquashForm) {
+    return (
+      <div className="p-3 space-y-3">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">Squash and merge</span>
+        </div>
+        <div className="space-y-2">
+          <Input
+            value={squashTitle}
+            onChange={(e) => setSquashTitle(e.target.value)}
+            placeholder="Commit message"
+          />
+          <Textarea
+            value={squashBody}
+            onChange={(e) => setSquashBody(e.target.value)}
+            placeholder="Extended description"
+            rows={6}
+            className="font-mono text-xs"
+          />
+        </div>
+        <div className="flex items-center gap-2 justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowSquashForm(false)}
+            disabled={isMerging}
+          >
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleSquashConfirm}
+            disabled={isMerging || !squashTitle.trim()}
+          >
+            {isMerging ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-1" />
+            ) : null}
+            Confirm squash and merge
+          </Button>
+        </div>
+        {error && (
+          <div className="flex items-center gap-2 text-sm text-destructive">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="p-3 space-y-2">
@@ -381,7 +549,7 @@ function MergeRow({
               <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
                 <div className="flex items-center shrink-0">
                   <Button
-                    onClick={handleMerge}
+                    onClick={handleMergeClick}
                     disabled={mergeDisabled}
                     className="rounded-r-none"
                     size="sm"
@@ -425,7 +593,7 @@ function MergeRow({
               </Popover>
             ) : (
               <Button
-                onClick={handleMerge}
+                onClick={handleMergeClick}
                 disabled={mergeDisabled}
                 size="sm"
                 className="shrink-0"
