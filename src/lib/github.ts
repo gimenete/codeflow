@@ -1779,6 +1779,7 @@ export interface CreatePullRequestParams {
   head: string; // For forks: "username:branch", for same repo: "branch"
   base: string;
   draft?: boolean;
+  maintainerCanModify?: boolean;
 }
 
 export interface CreatedPullRequest {
@@ -1801,6 +1802,7 @@ export async function createPullRequest(
     head: params.head,
     base: params.base,
     draft: params.draft,
+    maintainer_can_modify: params.maintainerCanModify,
   });
 
   return {

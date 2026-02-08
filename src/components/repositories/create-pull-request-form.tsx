@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GitHubCommentTextarea } from "@/components/github-comment-textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Popover,
   PopoverContent,
@@ -96,6 +97,7 @@ export function CreatePullRequestForm({
   const [targetRepo, setTargetRepo] = useState<TargetRepo>("current");
   const [targetBranch, setTargetBranch] = useState<string>("");
   const [createMode, setCreateMode] = useState<CreateMode>("ready");
+  const [maintainerCanModify, setMaintainerCanModify] = useState(true);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -156,6 +158,8 @@ export function CreatePullRequestForm({
       // For fork PRs to parent, owner is the fork owner.
       const head = `${owner}:${branch.branch}`;
 
+      const isForkPr = repoInfo?.isFork && targetRepo === "parent";
+
       const result = await createPullRequest(account, {
         owner: targetOwner,
         repo: targetRepoName,
@@ -164,6 +168,7 @@ export function CreatePullRequestForm({
         head,
         base: targetBranch,
         draft: createMode === "draft",
+        ...(isForkPr ? { maintainerCanModify } : {}),
       });
 
       onPullRequestCreated(result.number, targetOwner, targetRepoName);
@@ -304,7 +309,18 @@ export function CreatePullRequestForm({
           )}
 
           {/* Submit button */}
-          <div className="flex justify-end shrink-0">
+          <div className="flex items-center justify-end gap-4 shrink-0">
+            {repoInfo?.isFork && targetRepo === "parent" && (
+              <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+                <Checkbox
+                  checked={maintainerCanModify}
+                  onCheckedChange={(checked) =>
+                    setMaintainerCanModify(checked === true)
+                  }
+                />
+                Allow edits from maintainers
+              </label>
+            )}
             <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
               <div className="flex items-center">
                 <Button
