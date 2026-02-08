@@ -122,7 +122,15 @@ export function ReviewPopover({
           </div>
         )}
 
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setOpen(false)}
+            disabled={isSubmitting}
+            size="sm"
+          >
+            Cancel
+          </Button>
           <Button
             onClick={handleSubmit}
             disabled={!canSubmit || isSubmitting}
