@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { AlertCircle, PencilIcon, LoaderCircleIcon } from "lucide-react";
 import { HtmlRenderer, type SuggestionInfo } from "@/components/html-renderer";
 import { GitHubCommentTextarea } from "@/components/github-comment-textarea";
@@ -185,9 +185,11 @@ function ReviewCommentItem({
     comment.viewerCanUpdate && onEdit && accountId && owner && repo;
 
   // Clear optimistic state when server HTML updates
-  useEffect(() => {
+  const [prevBodyHTML, setPrevBodyHTML] = useState(comment.bodyHTML);
+  if (comment.bodyHTML !== prevBodyHTML) {
+    setPrevBodyHTML(comment.bodyHTML);
     setOptimisticHtml(null);
-  }, [comment.bodyHTML]);
+  }
 
   const handleCheckboxToggle = useCallback(
     async (index: number, checked: boolean) => {

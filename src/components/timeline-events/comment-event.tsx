@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { AlertCircle, PencilIcon, LoaderCircleIcon } from "lucide-react";
 import { HtmlRenderer } from "@/components/html-renderer";
 import { GitHubCommentTextarea } from "@/components/github-comment-textarea";
@@ -56,9 +56,11 @@ export function CommentEvent({
   const canEdit = viewerCanUpdate && onEdit && accountId && owner && repo;
 
   // Clear optimistic state when server HTML updates
-  useEffect(() => {
+  const [prevBodyHTML, setPrevBodyHTML] = useState(bodyHTML);
+  if (bodyHTML !== prevBodyHTML) {
+    setPrevBodyHTML(bodyHTML);
     setOptimisticHtml(null);
-  }, [bodyHTML]);
+  }
 
   const handleCheckboxToggle = useCallback(
     async (index: number, checked: boolean) => {
@@ -116,7 +118,9 @@ export function CommentEvent({
           <AvatarImage src={avatarUrl} />
           <AvatarFallback>{login.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <UserLogin login={login} accountId={accountId}><span className="font-medium">{login}</span></UserLogin>
+        <UserLogin login={login} accountId={accountId}>
+          <span className="font-medium">{login}</span>
+        </UserLogin>
         <span className="text-sm text-muted-foreground">
           commented <RelativeTime date={createdAt} />
         </span>

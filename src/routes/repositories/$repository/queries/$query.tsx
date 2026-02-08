@@ -57,10 +57,7 @@ type QuerySearchFilters = z.infer<typeof searchSchema>;
 
 function hasAdditionalUrlFilters(urlFilters: QuerySearchFilters): boolean {
   return Object.values(urlFilters).some(
-    (v) =>
-      v !== undefined &&
-      v !== "" &&
-      !(Array.isArray(v) && v.length === 0),
+    (v) => v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0),
   );
 }
 
@@ -130,8 +127,7 @@ function SavedQueryResults() {
       base.milestone = urlFilters.milestone || undefined;
     if (urlFilters.label !== undefined)
       base.label = urlFilters.label.length > 0 ? urlFilters.label : undefined;
-    if (urlFilters.q !== undefined)
-      base.rawQuery = urlFilters.q || undefined;
+    if (urlFilters.q !== undefined) base.rawQuery = urlFilters.q || undefined;
     return base;
   }, [savedQuery?.filters, urlFilters, owner, repo]);
 
@@ -318,9 +314,11 @@ function SavedQueryResults() {
   );
 
   // Keep local input in sync when URL changes externally
-  useEffect(() => {
+  const [prevUrlQ, setPrevUrlQ] = useState(urlFilters.q);
+  if (urlFilters.q !== prevUrlQ) {
+    setPrevUrlQ(urlFilters.q);
     setRawQueryInput(urlFilters.q ?? "");
-  }, [urlFilters.q]);
+  }
 
   const updateLabels = useCallback(
     (labels: string[]) => {

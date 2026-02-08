@@ -113,21 +113,25 @@ export function AddGroupDialog({
   }, [inputValue]);
 
   // Reset state when dialog closes
-  useEffect(() => {
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (!open) {
       setSelectedRepo(undefined);
       setInputValue("");
       setDebouncedQuery("");
     }
-  }, [open]);
+  }
 
   // Reset input when popover closes
-  useEffect(() => {
+  const [prevPopoverOpen, setPrevPopoverOpen] = useState(false);
+  if (popoverOpen !== prevPopoverOpen) {
+    setPrevPopoverOpen(popoverOpen);
     if (!popoverOpen) {
       setInputValue("");
       setDebouncedQuery("");
     }
-  }, [popoverOpen]);
+  }
 
   const handleSelect = useCallback((repo: GitHubRepo) => {
     setSelectedRepo(repo.fullName);

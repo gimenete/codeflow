@@ -47,6 +47,7 @@ interface GroupedLabelEvent {
   labels: Label[];
 }
 
+// eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
 type ProcessedTimelineEvent = TimelineNode | GroupedLabelEvent;
 
 // Helper to get actor from different event types
@@ -729,9 +730,11 @@ export function FilesList({ files }: FilesListProps) {
   );
 
   // Update expanded paths when files change (e.g. switching commits)
-  useEffect(() => {
+  const [prevFileTree, setPrevFileTree] = useState(fileTree);
+  if (fileTree !== prevFileTree) {
+    setPrevFileTree(fileTree);
     setExpandedPaths(collectDirectoryPaths(fileTree));
-  }, [fileTree]);
+  }
 
   const handleToggle = useCallback((path: string) => {
     setExpandedPaths((prev) => {

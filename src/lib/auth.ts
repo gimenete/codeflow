@@ -103,11 +103,14 @@ export function useRemoveAccount() {
 export function useAddAccountDialog(initialOpen = false) {
   const [isOpen, setOpen] = useState(initialOpen);
 
-  useEffect(() => {
+  // Open dialog when initialOpen transitions to true
+  const [prevInitialOpen, setPrevInitialOpen] = useState(initialOpen);
+  if (initialOpen !== prevInitialOpen) {
+    setPrevInitialOpen(initialOpen);
     if (initialOpen) {
       setOpen(true);
     }
-  }, [initialOpen]);
+  }
 
   return { isOpen, setOpen };
 }

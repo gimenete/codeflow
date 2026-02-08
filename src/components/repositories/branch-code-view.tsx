@@ -64,7 +64,6 @@ export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
   const [loadingFile, setLoadingFile] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchMatch[]>([]);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const [contextMenuDialogOpen, setContextMenuDialogOpen] = useState(false);
   const theme = useDiffTheme();
@@ -123,6 +122,32 @@ export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
     [relativeFilePath, lineSelection, appendToPrompt, navigateToAgentTab],
   );
 
+  // Compute matches when query or content changes
+  const searchResults = useMemo(() => {
+    if (!searchQuery || !fileContent) return [];
+
+    const matches: SearchMatch[] = [];
+    const lines = fileContent.split("\n");
+    const queryLower = searchQuery.toLowerCase();
+
+    lines.forEach((line, idx) => {
+      let searchStart = 0;
+      const lineLower = line.toLowerCase();
+      while (true) {
+        const pos = lineLower.indexOf(queryLower, searchStart);
+        if (pos === -1) break;
+        matches.push({
+          lineNumber: idx + 1,
+          startIndex: pos,
+          length: searchQuery.length,
+        });
+        searchStart = pos + 1;
+      }
+    });
+
+    return matches;
+  }, [searchQuery, fileContent]);
+
   // Scroll to current match when it changes
   useEffect(() => {
     if (currentMatchIndex < 0 || !searchResults[currentMatchIndex]) return;
@@ -175,7 +200,6 @@ export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
       setFileContent(null);
       setFileError(null);
       setSearchQuery("");
-      setSearchResults([]);
       setCurrentMatchIndex(0);
       lineSelection.clearSelection();
 
@@ -198,37 +222,6 @@ export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
     },
     [lineSelection],
   );
-
-  // Compute matches when query or content changes
-  useEffect(() => {
-    if (!searchQuery || !fileContent) {
-      setSearchResults([]);
-      setCurrentMatchIndex(0);
-      return;
-    }
-
-    const matches: SearchMatch[] = [];
-    const lines = fileContent.split("\n");
-    const queryLower = searchQuery.toLowerCase();
-
-    lines.forEach((line, idx) => {
-      let searchStart = 0;
-      const lineLower = line.toLowerCase();
-      while (true) {
-        const pos = lineLower.indexOf(queryLower, searchStart);
-        if (pos === -1) break;
-        matches.push({
-          lineNumber: idx + 1,
-          startIndex: pos,
-          length: searchQuery.length,
-        });
-        searchStart = pos + 1;
-      }
-    });
-
-    setSearchResults(matches);
-    setCurrentMatchIndex(matches.length > 0 ? 0 : -1);
-  }, [searchQuery, fileContent]);
 
   const goToNextMatch = useCallback(() => {
     if (searchResults.length === 0) return;
@@ -339,11 +332,15 @@ export function BranchCodeView({ repositoryPath }: BranchCodeViewProps) {
                       type="text"
                       placeholder="Search in file..."
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setCurrentMatchIndex(0);
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === "Escape" && searchQuery) {
                           e.preventDefault();
                           setSearchQuery("");
+                          setCurrentMatchIndex(0);
                         } else if (e.key === "Enter") {
                           e.preventDefault();
                           if (e.shiftKey) {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { AlertCircle, Check } from "lucide-react";
 import {
   Popover,
@@ -42,12 +42,6 @@ export function MilestonePicker({
 
   const initialNumberRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    if (!open) {
-      setPendingNumber(currentMilestone?.number ?? null);
-    }
-  }, [currentMilestone, open]);
-
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
       const num = currentMilestone?.number ?? null;
@@ -75,11 +69,14 @@ export function MilestonePicker({
     }
   };
 
-  const displayMilestone = buildDisplayMilestone(
-    pendingNumber,
-    currentMilestone,
-    repoMilestones ?? [],
-  );
+  // When open, show pending selection; when closed, show current server state
+  const displayMilestone = open
+    ? buildDisplayMilestone(
+        pendingNumber,
+        currentMilestone,
+        repoMilestones ?? [],
+      )
+    : currentMilestone;
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>

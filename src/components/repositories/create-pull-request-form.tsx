@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import {
   AlertCircle,
   ChevronDown,
@@ -119,29 +119,15 @@ export function CreatePullRequestForm({
   const { data: remoteBranches, isLoading: isBranchesLoading } =
     useRemoteBranches(accountId, targetOwner, targetRepoName);
 
-  // Set default target branch when repo info or branches load
-  useEffect(() => {
-    if (repoInfo && !targetBranch) {
-      // Default to parent's default branch for forks, otherwise current repo's default
-      if (repoInfo.isFork && repoInfo.parent) {
-        setTargetRepo("parent");
-        setTargetBranch(repoInfo.parent.defaultBranch);
-      } else {
-        setTargetBranch(repoInfo.defaultBranch);
-      }
+  // Set default target branch when repo info loads
+  if (repoInfo && !targetBranch) {
+    if (repoInfo.isFork && repoInfo.parent) {
+      setTargetRepo("parent");
+      setTargetBranch(repoInfo.parent.defaultBranch);
+    } else {
+      setTargetBranch(repoInfo.defaultBranch);
     }
-  }, [repoInfo, targetBranch]);
-
-  // Update target branch when target repo changes
-  useEffect(() => {
-    if (repoInfo) {
-      if (targetRepo === "parent" && repoInfo.parent) {
-        setTargetBranch(repoInfo.parent.defaultBranch);
-      } else {
-        setTargetBranch(repoInfo.defaultBranch);
-      }
-    }
-  }, [targetRepo, repoInfo]);
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -227,7 +213,17 @@ export function CreatePullRequestForm({
               <Label htmlFor="target-repo">Target Repository</Label>
               <Select
                 value={targetRepo}
-                onValueChange={(value: TargetRepo) => setTargetRepo(value)}
+                onValueChange={(value: TargetRepo) => {
+                  setTargetRepo(value);
+                  // Update target branch to match the new target repo's default
+                  if (repoInfo) {
+                    if (value === "parent" && repoInfo.parent) {
+                      setTargetBranch(repoInfo.parent.defaultBranch);
+                    } else {
+                      setTargetBranch(repoInfo.defaultBranch);
+                    }
+                  }
+                }}
               >
                 <SelectTrigger id="target-repo">
                   <SelectValue />

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -33,12 +33,16 @@ export function EditQueryDialog({
   const [name, setName] = useState(query.name);
   const [icon, setIcon] = useState(query.icon);
 
-  useEffect(() => {
-    if (open) {
-      setName(query.name);
-      setIcon(query.icon);
-    }
-  }, [open, query.name, query.icon]);
+  // Reset form state when dialog opens
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open && !prevOpen) {
+    setPrevOpen(true);
+    setName(query.name);
+    setIcon(query.icon);
+  }
+  if (!open && prevOpen) {
+    setPrevOpen(false);
+  }
 
   const handleSave = () => {
     if (!name.trim()) return;

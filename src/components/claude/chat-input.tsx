@@ -149,6 +149,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         setShowCommands(false);
         setCommandFilter("");
       }
+      setSelectedCommandIndex(0);
     }, [value, isStreaming]);
 
     // Detect @ mentions
@@ -168,17 +169,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
         setFileSearchText("");
         setAtPosition(null);
       }
-    }, [value, cursorPosition, isStreaming]);
-
-    // Reset command index when filter changes
-    useEffect(() => {
-      setSelectedCommandIndex(0);
-    }, [commandFilter]);
-
-    // Reset file index when search text changes
-    useEffect(() => {
       setSelectedFileIndex(0);
-    }, [fileSearchText]);
+    }, [value, cursorPosition, isStreaming]);
 
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
