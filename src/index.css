@@ -172,7 +172,7 @@ body {
   @apply prose prose-sm dark:prose-invert max-w-none;
   @apply prose-pre:bg-muted prose-pre:rounded-md;
   @apply prose-code:bg-muted prose-code:px-1 prose-code:rounded;
-  @apply prose-a:text-primary prose-a:no-underline hover:prose-a:underline;
+  @apply prose-a:text-primary prose-a:no-underline;
   @apply prose-img:rounded-md prose-img:max-w-full;
   @apply prose-blockquote:border-l-primary;
 
@@ -212,14 +212,35 @@ body {
     @apply border border-border px-3 py-2;
   }
 
+  /* Links: underline only when hovering the link itself */
+  a:hover {
+    text-decoration: underline;
+  }
+
   /* Task list checkboxes */
   [data-slot="control"] {
     @apply mr-2;
   }
 
-  /* Collapsible trigger */
-  [data-slot="trigger"] {
-    @apply cursor-pointer;
+  /* Details / Collapsible */
+  [data-slot="collapsible"] {
+    @apply my-2;
+  }
+
+  [data-slot="collapsible-trigger"] {
+    @apply cursor-pointer select-none flex items-center gap-1.5 py-2 text-sm font-medium w-full;
+  }
+
+  [data-slot="collapsible-trigger"]::before {
+    content: "▶";
+  }
+
+  [data-slot="collapsible-trigger"][data-state="open"]::before {
+    content: "▼";
+  }
+
+  [data-slot="collapsible-content"] {
+    @apply px-3 pb-3;
   }
 }
 
