@@ -159,14 +159,12 @@ export function GitHubCommentTextarea({
 
   // Reset dismissed state when trigger changes
   const triggerKey = trigger ? `${trigger.type}:${trigger.start}` : null;
-  const prevTriggerKeyRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (triggerKey !== prevTriggerKeyRef.current) {
-      setDismissed(false);
-      setSelectedIndex(0);
-      prevTriggerKeyRef.current = triggerKey;
-    }
-  }, [triggerKey]);
+  const [prevTriggerKey, setPrevTriggerKey] = useState<string | null>(null);
+  if (triggerKey !== prevTriggerKey) {
+    setPrevTriggerKey(triggerKey);
+    setDismissed(false);
+    setSelectedIndex(0);
+  }
 
   // Debounce search text for API calls (@ and #)
   const triggerType = trigger?.type ?? null;
@@ -268,12 +266,10 @@ export function GitHubCommentTextarea({
     return false;
   }, [trigger, triggerSearchText, usersLoading, issuesLoading]);
 
-  // Clamp selected index
-  useEffect(() => {
-    if (itemCount > 0 && selectedIndex >= itemCount) {
-      setSelectedIndex(itemCount - 1);
-    }
-  }, [itemCount, selectedIndex]);
+  // Clamp selected index when item count changes
+  if (itemCount > 0 && selectedIndex >= itemCount) {
+    setSelectedIndex(itemCount - 1);
+  }
 
   // Compute popover position at trigger character
   const [popoverPosition, setPopoverPosition] = useState<{

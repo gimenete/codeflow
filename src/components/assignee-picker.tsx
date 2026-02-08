@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { AlertCircle, Check } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -47,12 +47,6 @@ export function AssigneePicker({
 
   const initialLoginsRef = useRef<Set<string>>(new Set());
 
-  useEffect(() => {
-    if (!open) {
-      setPendingLogins(new Set(currentAssignees.map((a) => a.login)));
-    }
-  }, [currentAssignees, open]);
-
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
       const logins = new Set(currentAssignees.map((a) => a.login));
@@ -86,11 +80,14 @@ export function AssigneePicker({
     });
   };
 
-  const displayAssignees = buildDisplayAssignees(
-    pendingLogins,
-    currentAssignees,
-    mentionableUsers ?? [],
-  );
+  // When open, show pending selections; when closed, show current server state
+  const displayAssignees = open
+    ? buildDisplayAssignees(
+        pendingLogins,
+        currentAssignees,
+        mentionableUsers ?? [],
+      )
+    : currentAssignees;
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>

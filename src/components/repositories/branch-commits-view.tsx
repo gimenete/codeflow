@@ -38,11 +38,9 @@ export function BranchCommitsView({
   } = useCommitDetail(repositoryPath, selectedSha ?? "");
 
   // Auto-select first commit when loaded
-  useEffect(() => {
-    if (commits.length > 0 && !selectedSha) {
-      setSelectedSha(commits[0].sha);
-    }
-  }, [commits, selectedSha]);
+  if (commits.length > 0 && !selectedSha) {
+    setSelectedSha(commits[0].sha);
+  }
 
   // Infinite scroll using intersection observer
   useEffect(() => {

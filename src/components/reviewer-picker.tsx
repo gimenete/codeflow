@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { AlertCircle, Check, Plus, UsersRound } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -59,32 +59,11 @@ export function ReviewerPicker({
     () => new Set(teamRequests.filter((r) => r.slug).map((r) => r.slug!)),
   );
 
-  const { data: assignableUsers } = useAssignableUsers(
-    accountId,
-    owner,
-    repo,
-  );
+  const { data: assignableUsers } = useAssignableUsers(accountId, owner, repo);
   const { data: orgTeams } = useOrgTeams(accountId, owner);
 
   const initialLoginsRef = useRef<Set<string>>(new Set());
   const initialTeamSlugsRef = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    if (!open) {
-      setPendingLogins(
-        new Set(
-          currentRequests.filter((r) => r.login != null).map((r) => r.login!),
-        ),
-      );
-      setPendingTeamSlugs(
-        new Set(
-          currentRequests
-            .filter((r) => r.login == null && r.slug != null)
-            .map((r) => r.slug!),
-        ),
-      );
-    }
-  }, [currentRequests, open]);
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
@@ -128,9 +107,7 @@ export function ReviewerPicker({
           removedTeams,
         ).catch((e: unknown) => {
           setError(
-            e instanceof Error
-              ? e.message
-              : "Failed to update review requests",
+            e instanceof Error ? e.message : "Failed to update review requests",
           );
         });
       }
@@ -167,14 +144,17 @@ export function ReviewerPicker({
     (s) => !pendingLogins.has(s.reviewer.login),
   );
 
-  const displayRequests = buildDisplayRequests(
-    pendingLogins,
-    pendingTeamSlugs,
-    teamRequests,
-    currentRequests,
-    assignableUsers ?? [],
-    orgTeams ?? [],
-  );
+  // When open, show pending selections; when closed, show current server state
+  const displayRequests = open
+    ? buildDisplayRequests(
+        pendingLogins,
+        pendingTeamSlugs,
+        teamRequests,
+        currentRequests,
+        assignableUsers ?? [],
+        orgTeams ?? [],
+      )
+    : currentRequests;
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
@@ -302,7 +282,11 @@ function buildDisplayRequests(
   // Build team results from pending team slugs
   const teamAvatarMap = new Map<string, { name: string; avatarUrl: string }>();
   for (const r of teamRequests) {
-    if (r.slug) teamAvatarMap.set(r.slug, { name: r.name ?? r.slug, avatarUrl: r.avatarUrl });
+    if (r.slug)
+      teamAvatarMap.set(r.slug, {
+        name: r.name ?? r.slug,
+        avatarUrl: r.avatarUrl,
+      });
   }
   for (const t of orgTeams) {
     teamAvatarMap.set(t.slug, { name: t.name, avatarUrl: t.avatarUrl });

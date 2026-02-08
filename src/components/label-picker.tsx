@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { AlertCircle, Check } from "lucide-react";
 import { GitHubLabel } from "@/components/github-label";
 import {
@@ -45,14 +45,6 @@ export function LabelPicker({
   // Snapshot the initial selection when opening so we can diff on close
   const initialNamesRef = useRef<Set<string>>(new Set());
 
-  // Sync pendingNames from currentLabels when the popover is closed
-  // (server data may have been refreshed)
-  useEffect(() => {
-    if (!open) {
-      setPendingNames(new Set(currentLabels.map((l) => l.name)));
-    }
-  }, [currentLabels, open]);
-
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
       // Opening: snapshot current selection
@@ -87,12 +79,10 @@ export function LabelPicker({
     });
   };
 
-  // Build display labels from pendingNames, resolving colors from repoLabels
-  const displayLabels = buildDisplayLabels(
-    pendingNames,
-    currentLabels,
-    repoLabels ?? [],
-  );
+  // When open, show pending selections; when closed, show current server state
+  const displayLabels = open
+    ? buildDisplayLabels(pendingNames, currentLabels, repoLabels ?? [])
+    : currentLabels;
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>

@@ -223,12 +223,9 @@ function BranchDetailPage() {
   );
 
   // Add current tab to visited set when it changes
-  useEffect(() => {
-    setVisitedTabs((prev) => {
-      if (prev.has(activeTab)) return prev;
-      return new Set([...prev, activeTab]);
-    });
-  }, [activeTab]);
+  if (!visitedTabs.has(activeTab)) {
+    setVisitedTabs((prev) => new Set([...prev, activeTab]));
+  }
 
   // Redirect if branch not found (after hydration)
   useEffect(() => {
@@ -523,7 +520,7 @@ function BranchDetailPage() {
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         branch={branch}
-        repositoryPath={repository.path!}
+        repositoryPath={repository.path}
         onDeleted={handleNavigateAway}
       />
       <StopTrackingDialog
