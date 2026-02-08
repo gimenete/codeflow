@@ -88,8 +88,16 @@ const gitAPI = {
     return ipcRenderer.invoke("git:stage", path, file);
   },
 
+  stageFiles: (path: string, files: string[]): Promise<OperationResult> => {
+    return ipcRenderer.invoke("git:stage-files", path, files);
+  },
+
   unstage: (path: string, file: string): Promise<OperationResult> => {
     return ipcRenderer.invoke("git:unstage", path, file);
+  },
+
+  unstageFiles: (path: string, files: string[]): Promise<OperationResult> => {
+    return ipcRenderer.invoke("git:unstage-files", path, files);
   },
 
   discard: (path: string, file: string): Promise<OperationResult> => {

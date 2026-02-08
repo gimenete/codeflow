@@ -705,9 +705,10 @@ export function BranchFilesView({
     async (e: React.MouseEvent) => {
       e.stopPropagation();
       if (!window.gitAPI) return;
-      for (const file of unstagedFiles) {
-        await window.gitAPI.stage(repositoryPath, file.path);
-      }
+      await window.gitAPI.stageFiles(
+        repositoryPath,
+        unstagedFiles.map((file) => file.path),
+      );
       await refresh();
       emitGitChanged();
     },

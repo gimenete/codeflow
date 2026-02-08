@@ -507,6 +507,24 @@ ipcMain.handle("git:stage", async (_event, repoPath: string, file: string) => {
   }
 });
 
+// Stage multiple files in a single operation
+ipcMain.handle(
+  "git:stage-files",
+  async (_event, repoPath: string, files: string[]) => {
+    try {
+      const git = getGit(repoPath);
+      await git.add(files);
+      return { success: true };
+    } catch (error) {
+      console.error("git:stage-files error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  },
+);
+
 // Unstage a file
 ipcMain.handle(
   "git:unstage",
@@ -517,6 +535,24 @@ ipcMain.handle(
       return { success: true };
     } catch (error) {
       console.error("git:unstage error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  },
+);
+
+// Unstage multiple files in a single operation
+ipcMain.handle(
+  "git:unstage-files",
+  async (_event, repoPath: string, files: string[]) => {
+    try {
+      const git = getGit(repoPath);
+      await git.reset(["HEAD", "--", ...files]);
+      return { success: true };
+    } catch (error) {
+      console.error("git:unstage-files error:", error);
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error),
