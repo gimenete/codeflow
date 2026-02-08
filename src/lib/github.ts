@@ -1047,7 +1047,20 @@ export function usePullMergeStatus(
       };
     },
     staleTime: 15000,
-    refetchInterval: 30000,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (!data) return false;
+      const inProgressStatuses: NormalizedCheck["status"][] = [
+        "pending",
+        "in_progress",
+        "queued",
+        "waiting",
+      ];
+      const hasInProgress = data.checks.some((check) =>
+        inProgressStatuses.includes(check.status),
+      );
+      return hasInProgress ? 30000 : false;
+    },
     enabled: !!account,
   });
 }
