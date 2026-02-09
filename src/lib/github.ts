@@ -1776,6 +1776,65 @@ export function useRemoteBranches(
   });
 }
 
+// Fetch pull request template from repository via REST API
+
+const PR_TEMPLATE_PATHS = [
+  ".github/PULL_REQUEST_TEMPLATE.md",
+  ".github/pull_request_template.md",
+  "PULL_REQUEST_TEMPLATE.md",
+  "pull_request_template.md",
+  "docs/PULL_REQUEST_TEMPLATE.md",
+  "docs/pull_request_template.md",
+];
+
+export async function fetchPullRequestTemplate(
+  account: Account,
+  owner: string,
+  repo: string,
+): Promise<string | null> {
+  const octokit = getOctokit(account);
+
+  for (const templatePath of PR_TEMPLATE_PATHS) {
+    try {
+      const response = await octokit.repos.getContent({
+        owner,
+        repo,
+        path: templatePath,
+      });
+
+      if (!Array.isArray(response.data) && response.data.type === "file") {
+        const content = atob(response.data.content.replace(/\n/g, ""));
+        if (content.trim()) {
+          return content;
+        }
+      }
+    } catch {
+      // File doesn't exist at this path, try next
+    }
+  }
+
+  return null;
+}
+
+export function usePullRequestTemplate(
+  accountId: string,
+  owner: string | undefined,
+  repo: string | undefined,
+) {
+  const account = getAccount(accountId);
+
+  return useQuery({
+    queryKey: ["github-pr-template", accountId, owner, repo],
+    queryFn: async () => {
+      if (!account) throw new Error("Account not found");
+      if (!owner || !repo) throw new Error("Owner and repo required");
+      return fetchPullRequestTemplate(account, owner, repo);
+    },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    enabled: !!account && !!owner && !!repo,
+  });
+}
+
 // Create pull request via REST API
 
 export interface CreatePullRequestParams {
