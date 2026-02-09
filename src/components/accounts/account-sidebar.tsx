@@ -1,3 +1,4 @@
+import { AddAccountDialog } from "@/components/add-account-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Scrollable } from "@/components/flex-layout";
 import {
@@ -9,6 +10,7 @@ import { getIconById } from "@/lib/query-icons";
 import { useSavedQueries } from "@/lib/saved-queries-store";
 import { cn } from "@/lib/utils";
 import { Link, useLocation, useParams } from "@tanstack/react-router";
+import { useState } from "react";
 import { Search } from "lucide-react";
 
 interface AccountSidebarProps {
@@ -20,6 +22,7 @@ export function AccountSidebar({ account }: AccountSidebarProps) {
   const location = useLocation();
   const repositoryId = `account:${account.id}`;
   const savedQueries = useSavedQueries(repositoryId);
+  const [addAccountOpen, setAddAccountOpen] = useState(false);
 
   return (
     <div className="w-64 border-r bg-muted/10 flex flex-col h-full">
@@ -44,6 +47,7 @@ export function AccountSidebar({ account }: AccountSidebarProps) {
               </div>
             </SwitcherTriggerButton>
           }
+          onAddAccount={() => setAddAccountOpen(true)}
         />
       </div>
 
@@ -84,6 +88,11 @@ export function AccountSidebar({ account }: AccountSidebarProps) {
           </div>
         </div>
       </Scrollable.Vertical>
+
+      <AddAccountDialog
+        open={addAccountOpen}
+        onOpenChange={setAddAccountOpen}
+      />
     </div>
   );
 }

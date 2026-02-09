@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Scrollable } from "../flex-layout";
+import { AddAccountDialog } from "@/components/add-account-dialog";
 import { AddRepositoryDialog } from "./add-repository-dialog";
 import { TrackBranchDialog } from "./track-branch-dialog";
 
@@ -102,6 +103,7 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
   const savedQueries = useSavedQueries(repository.id);
   const [trackBranchOpen, setTrackBranchOpen] = useState(false);
   const [addRepositoryOpen, setAddRepositoryOpen] = useState(false);
+  const [addAccountOpen, setAddAccountOpen] = useState(false);
 
   const remoteInfo = parseRemoteUrl(repository.remoteUrl);
   const hasRemote = repository.accountId && remoteInfo;
@@ -124,6 +126,7 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
               </div>
             </SwitcherTriggerButton>
           }
+          onAddAccount={() => setAddAccountOpen(true)}
           onAddRepository={() => setAddRepositoryOpen(true)}
         />
       </div>
@@ -271,6 +274,11 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
       <AddRepositoryDialog
         open={addRepositoryOpen}
         onOpenChange={setAddRepositoryOpen}
+      />
+
+      <AddAccountDialog
+        open={addAccountOpen}
+        onOpenChange={setAddAccountOpen}
       />
     </div>
   );

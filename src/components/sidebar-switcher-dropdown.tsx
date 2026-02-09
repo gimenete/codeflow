@@ -20,11 +20,13 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 interface SidebarSwitcherDropdownProps {
   trigger: ReactNode;
+  onAddAccount?: () => void;
   onAddRepository?: () => void;
 }
 
 export function SidebarSwitcherDropdown({
   trigger,
+  onAddAccount,
   onAddRepository,
 }: SidebarSwitcherDropdownProps) {
   const navigate = useNavigate();
@@ -36,12 +38,13 @@ export function SidebarSwitcherDropdown({
       <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56 bg-popover">
         {/* Accounts group */}
-        {accounts.length > 0 && (
+        {(accounts.length > 0 || onAddAccount) && (
           <DropdownMenuGroup>
             <DropdownMenuLabel>Accounts</DropdownMenuLabel>
             {accounts.map((a) => (
               <DropdownMenuItem
                 key={a.id}
+                className="items-start"
                 onClick={() =>
                   navigate({
                     to: "/accounts/$account",
@@ -49,7 +52,7 @@ export function SidebarSwitcherDropdown({
                   })
                 }
               >
-                <Avatar className="h-5 w-5 shrink-0">
+                <Avatar className="h-5 w-5 shrink-0 mt-0.5">
                   <AvatarImage src={a.avatarUrl} />
                   <AvatarFallback>
                     {a.login.charAt(0).toUpperCase()}
@@ -63,6 +66,12 @@ export function SidebarSwitcherDropdown({
                 </div>
               </DropdownMenuItem>
             ))}
+            {onAddAccount && (
+              <DropdownMenuItem onClick={onAddAccount}>
+                <Plus className="h-4 w-4" />
+                Add Account
+              </DropdownMenuItem>
+            )}
           </DropdownMenuGroup>
         )}
 
@@ -77,6 +86,7 @@ export function SidebarSwitcherDropdown({
                 return (
                   <DropdownMenuItem
                     key={repo.id}
+                    className="items-start"
                     onClick={() =>
                       navigate({
                         to: "/repositories/$repository",
@@ -84,7 +94,7 @@ export function SidebarSwitcherDropdown({
                       })
                     }
                   >
-                    <RepoIcon size={16} className="shrink-0" />
+                    <RepoIcon size={16} className="shrink-0 mt-1.5" />
                     <div className="min-w-0">
                       <div className="truncate">{repo.name}</div>
                       {repoOwnerRepo && (
