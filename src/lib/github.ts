@@ -1776,40 +1776,14 @@ export function useRemoteBranches(
   });
 }
 
-// Fetch pull request template from repository via GraphQL (single request)
+// Fetch pull request template from repository via GraphQL
 
 const GET_PR_TEMPLATE = gql`
   query GetPullRequestTemplate($owner: String!, $repo: String!) {
     repository(owner: $owner, name: $repo) {
-      githubUpper: object(expression: "HEAD:.github/PULL_REQUEST_TEMPLATE.md") {
-        ... on Blob {
-          text
-        }
-      }
-      githubLower: object(expression: "HEAD:.github/pull_request_template.md") {
-        ... on Blob {
-          text
-        }
-      }
-      rootUpper: object(expression: "HEAD:PULL_REQUEST_TEMPLATE.md") {
-        ... on Blob {
-          text
-        }
-      }
-      rootLower: object(expression: "HEAD:pull_request_template.md") {
-        ... on Blob {
-          text
-        }
-      }
-      docsUpper: object(expression: "HEAD:docs/PULL_REQUEST_TEMPLATE.md") {
-        ... on Blob {
-          text
-        }
-      }
-      docsLower: object(expression: "HEAD:docs/pull_request_template.md") {
-        ... on Blob {
-          text
-        }
+      pullRequestTemplates {
+        body
+        filename
       }
     }
   }
@@ -1817,19 +1791,11 @@ const GET_PR_TEMPLATE = gql`
 
 interface PrTemplateResponse {
   repository: {
-    [key: string]: { text: string } | null;
+    pullRequestTemplates:
+      | { body: string | null; filename: string | null }[]
+      | null;
   } | null;
 }
-
-// Order matters: matches the conventional priority for template locations
-const PR_TEMPLATE_ALIASES = [
-  "githubUpper",
-  "githubLower",
-  "rootUpper",
-  "rootLower",
-  "docsUpper",
-  "docsLower",
-];
 
 export async function fetchPullRequestTemplate(
   account: Account,
@@ -1843,12 +1809,13 @@ export async function fetchPullRequestTemplate(
     repo,
   });
 
-  if (!response.repository) return null;
+  const templates = response.repository?.pullRequestTemplates;
+  if (!templates?.length) return null;
 
-  for (const alias of PR_TEMPLATE_ALIASES) {
-    const blob = response.repository[alias];
-    if (blob?.text?.trim()) {
-      return blob.text;
+  // Return the first template with non-empty body
+  for (const template of templates) {
+    if (template.body?.trim()) {
+      return template.body;
     }
   }
 
