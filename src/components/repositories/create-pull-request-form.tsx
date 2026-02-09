@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   AlertCircle,
   ChevronDown,
@@ -64,6 +64,16 @@ function humanizeBranchName(branch: string): string {
 type TargetRepo = "current" | "parent";
 type CreateMode = "ready" | "draft";
 
+// GitHub pull request template file locations (checked in order)
+const PR_TEMPLATE_PATHS = [
+  ".github/PULL_REQUEST_TEMPLATE.md",
+  ".github/pull_request_template.md",
+  "PULL_REQUEST_TEMPLATE.md",
+  "pull_request_template.md",
+  "docs/PULL_REQUEST_TEMPLATE.md",
+  "docs/pull_request_template.md",
+];
+
 const CREATE_MODE_LABELS: Record<CreateMode, string> = {
   ready: "Create Pull Request",
   draft: "Create Draft Pull Request",
@@ -101,6 +111,28 @@ export function CreatePullRequestForm({
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Load PR template from repository if available
+  useEffect(() => {
+    async function loadPrTemplate() {
+      if (!window.fsAPI) return;
+
+      for (const templatePath of PR_TEMPLATE_PATHS) {
+        try {
+          const fullPath = `${repositoryPath}/${templatePath}`;
+          const content = await window.fsAPI.readFile(fullPath);
+          if (content.trim()) {
+            setDescription(content);
+            return;
+          }
+        } catch {
+          // Template file doesn't exist at this path, try next
+        }
+      }
+    }
+
+    loadPrTemplate();
+  }, [repositoryPath]);
 
   // Determine target repo owner/name based on selection
   const targetOwner = useMemo(() => {
