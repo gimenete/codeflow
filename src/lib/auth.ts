@@ -43,6 +43,10 @@ async function saveAccounts(accounts: Account[]): Promise<void> {
   notifyListeners();
 }
 
+export function getAccounts(): Account[] {
+  return accountsCache ?? [];
+}
+
 export function getAccount(id: string): Account | null {
   return accountsCache?.find((a) => a.id === id) ?? null;
 }

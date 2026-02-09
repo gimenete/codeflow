@@ -7,7 +7,15 @@ export const Route = createFileRoute("/accounts/$account")({
   beforeLoad: ({ params }) => {
     const account = getAccount(params.account);
     if (!account) {
-      throw redirect({ to: "/", search: { addAccount: false } });
+      throw redirect({ to: "/" });
+    }
+    try {
+      localStorage.setItem(
+        "codeflow:last-visited",
+        JSON.stringify({ type: "account", id: params.account }),
+      );
+    } catch {
+      // ignore
     }
     return { account };
   },

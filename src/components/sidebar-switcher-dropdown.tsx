@@ -37,79 +37,81 @@ export function SidebarSwitcherDropdown({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56 bg-popover">
-        {/* Accounts group */}
-        {(accounts.length > 0 || onAddAccount) && (
+        {/* Repositories group */}
+        {(repositories.length > 0 || (isElectron() && onAddRepository)) && (
           <DropdownMenuGroup>
-            <DropdownMenuLabel>Accounts</DropdownMenuLabel>
-            {accounts.map((a) => (
-              <DropdownMenuItem
-                key={a.id}
-                className="items-start"
-                onClick={() =>
-                  navigate({
-                    to: "/accounts/$account",
-                    params: { account: a.id },
-                  })
-                }
-              >
-                <Avatar className="h-5 w-5 shrink-0 mt-0.5">
-                  <AvatarImage src={a.avatarUrl} />
-                  <AvatarFallback>
-                    {a.login.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="min-w-0">
-                  <div className="truncate">@{a.login}</div>
-                  <div className="text-xs text-muted-foreground truncate">
-                    {a.host}
+            <DropdownMenuLabel>Repositories</DropdownMenuLabel>
+            {repositories.map((repo) => {
+              const repoOwnerRepo = getOwnerRepo(repo.remoteUrl);
+              return (
+                <DropdownMenuItem
+                  key={repo.id}
+                  className="items-start"
+                  onClick={() =>
+                    navigate({
+                      to: "/repositories/$repository",
+                      params: { repository: repo.slug },
+                    })
+                  }
+                >
+                  <RepoIcon size={16} className="shrink-0 mt-1.5" />
+                  <div className="min-w-0">
+                    <div className="truncate">{repo.name}</div>
+                    {repoOwnerRepo && (
+                      <div className="text-xs text-muted-foreground truncate">
+                        {repoOwnerRepo}
+                      </div>
+                    )}
                   </div>
-                </div>
-              </DropdownMenuItem>
-            ))}
-            {onAddAccount && (
-              <DropdownMenuItem onClick={onAddAccount}>
+                </DropdownMenuItem>
+              );
+            })}
+            {isElectron() && onAddRepository && (
+              <DropdownMenuItem onClick={onAddRepository}>
                 <Plus className="h-4 w-4" />
-                Add Account
+                Add Repository
               </DropdownMenuItem>
             )}
           </DropdownMenuGroup>
         )}
 
-        {/* Repositories group */}
-        {(repositories.length > 0 || (isElectron() && onAddRepository)) && (
+        {/* Accounts group */}
+        {(accounts.length > 0 || onAddAccount) && (
           <>
-            {accounts.length > 0 && <DropdownMenuSeparator />}
+            {(repositories.length > 0 || (isElectron() && onAddRepository)) && (
+              <DropdownMenuSeparator />
+            )}
             <DropdownMenuGroup>
-              <DropdownMenuLabel>Repositories</DropdownMenuLabel>
-              {repositories.map((repo) => {
-                const repoOwnerRepo = getOwnerRepo(repo.remoteUrl);
-                return (
-                  <DropdownMenuItem
-                    key={repo.id}
-                    className="items-start"
-                    onClick={() =>
-                      navigate({
-                        to: "/repositories/$repository",
-                        params: { repository: repo.slug },
-                      })
-                    }
-                  >
-                    <RepoIcon size={16} className="shrink-0 mt-1.5" />
-                    <div className="min-w-0">
-                      <div className="truncate">{repo.name}</div>
-                      {repoOwnerRepo && (
-                        <div className="text-xs text-muted-foreground truncate">
-                          {repoOwnerRepo}
-                        </div>
-                      )}
+              <DropdownMenuLabel>Accounts</DropdownMenuLabel>
+              {accounts.map((a) => (
+                <DropdownMenuItem
+                  key={a.id}
+                  className="items-start"
+                  onClick={() =>
+                    navigate({
+                      to: "/accounts/$account",
+                      params: { account: a.id },
+                    })
+                  }
+                >
+                  <Avatar className="h-5 w-5 shrink-0 mt-0.5">
+                    <AvatarImage src={a.avatarUrl} />
+                    <AvatarFallback>
+                      {a.login.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <div className="truncate">@{a.login}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {a.host}
                     </div>
-                  </DropdownMenuItem>
-                );
-              })}
-              {isElectron() && onAddRepository && (
-                <DropdownMenuItem onClick={onAddRepository}>
+                  </div>
+                </DropdownMenuItem>
+              ))}
+              {onAddAccount && (
+                <DropdownMenuItem onClick={onAddAccount}>
                   <Plus className="h-4 w-4" />
-                  Add Repository
+                  Add Account
                 </DropdownMenuItem>
               )}
             </DropdownMenuGroup>

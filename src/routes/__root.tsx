@@ -210,13 +210,7 @@ function RootLayoutContent() {
             isElectron() && "pl-[70px]", // Clear traffic light buttons
           )}
         >
-          <Link
-            to="/"
-            search={{ addAccount: false }}
-            className="font-semibold text-lg mr-4 app-region-no-drag"
-          >
-            Codeflow
-          </Link>
+          <span className="font-semibold text-lg mr-4">Codeflow</span>
 
           {/* Navigation buttons - Tauri only */}
           {isTauri() && (

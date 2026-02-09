@@ -12,9 +12,16 @@ export const Route = createFileRoute("/repositories/$repository")({
       .getState()
       .getRepositoryBySlug(params.repository);
     if (!repository) {
-      throw redirect({ to: "/", search: { addAccount: false } });
+      throw redirect({ to: "/" });
     }
-
+    try {
+      localStorage.setItem(
+        "codeflow:last-visited",
+        JSON.stringify({ type: "repository", id: params.repository }),
+      );
+    } catch {
+      // ignore
+    }
     return { repository };
   },
   component: RepositoryLayout,
