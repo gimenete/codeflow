@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import {
   AlertCircle,
   ChevronDown,
@@ -28,6 +28,7 @@ import { gitPush } from "@/lib/git";
 import {
   useRepositoryInfo,
   useRemoteBranches,
+  usePullRequestTemplate,
   createPullRequest,
 } from "@/lib/github";
 import type { TrackedBranch } from "@/lib/github-types";
@@ -116,6 +117,21 @@ export function CreatePullRequestForm({
     }
     return repo;
   }, [targetRepo, repoInfo, repo]);
+
+  // Load PR template from target repository
+  const { data: prTemplate } = usePullRequestTemplate(
+    accountId,
+    targetOwner,
+    targetRepoName,
+  );
+
+  const templateApplied = useRef(false);
+  useEffect(() => {
+    if (prTemplate && !templateApplied.current) {
+      templateApplied.current = true;
+      setDescription(prTemplate);
+    }
+  }, [prTemplate]);
 
   // Fetch branches from target repo
   const { data: remoteBranches, isLoading: isBranchesLoading } =

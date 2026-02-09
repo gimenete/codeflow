@@ -1776,6 +1776,71 @@ export function useRemoteBranches(
   });
 }
 
+// Fetch pull request template from repository via GraphQL
+
+const GET_PR_TEMPLATE = gql`
+  query GetPullRequestTemplate($owner: String!, $repo: String!) {
+    repository(owner: $owner, name: $repo) {
+      pullRequestTemplates {
+        body
+        filename
+      }
+    }
+  }
+`;
+
+interface PrTemplateResponse {
+  repository: {
+    pullRequestTemplates:
+      | { body: string | null; filename: string | null }[]
+      | null;
+  } | null;
+}
+
+export async function fetchPullRequestTemplate(
+  account: Account,
+  owner: string,
+  repo: string,
+): Promise<string | null> {
+  const client = getGraphQLClient(account);
+
+  const response = await client.request<PrTemplateResponse>(GET_PR_TEMPLATE, {
+    owner,
+    repo,
+  });
+
+  const templates = response.repository?.pullRequestTemplates;
+  if (!templates?.length) return null;
+
+  // Return the first template with non-empty body
+  for (const template of templates) {
+    if (template.body?.trim()) {
+      return template.body;
+    }
+  }
+
+  return null;
+}
+
+export function usePullRequestTemplate(
+  accountId: string,
+  owner: string | undefined,
+  repo: string | undefined,
+) {
+  const account = getAccount(accountId);
+
+  return useQuery({
+    queryKey: ["github-pr-template", accountId, owner, repo],
+    queryFn: async () => {
+      if (!account) throw new Error("Account not found");
+      if (!owner || !repo) throw new Error("Owner and repo required");
+      return fetchPullRequestTemplate(account, owner, repo);
+    },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    enabled: !!account && !!owner && !!repo,
+  });
+}
+
 // Create pull request via REST API
 
 export interface CreatePullRequestParams {
