@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { FolderKanban, Plus, User } from "lucide-react";
 import {
   Card,
@@ -93,26 +93,33 @@ function HomePage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {accounts.map((account) => (
-                <Card key={account.id}>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={account.avatarUrl} />
-                        <AvatarFallback>
-                          {account.login.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <CardTitle className="text-lg">
-                          @{account.login}
-                        </CardTitle>
-                        <CardDescription className="text-xs">
-                          {account.host}
-                        </CardDescription>
+                <Link
+                  key={account.id}
+                  to="/accounts/$account"
+                  params={{ account: account.id }}
+                  className="block"
+                >
+                  <Card className="hover:bg-accent/50 transition-colors">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={account.avatarUrl} />
+                          <AvatarFallback>
+                            {account.login.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <CardTitle className="text-lg">
+                            @{account.login}
+                          </CardTitle>
+                          <CardDescription className="text-xs">
+                            {account.host}
+                          </CardDescription>
+                        </div>
                       </div>
-                    </div>
-                  </CardHeader>
-                </Card>
+                    </CardHeader>
+                  </Card>
+                </Link>
               ))}
             </div>
           )}

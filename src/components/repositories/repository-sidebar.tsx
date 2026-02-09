@@ -1,29 +1,19 @@
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  SidebarSwitcherDropdown,
+  SwitcherTriggerButton,
+} from "@/components/sidebar-switcher-dropdown";
 import { useAgentStatus } from "@/lib/agent-status";
 import { useBranchesByRepositoryId } from "@/lib/branches-store";
 import { useDiffStats } from "@/lib/git";
 import type { Repository, TrackedBranch } from "@/lib/github-types";
 import { getIconById } from "@/lib/query-icons";
 import { getOwnerRepo, parseRemoteUrl } from "@/lib/remote-url";
-import { useRepositories } from "@/lib/repositories-store";
 import { useSavedQueries } from "@/lib/saved-queries-store";
 import { cn } from "@/lib/utils";
-import {
-  Link,
-  useLocation,
-  useNavigate,
-  useParams,
-} from "@tanstack/react-router";
+import { Link, useLocation, useParams } from "@tanstack/react-router";
 import {
   ChevronRight,
-  ChevronsUpDown,
   CircleDot,
   GitBranch,
   GitPullRequest,
@@ -33,7 +23,6 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Scrollable } from "../flex-layout";
-import { isElectron } from "@/lib/platform";
 import { AddRepositoryDialog } from "./add-repository-dialog";
 import { TrackBranchDialog } from "./track-branch-dialog";
 
@@ -111,23 +100,20 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
   const location = useLocation();
   const trackedBranches = useBranchesByRepositoryId(repository.id);
   const savedQueries = useSavedQueries(repository.id);
-  const repositories = useRepositories();
-  const navigate = useNavigate();
   const [trackBranchOpen, setTrackBranchOpen] = useState(false);
   const [addRepositoryOpen, setAddRepositoryOpen] = useState(false);
 
   const remoteInfo = parseRemoteUrl(repository.remoteUrl);
   const hasRemote = repository.accountId && remoteInfo;
   const ownerRepo = getOwnerRepo(repository.remoteUrl);
-  const otherRepositories = repositories.filter((r) => r.id !== repository.id);
 
   return (
     <div className="w-64 border-r bg-muted/10 flex flex-col h-full">
       {/* Repository Header */}
       <div className="p-4 border-b">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="flex items-center justify-between w-full text-left gap-2 rounded-md hover:bg-accent/50 transition-colors p-1 -m-1">
+        <SidebarSwitcherDropdown
+          trigger={
+            <SwitcherTriggerButton>
               <div className="min-w-0">
                 <h2 className="font-semibold truncate">{repository.name}</h2>
                 {ownerRepo && (
@@ -136,50 +122,10 @@ export function RepositorySidebar({ repository }: RepositorySidebarProps) {
                   </p>
                 )}
               </div>
-              <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
-            {otherRepositories.length === 0 ? (
-              <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                No other repositories
-              </div>
-            ) : (
-              otherRepositories.map((repo) => {
-                const repoOwnerRepo = getOwnerRepo(repo.remoteUrl);
-                return (
-                  <DropdownMenuItem
-                    key={repo.id}
-                    onClick={() =>
-                      navigate({
-                        to: "/repositories/$repository",
-                        params: { repository: repo.slug },
-                      })
-                    }
-                  >
-                    <div className="min-w-0">
-                      <div className="truncate">{repo.name}</div>
-                      {repoOwnerRepo && (
-                        <div className="text-xs text-muted-foreground truncate">
-                          {repoOwnerRepo}
-                        </div>
-                      )}
-                    </div>
-                  </DropdownMenuItem>
-                );
-              })
-            )}
-            {isElectron() && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setAddRepositoryOpen(true)}>
-                  <Plus className="h-4 w-4" />
-                  Add Repository
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </SwitcherTriggerButton>
+          }
+          onAddRepository={() => setAddRepositoryOpen(true)}
+        />
       </div>
 
       <Scrollable.Vertical>

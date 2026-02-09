@@ -21,6 +21,7 @@ interface SaveQueryDialogProps {
   onOpenChange: (open: boolean) => void;
   repositoryId: string;
   repositorySlug?: string;
+  accountSlug?: string;
   currentFilters: QueryFilters;
 }
 
@@ -29,6 +30,7 @@ export function SaveQueryDialog({
   onOpenChange,
   repositoryId,
   repositorySlug,
+  accountSlug,
   currentFilters,
 }: SaveQueryDialogProps) {
   const navigate = useNavigate();
@@ -64,8 +66,14 @@ export function SaveQueryDialog({
     // Close dialog
     onOpenChange(false);
 
-    // Navigate to the new query if we have the slug
-    if (repositorySlug) {
+    // Navigate to the new query
+    if (accountSlug) {
+      void navigate({
+        to: "/accounts/$account/queries/$query",
+        params: { account: accountSlug, query: newQuery.id },
+        search: {},
+      });
+    } else if (repositorySlug) {
       void navigate({
         to: "/repositories/$repository/queries/$query",
         params: { repository: repositorySlug, query: newQuery.id },

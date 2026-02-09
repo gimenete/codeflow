@@ -1,4 +1,4 @@
-import { LabelFilterCombobox } from "@/components/label-filter-combobox";
+import { Scrollable } from "@/components/flex-layout";
 import { SaveQueryDialog } from "@/components/save-query-dialog";
 import {
   SearchResultItemContent,
@@ -13,19 +13,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MilestoneCombobox } from "@/components/milestone-combobox";
-import { TeamCombobox } from "@/components/team-combobox";
 import { UserCombobox } from "@/components/user-combobox";
 import { getAccount } from "@/lib/auth";
 import {
   buildSearchQuery,
   searchIssuesAndPulls,
   searchWithCursors,
-  useRepoNotifications,
 } from "@/lib/github";
 import type { Issue, PullRequest, QueryFilters } from "@/lib/github-types";
-import { parseRemoteUrl } from "@/lib/remote-url";
-import { useRepositoriesStore } from "@/lib/repositories-store";
 import {
   isSystemQuery,
   useQueryById,
@@ -49,10 +44,6 @@ const searchSchema = z.object({
   reviewRequested: z.string().optional(),
   teamReviewRequested: z.string().optional(),
   mentioned: z.string().optional(),
-  milestone: z.string().optional(),
-  label: z
-    .union([z.string().transform((s) => [s]), z.array(z.string())])
-    .optional(),
   q: z.string().optional(),
 });
 
@@ -64,55 +55,38 @@ function hasAdditionalUrlFilters(urlFilters: QuerySearchFilters): boolean {
   );
 }
 
-export const Route = createFileRoute(
-  "/repositories/$repository/queries/$query",
-)({
+export const Route = createFileRoute("/accounts/$account/queries/$query")({
   validateSearch: (search: Record<string, unknown>): QuerySearchFilters => {
     const result = searchSchema.safeParse(search);
     return result.success ? result.data : {};
   },
   beforeLoad: ({ params }) => {
-    const repository = useRepositoriesStore
-      .getState()
-      .getRepositoryBySlug(params.repository);
-    if (!repository) {
-      throw redirect({ to: "/", search: { addAccount: false } });
-    }
-    const remoteInfo = parseRemoteUrl(repository.remoteUrl);
-    if (!repository.accountId || !remoteInfo) {
-      throw redirect({
-        to: "/repositories/$repository/branches",
-        params: { repository: params.repository },
-      });
-    }
-    const account = getAccount(repository.accountId);
+    const account = getAccount(params.account);
     if (!account) {
       throw redirect({ to: "/", search: { addAccount: false } });
     }
-    return { repository, account, remoteInfo };
+    return { account };
   },
-  component: SavedQueryResults,
+  component: AccountQueryResults,
 });
 
-function SavedQueryResults() {
-  const { repository: repositorySlug, query: queryId } = Route.useParams();
+function AccountQueryResults() {
+  const { account: accountSlug, query: queryId } = Route.useParams();
   const urlFilters = Route.useSearch();
-  const { repository, account, remoteInfo } = Route.useRouteContext();
+  const { account } = Route.useRouteContext();
   const navigate = useNavigate();
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const updateQuery = useSavedQueriesStore((state) => state.updateQuery);
 
-  const owner = remoteInfo.owner;
-  const repo = remoteInfo.repo;
+  const repositoryId = `account:${account.id}`;
 
-  // Get saved query by repository ID
-  const savedQuery = useQueryById(repository.id, queryId);
+  // Get saved query by account key
+  const savedQuery = useQueryById(repositoryId, queryId);
 
-  // Combine saved query filters with URL filters
+  // Combine saved query filters with URL filters — no repo filter for account-level
   const filters: QueryFilters = useMemo(() => {
     const base: QueryFilters = {
       ...savedQuery?.filters,
-      repo: `${owner}/${repo}`, // Always scope to this repo
     };
     // Override with URL filters
     if (urlFilters.state !== undefined) base.state = urlFilters.state;
@@ -126,13 +100,9 @@ function SavedQueryResults() {
       base.teamReviewRequested = urlFilters.teamReviewRequested || undefined;
     if (urlFilters.mentioned !== undefined)
       base.mentioned = urlFilters.mentioned || undefined;
-    if (urlFilters.milestone !== undefined)
-      base.milestone = urlFilters.milestone || undefined;
-    if (urlFilters.label !== undefined)
-      base.label = urlFilters.label.length > 0 ? urlFilters.label : undefined;
     if (urlFilters.q !== undefined) base.rawQuery = urlFilters.q || undefined;
     return base;
-  }, [savedQuery?.filters, urlFilters, owner, repo]);
+  }, [savedQuery?.filters, urlFilters]);
 
   const isPRSearch = filters.type === "pulls";
 
@@ -143,7 +113,6 @@ function SavedQueryResults() {
     ) => {
       const newFilters = { ...urlFilters };
       if (value === undefined || value === "") {
-        // If this filter exists in saved search, keep empty string to override
         if (savedQuery?.filters?.[key]) {
           newFilters[key] = "" as QuerySearchFilters[K];
         } else {
@@ -153,17 +122,14 @@ function SavedQueryResults() {
         newFilters[key] = value;
       }
       void navigate({
-        to: "/repositories/$repository/queries/$query",
-        params: { repository: repositorySlug, query: queryId },
+        to: "/accounts/$account/queries/$query",
+        params: { account: accountSlug, query: queryId },
         search: newFilters,
         replace: true,
       });
     },
-    [urlFilters, navigate, repositorySlug, queryId, savedQuery?.filters],
+    [urlFilters, navigate, accountSlug, queryId, savedQuery?.filters],
   );
-
-  // Fetch unread notifications for the repo
-  const { data: notifications } = useRepoNotifications(account.id, owner, repo);
 
   // Main search query
   const {
@@ -174,7 +140,7 @@ function SavedQueryResults() {
     isFetchingNextPage,
     fetchNextPage,
   } = useInfiniteQuery({
-    queryKey: ["repository-query-search", repository.id, queryId, filters],
+    queryKey: ["account-query-search", account.id, queryId, filters],
     queryFn: async ({ pageParam }) => {
       return searchIssuesAndPulls(account, filters, isPRSearch, pageParam);
     },
@@ -190,7 +156,7 @@ function SavedQueryResults() {
   }, [account, filters, isPRSearch]);
 
   const { data: cursorData } = useInfiniteQuery({
-    queryKey: ["repository-query-cursors", repository.id, queryId, filters],
+    queryKey: ["account-query-cursors", account.id, queryId, filters],
     queryFn: async ({ pageParam }) => {
       return searchWithCursors(account, searchQueryString, 50, pageParam);
     },
@@ -250,17 +216,7 @@ function SavedQueryResults() {
   const handleUpdateCurrent = useCallback(() => {
     if (!savedQuery) return;
     const mergedFilters: QueryFilters = { ...savedQuery.filters };
-    // Apply URL filters
     for (const key of Object.keys(urlFilters) as (keyof QuerySearchFilters)[]) {
-      if (key === "label") {
-        const labels = urlFilters.label;
-        if (labels && labels.length > 0) {
-          mergedFilters.label = labels;
-        } else {
-          delete mergedFilters.label;
-        }
-        continue;
-      }
       if (key === "q") {
         if (urlFilters.q) {
           mergedFilters.rawQuery = urlFilters.q;
@@ -276,10 +232,10 @@ function SavedQueryResults() {
         (mergedFilters as Record<string, unknown>)[key] = value;
       }
     }
-    updateQuery(repository.id, savedQuery.id, { filters: mergedFilters });
+    updateQuery(repositoryId, savedQuery.id, { filters: mergedFilters });
     void navigate({
-      to: "/repositories/$repository/queries/$query",
-      params: { repository: repositorySlug, query: queryId },
+      to: "/accounts/$account/queries/$query",
+      params: { account: accountSlug, query: queryId },
       search: {},
       replace: true,
     });
@@ -287,9 +243,9 @@ function SavedQueryResults() {
     savedQuery,
     urlFilters,
     updateQuery,
-    repository.id,
+    repositoryId,
     navigate,
-    repositorySlug,
+    accountSlug,
     queryId,
   ]);
 
@@ -309,14 +265,14 @@ function SavedQueryResults() {
           delete newFilters.q;
         }
         void navigate({
-          to: "/repositories/$repository/queries/$query",
-          params: { repository: repositorySlug, query: queryId },
+          to: "/accounts/$account/queries/$query",
+          params: { account: accountSlug, query: queryId },
           search: newFilters,
           replace: true,
         });
       }, 500);
     },
-    [urlFilters, navigate, repositorySlug, queryId],
+    [urlFilters, navigate, accountSlug, queryId],
   );
 
   // Keep local input in sync when URL changes externally
@@ -326,30 +282,10 @@ function SavedQueryResults() {
     setRawQueryInput(urlFilters.q ?? "");
   }
 
-  const updateLabels = useCallback(
-    (labels: string[]) => {
-      const newFilters = { ...urlFilters };
-      if (labels.length > 0) {
-        newFilters.label = labels;
-      } else {
-        delete newFilters.label;
-      }
-      void navigate({
-        to: "/repositories/$repository/queries/$query",
-        params: { repository: repositorySlug, query: queryId },
-        search: newFilters,
-        replace: true,
-      });
-    },
-    [urlFilters, navigate, repositorySlug, queryId],
-  );
-
   const hasUrlFilters = hasAdditionalUrlFilters(urlFilters);
   const canUpdateCurrent = savedQuery && !isSystemQuery(queryId);
 
-  // Auto-expand if label or query filters are active
-  const hasExpandedFilters =
-    (urlFilters.label && urlFilters.label.length > 0) || !!urlFilters.q;
+  const hasExpandedFilters = !!urlFilters.q;
 
   return (
     <div className="flex flex-col h-full">
@@ -455,19 +391,6 @@ function SavedQueryResults() {
             />
           )}
 
-          {/* Team review requested filter (PR only, org repos) */}
-          {isPRSearch && (
-            <TeamCombobox
-              value={filters.teamReviewRequested}
-              onChange={(v) => updateFilter("teamReviewRequested", v)}
-              accountId={account.id}
-              owner={owner}
-              placeholder="Team"
-              label="Team"
-              className="w-40"
-            />
-          )}
-
           {/* Mentioned filter */}
           <UserCombobox
             value={filters.mentioned}
@@ -477,32 +400,11 @@ function SavedQueryResults() {
             label="Mentioned"
             className="w-40"
           />
-
-          {/* Milestone filter */}
-          <MilestoneCombobox
-            value={filters.milestone}
-            onChange={(v) => updateFilter("milestone", v)}
-            accountId={account.id}
-            owner={owner}
-            repo={repo}
-            placeholder="Milestone"
-            label="Milestone"
-            className="w-40"
-          />
         </div>
 
         {/* Expandable filters row */}
         {(filtersExpanded || hasExpandedFilters) && (
           <div className="flex items-center gap-2 flex-wrap">
-            <LabelFilterCombobox
-              value={filters.label ?? []}
-              onChange={updateLabels}
-              accountId={account.id}
-              owner={owner}
-              repo={repo}
-              className="w-48"
-            />
-
             <Input
               value={rawQueryInput}
               onChange={(e) => handleRawQueryChange(e.target.value)}
@@ -516,8 +418,8 @@ function SavedQueryResults() {
       <SaveQueryDialog
         open={showSaveDialog}
         onOpenChange={setShowSaveDialog}
-        repositoryId={repository.id}
-        repositorySlug={repositorySlug}
+        repositoryId={repositoryId}
+        accountSlug={accountSlug}
         currentFilters={filters}
       />
 
@@ -540,18 +442,20 @@ function SavedQueryResults() {
         ) : (
           <>
             <div className="divide-y">
-              {results.map((item) => (
-                <RepositorySearchResultItem
-                  key={item.id}
-                  item={item}
-                  repositorySlug={repositorySlug}
-                  isPR={isPRSearch}
-                  accountId={account.id}
-                  owner={owner}
-                  repo={repo}
-                  isUnread={notifications?.get(item.number)?.unread ?? false}
-                />
-              ))}
+              {results.map((item) => {
+                const [owner, repo] = item.repository.split("/");
+                return (
+                  <AccountSearchResultItem
+                    key={item.id}
+                    item={item}
+                    accountSlug={accountSlug}
+                    isPR={isPRSearch}
+                    accountId={account.id}
+                    owner={owner}
+                    repo={repo}
+                  />
+                );
+              })}
             </div>
             <div ref={loadMoreRef} className="h-1" />
             {isFetchingNextPage && (
@@ -568,33 +472,32 @@ function SavedQueryResults() {
   );
 }
 
-// Custom search result item that links to repository routes
-function RepositorySearchResultItem({
+function AccountSearchResultItem({
   item,
-  repositorySlug,
+  accountSlug,
   isPR,
   accountId,
   owner,
   repo,
-  isUnread,
 }: {
   item: (PullRequest | Issue) & { cursor?: string };
-  repositorySlug: string;
+  accountSlug: string;
   isPR: boolean;
   accountId: string;
   owner: string;
   repo: string;
-  isUnread: boolean;
 }) {
   return (
     <Link
       to={
         isPR
-          ? "/repositories/$repository/pulls/$number"
-          : "/repositories/$repository/issues/$number"
+          ? "/accounts/$account/pulls/$owner/$repo/$number"
+          : "/accounts/$account/issues/$owner/$repo/$number"
       }
       params={{
-        repository: repositorySlug,
+        account: accountSlug,
+        owner,
+        repo,
         number: String(item.number),
       }}
       className="block"
@@ -605,10 +508,9 @@ function RepositorySearchResultItem({
         accountId={accountId}
         owner={owner}
         repo={repo}
-        isUnread={isUnread}
+        isUnread={false}
+        showRepository
       />
     </Link>
   );
 }
-
-import { Scrollable } from "@/components/flex-layout";
