@@ -1776,15 +1776,59 @@ export function useRemoteBranches(
   });
 }
 
-// Fetch pull request template from repository via REST API
+// Fetch pull request template from repository via GraphQL (single request)
 
-const PR_TEMPLATE_PATHS = [
-  ".github/PULL_REQUEST_TEMPLATE.md",
-  ".github/pull_request_template.md",
-  "PULL_REQUEST_TEMPLATE.md",
-  "pull_request_template.md",
-  "docs/PULL_REQUEST_TEMPLATE.md",
-  "docs/pull_request_template.md",
+const GET_PR_TEMPLATE = gql`
+  query GetPullRequestTemplate($owner: String!, $repo: String!) {
+    repository(owner: $owner, name: $repo) {
+      githubUpper: object(expression: "HEAD:.github/PULL_REQUEST_TEMPLATE.md") {
+        ... on Blob {
+          text
+        }
+      }
+      githubLower: object(expression: "HEAD:.github/pull_request_template.md") {
+        ... on Blob {
+          text
+        }
+      }
+      rootUpper: object(expression: "HEAD:PULL_REQUEST_TEMPLATE.md") {
+        ... on Blob {
+          text
+        }
+      }
+      rootLower: object(expression: "HEAD:pull_request_template.md") {
+        ... on Blob {
+          text
+        }
+      }
+      docsUpper: object(expression: "HEAD:docs/PULL_REQUEST_TEMPLATE.md") {
+        ... on Blob {
+          text
+        }
+      }
+      docsLower: object(expression: "HEAD:docs/pull_request_template.md") {
+        ... on Blob {
+          text
+        }
+      }
+    }
+  }
+`;
+
+interface PrTemplateResponse {
+  repository: {
+    [key: string]: { text: string } | null;
+  } | null;
+}
+
+// Order matters: matches the conventional priority for template locations
+const PR_TEMPLATE_ALIASES = [
+  "githubUpper",
+  "githubLower",
+  "rootUpper",
+  "rootLower",
+  "docsUpper",
+  "docsLower",
 ];
 
 export async function fetchPullRequestTemplate(
@@ -1792,24 +1836,19 @@ export async function fetchPullRequestTemplate(
   owner: string,
   repo: string,
 ): Promise<string | null> {
-  const octokit = getOctokit(account);
+  const client = getGraphQLClient(account);
 
-  for (const templatePath of PR_TEMPLATE_PATHS) {
-    try {
-      const response = await octokit.repos.getContent({
-        owner,
-        repo,
-        path: templatePath,
-      });
+  const response = await client.request<PrTemplateResponse>(GET_PR_TEMPLATE, {
+    owner,
+    repo,
+  });
 
-      if (!Array.isArray(response.data) && response.data.type === "file") {
-        const content = atob(response.data.content.replace(/\n/g, ""));
-        if (content.trim()) {
-          return content;
-        }
-      }
-    } catch {
-      // File doesn't exist at this path, try next
+  if (!response.repository) return null;
+
+  for (const alias of PR_TEMPLATE_ALIASES) {
+    const blob = response.repository[alias];
+    if (blob?.text?.trim()) {
+      return blob.text;
     }
   }
 
