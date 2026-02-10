@@ -1,4 +1,5 @@
 import { AddAccountDialog } from "@/components/add-account-dialog";
+import { AddRepositoryDialog } from "@/components/repositories/add-repository-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Scrollable } from "@/components/flex-layout";
 import {
@@ -23,6 +24,7 @@ export function AccountSidebar({ account }: AccountSidebarProps) {
   const repositoryId = `account:${account.id}`;
   const savedQueries = useSavedQueries(repositoryId);
   const [addAccountOpen, setAddAccountOpen] = useState(false);
+  const [addRepositoryOpen, setAddRepositoryOpen] = useState(false);
 
   return (
     <div className="w-64 border-r bg-muted/10 flex flex-col h-full">
@@ -48,6 +50,7 @@ export function AccountSidebar({ account }: AccountSidebarProps) {
             </SwitcherTriggerButton>
           }
           onAddAccount={() => setAddAccountOpen(true)}
+          onAddRepository={() => setAddRepositoryOpen(true)}
         />
       </div>
 
@@ -92,6 +95,10 @@ export function AccountSidebar({ account }: AccountSidebarProps) {
       <AddAccountDialog
         open={addAccountOpen}
         onOpenChange={setAddAccountOpen}
+      />
+      <AddRepositoryDialog
+        open={addRepositoryOpen}
+        onOpenChange={setAddRepositoryOpen}
       />
     </div>
   );

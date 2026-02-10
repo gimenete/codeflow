@@ -38,7 +38,7 @@ export function SidebarSwitcherDropdown({
       <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56 bg-popover">
         {/* Repositories group */}
-        {(repositories.length > 0 || (isElectron() && onAddRepository)) && (
+        {isElectron() && (
           <DropdownMenuGroup>
             <DropdownMenuLabel>Repositories</DropdownMenuLabel>
             {repositories.map((repo) => {
@@ -64,22 +64,20 @@ export function SidebarSwitcherDropdown({
                       </div>
                     )}
                   </div>
-                  {isElectron() && (
-                    <button
-                      className="shrink-0 opacity-0 group-hover:opacity-100 p-0.5 hover:bg-accent rounded"
-                      title="Open in new window"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openNewWindow(repoPath);
-                      }}
-                    >
-                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                    </button>
-                  )}
+                  <button
+                    className="shrink-0 opacity-0 group-hover:opacity-100 p-0.5 hover:bg-accent rounded"
+                    title="Open in new window"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openNewWindow(repoPath);
+                    }}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
                 </DropdownMenuItem>
               );
             })}
-            {isElectron() && onAddRepository && (
+            {onAddRepository && (
               <DropdownMenuItem onClick={onAddRepository}>
                 <Plus className="h-4 w-4" />
                 Add Repository
@@ -89,62 +87,58 @@ export function SidebarSwitcherDropdown({
         )}
 
         {/* Accounts group */}
-        {(accounts.length > 0 || onAddAccount) && (
-          <>
-            {(repositories.length > 0 || (isElectron() && onAddRepository)) && (
-              <DropdownMenuSeparator />
-            )}
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>Accounts</DropdownMenuLabel>
-              {accounts.map((a) => {
-                const accountPath = `/accounts/${a.id}`;
-                return (
-                  <DropdownMenuItem
-                    key={a.id}
-                    className="items-start group"
-                    onClick={() =>
-                      navigate({
-                        to: "/accounts/$account",
-                        params: { account: a.id },
-                      })
-                    }
-                  >
-                    <Avatar className="h-5 w-5 shrink-0 mt-0.5">
-                      <AvatarImage src={a.avatarUrl} />
-                      <AvatarFallback>
-                        {a.login.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate">@{a.login}</div>
-                      <div className="text-xs text-muted-foreground truncate">
-                        {a.host}
-                      </div>
+        <>
+          {isElectron() && <DropdownMenuSeparator />}
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Accounts</DropdownMenuLabel>
+            {accounts.map((a) => {
+              const accountPath = `/accounts/${a.id}`;
+              return (
+                <DropdownMenuItem
+                  key={a.id}
+                  className="items-start group"
+                  onClick={() =>
+                    navigate({
+                      to: "/accounts/$account",
+                      params: { account: a.id },
+                    })
+                  }
+                >
+                  <Avatar className="h-5 w-5 shrink-0 mt-0.5">
+                    <AvatarImage src={a.avatarUrl} />
+                    <AvatarFallback>
+                      {a.login.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate">@{a.login}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {a.host}
                     </div>
-                    {isElectron() && (
-                      <button
-                        className="shrink-0 opacity-0 group-hover:opacity-100 p-0.5 hover:bg-accent rounded"
-                        title="Open in new window"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openNewWindow(accountPath);
-                        }}
-                      >
-                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                      </button>
-                    )}
-                  </DropdownMenuItem>
-                );
-              })}
-              {onAddAccount && (
-                <DropdownMenuItem onClick={onAddAccount}>
-                  <Plus className="h-4 w-4" />
-                  Add Account
+                  </div>
+                  {isElectron() && (
+                    <button
+                      className="shrink-0 opacity-0 group-hover:opacity-100 p-0.5 hover:bg-accent rounded"
+                      title="Open in new window"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openNewWindow(accountPath);
+                      }}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                  )}
                 </DropdownMenuItem>
-              )}
-            </DropdownMenuGroup>
-          </>
-        )}
+              );
+            })}
+            {onAddAccount && (
+              <DropdownMenuItem onClick={onAddAccount}>
+                <Plus className="h-4 w-4" />
+                Add Account
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuGroup>
+        </>
       </DropdownMenuContent>
     </DropdownMenu>
   );
