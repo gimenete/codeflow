@@ -42,6 +42,13 @@ export function MilestonePicker({
 
   const initialNumberRef = useRef<number | null>(null);
 
+  // Sync pendingNumber from props when closed and props change
+  const prevCurrentMilestoneRef = useRef(currentMilestone);
+  if (!open && currentMilestone !== prevCurrentMilestoneRef.current) {
+    prevCurrentMilestoneRef.current = currentMilestone;
+    setPendingNumber(currentMilestone?.number ?? null);
+  }
+
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
       const num = currentMilestone?.number ?? null;
@@ -69,14 +76,12 @@ export function MilestonePicker({
     }
   };
 
-  // When open, show pending selection; when closed, show current server state
-  const displayMilestone = open
-    ? buildDisplayMilestone(
-        pendingNumber,
-        currentMilestone,
-        repoMilestones ?? [],
-      )
-    : currentMilestone;
+  // Always derive display from pendingNumber to avoid flash when closing
+  const displayMilestone = buildDisplayMilestone(
+    pendingNumber,
+    currentMilestone,
+    repoMilestones ?? [],
+  );
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>

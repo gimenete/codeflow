@@ -65,6 +65,20 @@ export function ReviewerPicker({
   const initialLoginsRef = useRef<Set<string>>(new Set());
   const initialTeamSlugsRef = useRef<Set<string>>(new Set());
 
+  // Sync pending state from props when closed and props change
+  const prevCurrentRequestsRef = useRef(currentRequests);
+  if (!open && currentRequests !== prevCurrentRequestsRef.current) {
+    prevCurrentRequestsRef.current = currentRequests;
+    const newUserRequests = currentRequests.filter((r) => r.login != null);
+    const newTeamRequests = currentRequests.filter(
+      (r) => r.login == null && r.name != null,
+    );
+    setPendingLogins(new Set(newUserRequests.map((r) => r.login!)));
+    setPendingTeamSlugs(
+      new Set(newTeamRequests.filter((r) => r.slug).map((r) => r.slug!)),
+    );
+  }
+
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
       const logins = new Set(userRequests.map((r) => r.login!));
@@ -144,17 +158,15 @@ export function ReviewerPicker({
     (s) => !pendingLogins.has(s.reviewer.login),
   );
 
-  // When open, show pending selections; when closed, show current server state
-  const displayRequests = open
-    ? buildDisplayRequests(
-        pendingLogins,
-        pendingTeamSlugs,
-        teamRequests,
-        currentRequests,
-        assignableUsers ?? [],
-        orgTeams ?? [],
-      )
-    : currentRequests;
+  // Always derive display from pending state to avoid flash when closing
+  const displayRequests = buildDisplayRequests(
+    pendingLogins,
+    pendingTeamSlugs,
+    teamRequests,
+    currentRequests,
+    assignableUsers ?? [],
+    orgTeams ?? [],
+  );
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>

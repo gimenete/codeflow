@@ -47,6 +47,13 @@ export function AssigneePicker({
 
   const initialLoginsRef = useRef<Set<string>>(new Set());
 
+  // Sync pendingLogins from props when closed and props change
+  const prevCurrentAssigneesRef = useRef(currentAssignees);
+  if (!open && currentAssignees !== prevCurrentAssigneesRef.current) {
+    prevCurrentAssigneesRef.current = currentAssignees;
+    setPendingLogins(new Set(currentAssignees.map((a) => a.login)));
+  }
+
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
       const logins = new Set(currentAssignees.map((a) => a.login));
@@ -80,14 +87,12 @@ export function AssigneePicker({
     });
   };
 
-  // When open, show pending selections; when closed, show current server state
-  const displayAssignees = open
-    ? buildDisplayAssignees(
-        pendingLogins,
-        currentAssignees,
-        mentionableUsers ?? [],
-      )
-    : currentAssignees;
+  // Always derive display from pendingLogins to avoid flash when closing
+  const displayAssignees = buildDisplayAssignees(
+    pendingLogins,
+    currentAssignees,
+    mentionableUsers ?? [],
+  );
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>

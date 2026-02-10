@@ -1,3 +1,13 @@
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,
@@ -634,6 +644,7 @@ function DeleteBranchCard({
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleted, setDeleted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -675,7 +686,7 @@ function DeleteBranchCard({
           variant="destructive"
           size="sm"
           className="shrink-0"
-          onClick={handleDelete}
+          onClick={() => setConfirmOpen(true)}
           disabled={isDeleting}
         >
           {isDeleting ? (
@@ -692,6 +703,23 @@ function DeleteBranchCard({
           <span>{error}</span>
         </div>
       )}
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete branch</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the <strong>{headRef}</strong>{" "}
+              branch? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleDelete}>
+              Delete branch
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

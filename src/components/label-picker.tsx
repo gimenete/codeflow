@@ -45,6 +45,13 @@ export function LabelPicker({
   // Snapshot the initial selection when opening so we can diff on close
   const initialNamesRef = useRef<Set<string>>(new Set());
 
+  // Sync pendingNames from props when closed and props change
+  const prevCurrentLabelsRef = useRef(currentLabels);
+  if (!open && currentLabels !== prevCurrentLabelsRef.current) {
+    prevCurrentLabelsRef.current = currentLabels;
+    setPendingNames(new Set(currentLabels.map((l) => l.name)));
+  }
+
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
       // Opening: snapshot current selection
@@ -79,10 +86,12 @@ export function LabelPicker({
     });
   };
 
-  // When open, show pending selections; when closed, show current server state
-  const displayLabels = open
-    ? buildDisplayLabels(pendingNames, currentLabels, repoLabels ?? [])
-    : currentLabels;
+  // Always derive display from pendingNames to avoid flash when closing
+  const displayLabels = buildDisplayLabels(
+    pendingNames,
+    currentLabels,
+    repoLabels ?? [],
+  );
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
@@ -128,8 +137,10 @@ function buildDisplayLabels(
   const colorMap = new Map<string, string>();
   for (const l of currentLabels) colorMap.set(l.name, l.color);
   for (const l of repoLabels) colorMap.set(l.name, l.color);
-  return Array.from(names).map((name) => ({
-    name,
-    color: colorMap.get(name) ?? "cccccc",
-  }));
+  return Array.from(names)
+    .sort((a, b) => a.localeCompare(b))
+    .map((name) => ({
+      name,
+      color: colorMap.get(name) ?? "cccccc",
+    }));
 }

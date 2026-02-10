@@ -2150,6 +2150,31 @@ export function useTimelineMutations(
       });
     };
 
+    const metadataQueryKey = [
+      "github-metadata",
+      accountId,
+      owner,
+      repo,
+      number,
+    ];
+
+    const getMetadata = () =>
+      queryClient.getQueryData<PullRequestMetadata | IssueMetadata>(
+        metadataQueryKey,
+      );
+
+    const patchMetadata = (
+      updater: (
+        prev: PullRequestMetadata | IssueMetadata,
+      ) => PullRequestMetadata | IssueMetadata,
+    ) => {
+      const prev = getMetadata();
+      if (prev) {
+        queryClient.setQueryData(metadataQueryKey, updater(prev));
+      }
+      return prev;
+    };
+
     const submitComment = async (body: string) => {
       if (!account) throw new Error("Account not found");
       await createComment(account, owner, repo, number, body);
@@ -2174,14 +2199,71 @@ export function useTimelineMutations(
 
     const updateLabels = async (labels: string[]) => {
       if (!account) throw new Error("Account not found");
-      await setLabels(account, owner, repo, number, labels);
-      invalidate();
+
+      const repoLabels =
+        queryClient.getQueryData<RepoLabel[]>([
+          "github-repo-labels",
+          accountId,
+          owner,
+          repo,
+        ]) ?? [];
+      const currentLabels = getMetadata()?.labels ?? [];
+
+      const repoLabelMap = new Map(repoLabels.map((l) => [l.name, l.color]));
+      const currentLabelMap = new Map(
+        currentLabels.map((l) => [l.name, l.color]),
+      );
+
+      const optimisticLabels = labels.map((name) => ({
+        name,
+        color: repoLabelMap.get(name) ?? currentLabelMap.get(name) ?? "ededed",
+      }));
+
+      const prev = patchMetadata((p) => ({
+        ...p,
+        labels: optimisticLabels,
+      }));
+
+      try {
+        await setLabels(account, owner, repo, number, labels);
+        invalidate();
+      } catch (err) {
+        if (prev) queryClient.setQueryData(metadataQueryKey, prev);
+        throw err;
+      }
     };
 
     const mutateAssignees = async (add: string[], remove: string[]) => {
       if (!account) throw new Error("Account not found");
-      await updateAssignees(account, owner, repo, number, add, remove);
-      invalidate();
+
+      const mentionableUsers =
+        queryClient.getQueryData<GitHubUser[]>([
+          "mentionable-users",
+          accountId,
+          owner,
+          repo,
+        ]) ?? [];
+      const userMap = new Map(
+        mentionableUsers.map((u) => [u.login, u.avatarUrl]),
+      );
+
+      const prev = patchMetadata((p) => {
+        const removeSet = new Set(remove);
+        const existing = p.assignees.filter((a) => !removeSet.has(a.login));
+        const newAssignees = add.map((login) => ({
+          login,
+          avatarUrl: userMap.get(login) ?? "",
+        }));
+        return { ...p, assignees: [...existing, ...newAssignees] };
+      });
+
+      try {
+        await updateAssignees(account, owner, repo, number, add, remove);
+        invalidate();
+      } catch (err) {
+        if (prev) queryClient.setQueryData(metadataQueryKey, prev);
+        throw err;
+      }
     };
 
     const mutateReviewRequests = async (
@@ -2191,29 +2273,121 @@ export function useTimelineMutations(
       removeTeamSlugs?: string[],
     ) => {
       if (!account) throw new Error("Account not found");
-      await updateReviewRequests(
-        account,
-        owner,
-        repo,
-        number,
-        addUsers,
-        removeUsers,
-        addTeamSlugs,
-        removeTeamSlugs,
-      );
-      invalidate();
+
+      const prev = patchMetadata((p) => {
+        if (!("reviewRequests" in p)) return p;
+
+        const assignableUsers =
+          queryClient.getQueryData<GitHubUser[]>([
+            "assignable-users",
+            accountId,
+            owner,
+            repo,
+          ]) ?? [];
+        const userMap = new Map(
+          assignableUsers.map((u) => [u.login, u.avatarUrl]),
+        );
+
+        const orgTeams =
+          queryClient.getQueryData<OrgTeam[]>([
+            "org-teams",
+            accountId,
+            owner,
+          ]) ?? [];
+        const teamMap = new Map(orgTeams.map((t) => [t.slug, t]));
+
+        const removeUserSet = new Set(removeUsers);
+        const removeTeamSet = new Set(removeTeamSlugs ?? []);
+
+        const existing = p.reviewRequests.filter((r) => {
+          if (r.login && removeUserSet.has(r.login)) return false;
+          if (r.slug && removeTeamSet.has(r.slug)) return false;
+          return true;
+        });
+
+        const newUserRequests = addUsers.map((login) => ({
+          login,
+          name: undefined as string | undefined,
+          slug: undefined as string | undefined,
+          avatarUrl: userMap.get(login) ?? "",
+        }));
+
+        const newTeamRequests = (addTeamSlugs ?? []).map((slug) => {
+          const team = teamMap.get(slug);
+          return {
+            login: undefined as string | undefined,
+            name: team?.name ?? slug,
+            slug,
+            avatarUrl: team?.avatarUrl ?? "",
+          };
+        });
+
+        return {
+          ...p,
+          reviewRequests: [...existing, ...newUserRequests, ...newTeamRequests],
+        };
+      });
+
+      try {
+        await updateReviewRequests(
+          account,
+          owner,
+          repo,
+          number,
+          addUsers,
+          removeUsers,
+          addTeamSlugs,
+          removeTeamSlugs,
+        );
+        invalidate();
+      } catch (err) {
+        if (prev) queryClient.setQueryData(metadataQueryKey, prev);
+        throw err;
+      }
     };
 
     const mutateMilestone = async (milestoneNumber: number | null) => {
       if (!account) throw new Error("Account not found");
-      await updateMilestoneOnIssue(
-        account,
-        owner,
-        repo,
-        number,
-        milestoneNumber,
-      );
-      invalidate();
+
+      let optimisticMilestone: PullRequestMetadata["milestone"] = null;
+      if (milestoneNumber != null) {
+        const repoMilestones =
+          queryClient.getQueryData<RepoMilestone[]>([
+            "github-repo-milestones",
+            accountId,
+            owner,
+            repo,
+          ]) ?? [];
+        const found = repoMilestones.find((m) => m.number === milestoneNumber);
+        if (found) {
+          optimisticMilestone = {
+            number: found.number,
+            title: found.title,
+            url: "",
+            dueOn: found.dueOn,
+            state: found.state === "closed" ? "CLOSED" : "OPEN",
+          };
+        }
+      }
+
+      const prev = patchMetadata((p) => ({
+        ...p,
+        milestone: optimisticMilestone,
+      }));
+
+      try {
+        await updateMilestoneOnIssue(
+          account,
+          owner,
+          repo,
+          number,
+          milestoneNumber,
+        );
+        invalidate();
+      } catch (err) {
+        if (prev) queryClient.setQueryData(metadataQueryKey, prev);
+        throw err;
+      }
     };
 
     const submitReview = async (
