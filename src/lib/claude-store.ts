@@ -8,6 +8,7 @@ import type {
   SDKMessage,
   ToolPermissionRequest,
 } from "./claude";
+import { enableCrossWindowSync } from "./cross-window-sync";
 
 export interface Conversation {
   id: string;
@@ -486,6 +487,9 @@ export const useClaudeStore = create<ClaudeState>()(
     },
   ),
 );
+
+// Sync across windows
+enableCrossWindowSync(useClaudeStore);
 
 // React hooks for easier component access
 export function useActiveConversation(): Conversation | null {

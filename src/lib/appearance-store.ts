@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { enableCrossWindowSync } from "./cross-window-sync";
 
 export type ThemePreference = "light" | "dark" | "auto";
 export type ResolvedTheme = "light" | "dark";
@@ -22,3 +23,6 @@ export const useAppearanceStore = create<AppearanceState>()(
     },
   ),
 );
+
+// Sync across windows
+enableCrossWindowSync(useAppearanceStore);

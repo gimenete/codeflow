@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import type { Repository, AgentType, IssueTracker } from "./github-types";
 import { getAccount } from "./auth";
 import { isGitHubUrl } from "./remote-url";
+import { enableCrossWindowSync } from "./cross-window-sync";
 
 // Types for migration from v2
 interface RepositoryV2 {
@@ -198,6 +199,9 @@ export const useRepositoriesStore = create<RepositoriesState>()(
     },
   ),
 );
+
+// Sync across windows
+enableCrossWindowSync(useRepositoriesStore);
 
 // React hooks for components
 export function useRepositories(): Repository[] {

@@ -26,7 +26,7 @@ import {
   useIsLargeScreen,
   useNavigationHistory,
 } from "@/lib/hooks";
-import { isElectron, isTauri } from "@/lib/platform";
+import { isElectron, isTauri, setWindowTitle } from "@/lib/platform";
 import { setupClaudeChatIPC } from "@/lib/claude-ipc";
 import { requestNotificationPermission } from "@/lib/notifications";
 import { useTheme } from "@/lib/use-theme";
@@ -168,6 +168,16 @@ function RootLayoutContent() {
     requestNotificationPermission();
     setupClaudeChatIPC();
   }, []);
+
+  // Update native window title from breadcrumbs
+  useEffect(() => {
+    if (isElectron() && breadcrumbs.length > 0) {
+      const title = breadcrumbs.map((b) => b.label).join(" / ");
+      setWindowTitle(`${title} - Codeflow`);
+    } else if (isElectron()) {
+      setWindowTitle("Codeflow");
+    }
+  }, [breadcrumbs]);
 
   // Only hide on mobile, always show on large screens
   const isNavbarHidden = !isLargeScreen && shouldHideOnScroll;

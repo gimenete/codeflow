@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { SavedQuery, SavedQueryGroup } from "./github-types";
+import { enableCrossWindowSync } from "./cross-window-sync";
 
 // System queries - not editable, not listed in dropdowns
 export const systemQueries: Omit<SavedQuery, "accountId">[] = [
@@ -355,6 +356,9 @@ export const useSavedQueriesStore = create<SavedQueriesState>()(
     },
   ),
 );
+
+// Sync across windows
+enableCrossWindowSync(useSavedQueriesStore);
 
 // Pure selector functions (no side effects)
 function getQueryGroupsFromState(

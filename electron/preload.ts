@@ -599,6 +599,17 @@ const appAPI = {
   },
 };
 
+// Window Management API
+const windowAPI = {
+  newWindow: (urlPath?: string): Promise<{ success: boolean }> => {
+    return ipcRenderer.invoke("window:new", urlPath);
+  },
+
+  setTitle: (title: string): Promise<void> => {
+    return ipcRenderer.invoke("window:set-title", title);
+  },
+};
+
 // Expose APIs to renderer
 contextBridge.exposeInMainWorld("electronAPI", {
   git: gitAPI,
@@ -611,6 +622,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   pty: ptyAPI,
   app: appAPI,
   updater: updaterAPI,
+  window: windowAPI,
   isElectron: true,
 });
 
@@ -626,3 +638,4 @@ contextBridge.exposeInMainWorld("ptyAPI", ptyAPI);
 contextBridge.exposeInMainWorld("fsAPI", fsAPI);
 contextBridge.exposeInMainWorld("appAPI", appAPI);
 contextBridge.exposeInMainWorld("updaterAPI", updaterAPI);
+contextBridge.exposeInMainWorld("windowAPI", windowAPI);

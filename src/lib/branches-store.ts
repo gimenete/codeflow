@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { TrackedBranch } from "./github-types";
+import { enableCrossWindowSync } from "./cross-window-sync";
 
 function generateId(): string {
   return `branch-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -192,6 +193,9 @@ export const useBranchesStore = create<BranchesState>()(
     },
   ),
 );
+
+// Sync across windows
+enableCrossWindowSync(useBranchesStore);
 
 // React hooks for components
 export function useBranches(): TrackedBranch[] {

@@ -11,11 +11,11 @@ import {
 import { useAccounts } from "@/lib/auth";
 import { getOwnerRepo } from "@/lib/remote-url";
 import { useRepositories } from "@/lib/repositories-store";
-import { isElectron } from "@/lib/platform";
+import { isElectron, openNewWindow } from "@/lib/platform";
 import { RepoIcon } from "@primer/octicons-react";
 import { useNavigate } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
-import { ChevronsUpDown, Plus } from "lucide-react";
+import { ChevronsUpDown, ExternalLink, Plus } from "lucide-react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 interface SidebarSwitcherDropdownProps {
@@ -43,10 +43,11 @@ export function SidebarSwitcherDropdown({
             <DropdownMenuLabel>Repositories</DropdownMenuLabel>
             {repositories.map((repo) => {
               const repoOwnerRepo = getOwnerRepo(repo.remoteUrl);
+              const repoPath = `/repositories/${repo.slug}`;
               return (
                 <DropdownMenuItem
                   key={repo.id}
-                  className="items-start"
+                  className="items-start group"
                   onClick={() =>
                     navigate({
                       to: "/repositories/$repository",
@@ -55,7 +56,7 @@ export function SidebarSwitcherDropdown({
                   }
                 >
                   <RepoIcon size={16} className="shrink-0 mt-1.5" />
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="truncate">{repo.name}</div>
                     {repoOwnerRepo && (
                       <div className="text-xs text-muted-foreground truncate">
@@ -63,6 +64,18 @@ export function SidebarSwitcherDropdown({
                       </div>
                     )}
                   </div>
+                  {isElectron() && (
+                    <button
+                      className="shrink-0 opacity-0 group-hover:opacity-100 p-0.5 hover:bg-accent rounded"
+                      title="Open in new window"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openNewWindow(repoPath);
+                      }}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                  )}
                 </DropdownMenuItem>
               );
             })}
@@ -83,31 +96,46 @@ export function SidebarSwitcherDropdown({
             )}
             <DropdownMenuGroup>
               <DropdownMenuLabel>Accounts</DropdownMenuLabel>
-              {accounts.map((a) => (
-                <DropdownMenuItem
-                  key={a.id}
-                  className="items-start"
-                  onClick={() =>
-                    navigate({
-                      to: "/accounts/$account",
-                      params: { account: a.id },
-                    })
-                  }
-                >
-                  <Avatar className="h-5 w-5 shrink-0 mt-0.5">
-                    <AvatarImage src={a.avatarUrl} />
-                    <AvatarFallback>
-                      {a.login.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0">
-                    <div className="truncate">@{a.login}</div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {a.host}
+              {accounts.map((a) => {
+                const accountPath = `/accounts/${a.id}`;
+                return (
+                  <DropdownMenuItem
+                    key={a.id}
+                    className="items-start group"
+                    onClick={() =>
+                      navigate({
+                        to: "/accounts/$account",
+                        params: { account: a.id },
+                      })
+                    }
+                  >
+                    <Avatar className="h-5 w-5 shrink-0 mt-0.5">
+                      <AvatarImage src={a.avatarUrl} />
+                      <AvatarFallback>
+                        {a.login.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate">@{a.login}</div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {a.host}
+                      </div>
                     </div>
-                  </div>
-                </DropdownMenuItem>
-              ))}
+                    {isElectron() && (
+                      <button
+                        className="shrink-0 opacity-0 group-hover:opacity-100 p-0.5 hover:bg-accent rounded"
+                        title="Open in new window"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openNewWindow(accountPath);
+                        }}
+                      >
+                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
+                    )}
+                  </DropdownMenuItem>
+                );
+              })}
               {onAddAccount && (
                 <DropdownMenuItem onClick={onAddAccount}>
                   <Plus className="h-4 w-4" />

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, Menu } from "electron";
 import {
   query,
   type PermissionResult,
@@ -25,27 +25,66 @@ const __dirname = path.dirname(__filename);
 const SERVICE_NAME = "codeflow";
 const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
 
-let mainWindow: BrowserWindow | null = null;
-let currentAbortController: AbortController | null = null;
-let currentQuery: ReturnType<typeof query> | null = null;
-let chatAbortController: AbortController | null = null;
-let chatQuery: ReturnType<typeof query> | null = null;
+// ==================== Per-Window Session State ====================
 
-// Map of requestId -> { resolve, reject } for pending permission requests
-const pendingPermissionResolvers = new Map<
-  string,
-  {
-    resolve: (result: {
-      behavior: string;
-      message?: string;
-      updatedPermissions?: PermissionUpdate[];
-    }) => void;
-    reject: (error: Error) => void;
+// Claude agent/chat sessions keyed by window webContents ID
+interface WindowSession {
+  agentAbortController: AbortController | null;
+  agentQuery: ReturnType<typeof query> | null;
+  chatAbortController: AbortController | null;
+  chatQuery: ReturnType<typeof query> | null;
+  pendingPermissionResolvers: Map<
+    string,
+    {
+      resolve: (result: {
+        behavior: string;
+        message?: string;
+        updatedPermissions?: PermissionUpdate[];
+      }) => void;
+      reject: (error: Error) => void;
+    }
+  >;
+}
+
+const windowSessions = new Map<number, WindowSession>();
+
+function getOrCreateWindowSession(webContentsId: number): WindowSession {
+  let session = windowSessions.get(webContentsId);
+  if (!session) {
+    session = {
+      agentAbortController: null,
+      agentQuery: null,
+      chatAbortController: null,
+      chatQuery: null,
+      pendingPermissionResolvers: new Map(),
+    };
+    windowSessions.set(webContentsId, session);
   }
->();
+  return session;
+}
+
+// Helper to broadcast a message to all open windows
+function broadcastToAllWindows(channel: string, ...args: unknown[]) {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) {
+      win.webContents.send(channel, ...args);
+    }
+  }
+}
+
+// Helper to safely send to a specific webContents
+function safeSend(
+  sender: Electron.WebContents,
+  channel: string,
+  ...args: unknown[]
+) {
+  if (!sender.isDestroyed()) {
+    sender.send(channel, ...args);
+  }
+}
 
 // Creates a canUseTool callback that bridges permission requests to the renderer via IPC
-function createCanUseToolCallback(): (
+function createCanUseToolCallback(sender: Electron.WebContents): (
   toolName: string,
   input: Record<string, unknown>,
   options: {
@@ -57,6 +96,7 @@ function createCanUseToolCallback(): (
     agentID?: string;
   },
 ) => Promise<PermissionResult> {
+  const session = getOrCreateWindowSession(sender.id);
   return (toolName, input, options) => {
     return new Promise((resolve, reject) => {
       const requestId = crypto.randomUUID();
@@ -73,7 +113,7 @@ function createCanUseToolCallback(): (
 
       // Listen for abort
       const onAbort = () => {
-        pendingPermissionResolvers.delete(requestId);
+        session.pendingPermissionResolvers.delete(requestId);
         resolve({
           behavior: "deny",
           message: "Request was cancelled by user",
@@ -83,10 +123,10 @@ function createCanUseToolCallback(): (
       options.signal.addEventListener("abort", onAbort, { once: true });
 
       // Store the resolver
-      pendingPermissionResolvers.set(requestId, {
+      session.pendingPermissionResolvers.set(requestId, {
         resolve: (result) => {
           options.signal.removeEventListener("abort", onAbort);
-          pendingPermissionResolvers.delete(requestId);
+          session.pendingPermissionResolvers.delete(requestId);
           if (result.behavior === "allow") {
             resolve({
               behavior: "allow",
@@ -103,14 +143,14 @@ function createCanUseToolCallback(): (
         },
         reject: (error) => {
           options.signal.removeEventListener("abort", onAbort);
-          pendingPermissionResolvers.delete(requestId);
+          session.pendingPermissionResolvers.delete(requestId);
           reject(error);
         },
       });
 
-      // Send permission request to renderer
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send("claude:chat:permission-request", {
+      // Send permission request to the requesting window's renderer
+      if (!sender.isDestroyed()) {
+        sender.send("claude:chat:permission-request", {
           requestId,
           toolName,
           input,
@@ -121,8 +161,8 @@ function createCanUseToolCallback(): (
           suggestions: options.suggestions,
         });
       } else {
-        // No window available, deny
-        pendingPermissionResolvers.delete(requestId);
+        // Window no longer available, deny
+        session.pendingPermissionResolvers.delete(requestId);
         options.signal.removeEventListener("abort", onAbort);
         resolve({
           behavior: "deny",
@@ -148,6 +188,7 @@ interface PtySessionMetadata {
   lastActivityAt: number;
   outputBuffer: string[]; // Last N lines for replay
   idleTimeoutId?: NodeJS.Timeout;
+  ownerWebContentsId: number; // Which window owns this PTY session
 }
 
 const ptySessionMetadata = new Map<string, PtySessionMetadata>();
@@ -238,8 +279,8 @@ async function applyPatchContent(
   }
 }
 
-function createWindow(): void {
-  mainWindow = new BrowserWindow({
+function createWindow(urlPath?: string): BrowserWindow {
+  const win = new BrowserWindow({
     width: 1200,
     height: 800,
     webPreferences: {
@@ -252,12 +293,129 @@ function createWindow(): void {
     trafficLightPosition: { x: 16, y: 16 },
   });
 
+  // Capture the webContents ID eagerly — by the time "closed" fires the
+  // webContents object has already been destroyed and accessing .id throws.
+  const webContentsId = win.webContents.id;
+
+  // Clean up window session when the window closes
+  win.on("closed", () => {
+    const session = windowSessions.get(webContentsId);
+    if (session) {
+      // Abort any running Claude sessions
+      if (session.agentQuery) {
+        session.agentQuery.interrupt().catch(() => {});
+      }
+      if (session.chatQuery) {
+        session.chatQuery.interrupt().catch(() => {});
+      }
+      // Clean up pending permission resolvers
+      for (const [, resolver] of session.pendingPermissionResolvers) {
+        resolver.resolve({ behavior: "deny", message: "Window closed" });
+      }
+      windowSessions.delete(webContentsId);
+    }
+  });
+
   if (isDev) {
-    mainWindow.loadURL("http://localhost:5173");
-    mainWindow.webContents.openDevTools();
+    const url = urlPath
+      ? `http://localhost:5173/#${urlPath}`
+      : "http://localhost:5173";
+    win.loadURL(url);
+    win.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"));
+    if (urlPath) {
+      win.loadFile(path.join(__dirname, "..", "dist", "index.html"), {
+        hash: urlPath,
+      });
+    } else {
+      win.loadFile(path.join(__dirname, "..", "dist", "index.html"));
+    }
   }
+
+  return win;
+}
+
+function setupApplicationMenu() {
+  const isMac = process.platform === "darwin";
+
+  const template: Electron.MenuItemConstructorOptions[] = [
+    ...(isMac
+      ? [
+          {
+            label: app.name,
+            submenu: [
+              { role: "about" as const },
+              { type: "separator" as const },
+              { role: "services" as const },
+              { type: "separator" as const },
+              { role: "hide" as const },
+              { role: "hideOthers" as const },
+              { role: "unhide" as const },
+              { type: "separator" as const },
+              { role: "quit" as const },
+            ],
+          },
+        ]
+      : []),
+    {
+      label: "File",
+      submenu: [
+        {
+          label: "New Window",
+          accelerator: "CmdOrCtrl+N",
+          click: () => {
+            createWindow();
+          },
+        },
+        { type: "separator" },
+        isMac ? { role: "close" } : { role: "quit" },
+      ],
+    },
+    {
+      label: "Edit",
+      submenu: [
+        { role: "undo" },
+        { role: "redo" },
+        { type: "separator" },
+        { role: "cut" },
+        { role: "copy" },
+        { role: "paste" },
+        { role: "selectAll" },
+      ],
+    },
+    {
+      label: "View",
+      submenu: [
+        { role: "reload" },
+        { role: "forceReload" },
+        { role: "toggleDevTools" },
+        { type: "separator" },
+        { role: "resetZoom" },
+        { role: "zoomIn" },
+        { role: "zoomOut" },
+        { type: "separator" },
+        { role: "togglefullscreen" },
+      ],
+    },
+    {
+      label: "Window",
+      submenu: [
+        { role: "minimize" },
+        { role: "zoom" },
+        ...(isMac
+          ? [
+              { type: "separator" as const },
+              { role: "front" as const },
+              { type: "separator" as const },
+              { role: "window" as const },
+            ]
+          : [{ role: "close" as const }]),
+      ],
+    },
+  ];
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
 }
 
 // ==================== Auto-Updater ====================
@@ -282,20 +440,14 @@ async function setupAutoUpdater() {
       updateAvailable = {
         version: info.version,
         releaseNotes:
-          typeof info.releaseNotes === "string"
-            ? info.releaseNotes
-            : undefined,
+          typeof info.releaseNotes === "string" ? info.releaseNotes : undefined,
       };
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send("updater:update-available", updateAvailable);
-      }
+      broadcastToAllWindows("updater:update-available", updateAvailable);
     });
 
     autoUpdater.on("update-downloaded", () => {
       updateDownloaded = true;
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send("updater:update-downloaded");
-      }
+      broadcastToAllWindows("updater:update-downloaded");
     });
 
     autoUpdater.on("error", (err) => {
@@ -338,6 +490,7 @@ app.whenReady().then(async () => {
     }
   }
 
+  setupApplicationMenu();
   createWindow();
   setupAutoUpdater();
 
@@ -1291,10 +1444,11 @@ ipcMain.handle("credential:get-claude-cli", async () => {
 
 // ==================== Dialog IPC Handlers ====================
 
-ipcMain.handle("dialog:open-folder", async () => {
-  if (!mainWindow) return null;
+ipcMain.handle("dialog:open-folder", async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return null;
 
-  const result = await dialog.showOpenDialog(mainWindow, {
+  const result = await dialog.showOpenDialog(win, {
     properties: ["openDirectory", "createDirectory"],
     title: "Select Folder",
   });
@@ -1308,49 +1462,43 @@ ipcMain.handle("dialog:open-folder", async () => {
 
 // ==================== Claude Agent SDK IPC Handlers ====================
 
-ipcMain.handle("agent:query", async (_event, prompt: string) => {
-  if (!mainWindow) return;
+ipcMain.handle("agent:query", async (event, prompt: string) => {
+  const sender = event.sender;
+  const session = getOrCreateWindowSession(sender.id);
 
-  currentAbortController = new AbortController();
+  session.agentAbortController = new AbortController();
 
   try {
-    currentQuery = query({
+    session.agentQuery = query({
       prompt,
       options: {
-        abortController: currentAbortController,
+        abortController: session.agentAbortController,
         allowedTools: ["Read", "Glob", "Grep", "Bash"],
         permissionMode: "acceptEdits",
       },
     });
 
-    for await (const message of currentQuery) {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send("agent:message", message);
-      }
+    for await (const message of session.agentQuery) {
+      safeSend(sender, "agent:message", message);
     }
 
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send("agent:done");
-    }
+    safeSend(sender, "agent:done");
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send("agent:interrupted");
-      }
+      safeSend(sender, "agent:interrupted");
     } else {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send("agent:error", String(error));
-      }
+      safeSend(sender, "agent:error", String(error));
     }
   } finally {
-    currentAbortController = null;
-    currentQuery = null;
+    session.agentAbortController = null;
+    session.agentQuery = null;
   }
 });
 
-ipcMain.handle("agent:interrupt", async () => {
-  if (currentQuery) {
-    await currentQuery.interrupt();
+ipcMain.handle("agent:interrupt", async (event) => {
+  const session = windowSessions.get(event.sender.id);
+  if (session?.agentQuery) {
+    await session.agentQuery.interrupt();
   }
 });
 
@@ -1373,7 +1521,7 @@ interface ImageContent {
 ipcMain.handle(
   "claude:chat",
   async (
-    _event,
+    event,
     prompt: string,
     options?: {
       systemPrompt?: string;
@@ -1384,9 +1532,10 @@ ipcMain.handle(
       images?: ImageContent[];
     },
   ) => {
-    if (!mainWindow) return;
+    const sender = event.sender;
+    const session = getOrCreateWindowSession(sender.id);
 
-    chatAbortController = new AbortController();
+    session.chatAbortController = new AbortController();
 
     // Build prompt with images if provided
     let finalPrompt: string | Array<{ type: string; [key: string]: unknown }> =
@@ -1426,10 +1575,10 @@ ipcMain.handle(
           | "plan"
           | "dontAsk") || "acceptEdits";
 
-      chatQuery = query({
+      session.chatQuery = query({
         prompt: finalPrompt as string, // SDK accepts string or content blocks
         options: {
-          abortController: chatAbortController,
+          abortController: session.chatAbortController,
           systemPrompt: options?.systemPrompt || undefined,
           allowedTools: options?.allowedTools || [
             "Read",
@@ -1443,37 +1592,31 @@ ipcMain.handle(
           resume: options?.sessionId || undefined,
           // Only provide canUseTool for "default" mode where user approval is needed
           canUseTool:
-            permMode === "default" ? createCanUseToolCallback() : undefined,
+            permMode === "default"
+              ? createCanUseToolCallback(sender)
+              : undefined,
         },
       });
 
-      for await (const message of chatQuery) {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send("claude:chat:message", message);
-        }
+      for await (const message of session.chatQuery) {
+        safeSend(sender, "claude:chat:message", message);
       }
 
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send("claude:chat:done");
-      }
+      safeSend(sender, "claude:chat:done");
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send("claude:chat:interrupted");
-        }
+        safeSend(sender, "claude:chat:interrupted");
       } else {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send("claude:chat:error", String(error));
-        }
+        safeSend(sender, "claude:chat:error", String(error));
       }
     } finally {
-      chatAbortController = null;
-      chatQuery = null;
-      // Clean up any pending permission requests
-      for (const [, resolver] of pendingPermissionResolvers) {
+      session.chatAbortController = null;
+      session.chatQuery = null;
+      // Clean up any pending permission requests for this window
+      for (const [, resolver] of session.pendingPermissionResolvers) {
         resolver.resolve({ behavior: "deny", message: "Query ended" });
       }
-      pendingPermissionResolvers.clear();
+      session.pendingPermissionResolvers.clear();
     }
   },
 );
@@ -1482,7 +1625,7 @@ ipcMain.handle(
 ipcMain.handle(
   "claude:chat:permission-response",
   async (
-    _event,
+    event,
     response: {
       requestId: string;
       behavior: string;
@@ -1490,16 +1633,22 @@ ipcMain.handle(
       updatedPermissions?: PermissionUpdate[];
     },
   ) => {
-    const resolver = pendingPermissionResolvers.get(response.requestId);
-    if (resolver) {
-      resolver.resolve(response);
+    const session = windowSessions.get(event.sender.id);
+    if (session) {
+      const resolver = session.pendingPermissionResolvers.get(
+        response.requestId,
+      );
+      if (resolver) {
+        resolver.resolve(response);
+      }
     }
   },
 );
 
-ipcMain.handle("claude:chat:interrupt", async () => {
-  if (chatQuery) {
-    await chatQuery.interrupt();
+ipcMain.handle("claude:chat:interrupt", async (event) => {
+  const session = windowSessions.get(event.sender.id);
+  if (session?.chatQuery) {
+    await session.chatQuery.interrupt();
   }
 });
 
@@ -1531,13 +1680,11 @@ ipcMain.handle(
       });
 
       watcher.on("all", (event, filePath) => {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send("watcher:change", {
-            id: watcherId,
-            event,
-            path: filePath,
-          });
-        }
+        broadcastToAllWindows("watcher:change", {
+          id: watcherId,
+          event,
+          path: filePath,
+        });
       });
 
       watcher.on("error", (error) => {
@@ -1618,7 +1765,8 @@ function cleanupPtySession(sessionId: string) {
   ptySessions.delete(sessionId);
 }
 
-ipcMain.handle("pty:create", async (_event, cwd: string) => {
+ipcMain.handle("pty:create", async (event, cwd: string) => {
+  const sender = event.sender;
   const sessionId = crypto.randomUUID();
   const shell =
     process.platform === "win32"
@@ -1636,14 +1784,41 @@ ipcMain.handle("pty:create", async (_event, cwd: string) => {
 
     ptySessions.set(sessionId, ptyProcess);
 
-    // Forward PTY output to renderer
+    // Store metadata so output can be routed to the owning window
+    const meta: PtySessionMetadata = {
+      paneId: sessionId, // Use sessionId as paneId for simple creates
+      cwd,
+      createdAt: Date.now(),
+      lastActivityAt: Date.now(),
+      outputBuffer: [],
+      ownerWebContentsId: sender.id,
+    };
+    ptySessionMetadata.set(sessionId, meta);
+
+    // Forward PTY output to the owning window's renderer
     ptyProcess.onData((data) => {
-      mainWindow?.webContents.send("pty:output", { sessionId, data });
+      const currentMeta = ptySessionMetadata.get(sessionId);
+      if (currentMeta) {
+        const ownerWin = BrowserWindow.getAllWindows().find(
+          (w) => w.webContents.id === currentMeta.ownerWebContentsId,
+        );
+        if (ownerWin && !ownerWin.isDestroyed()) {
+          ownerWin.webContents.send("pty:output", { sessionId, data });
+        }
+      }
     });
 
     ptyProcess.onExit(({ exitCode }) => {
-      mainWindow?.webContents.send("pty:exit", { sessionId, exitCode });
-      ptySessions.delete(sessionId);
+      const currentMeta = ptySessionMetadata.get(sessionId);
+      if (currentMeta) {
+        const ownerWin = BrowserWindow.getAllWindows().find(
+          (w) => w.webContents.id === currentMeta.ownerWebContentsId,
+        );
+        if (ownerWin && !ownerWin.isDestroyed()) {
+          ownerWin.webContents.send("pty:exit", { sessionId, exitCode });
+        }
+      }
+      cleanupPtySession(sessionId);
     });
 
     return { sessionId, pid: ptyProcess.pid };
@@ -1656,13 +1831,17 @@ ipcMain.handle("pty:create", async (_event, cwd: string) => {
 // Create or get existing session for a pane
 ipcMain.handle(
   "pty:create-or-get",
-  async (_event, paneId: string, cwd: string) => {
+  async (event, paneId: string, cwd: string) => {
+    const sender = event.sender;
+
     // Check if session already exists for this pane
     const existingSessionId = paneToSessionId.get(paneId);
     if (existingSessionId) {
       const existingProcess = ptySessions.get(existingSessionId);
       const existingMeta = ptySessionMetadata.get(existingSessionId);
       if (existingProcess && existingMeta) {
+        // Update owner to the requesting window (in case it moved between windows)
+        existingMeta.ownerWebContentsId = sender.id;
         // Session exists and is alive - reset idle timeout and return it
         resetPtyIdleTimeout(existingSessionId);
         return {
@@ -1700,6 +1879,7 @@ ipcMain.handle(
         createdAt: Date.now(),
         lastActivityAt: Date.now(),
         outputBuffer: [],
+        ownerWebContentsId: sender.id,
       };
       ptySessionMetadata.set(sessionId, meta);
       paneToSessionId.set(paneId, sessionId);
@@ -1707,12 +1887,18 @@ ipcMain.handle(
       // Set up idle timeout
       resetPtyIdleTimeout(sessionId);
 
-      // Forward PTY output to renderer and buffer it
+      // Forward PTY output to the owning window's renderer and buffer it
       ptyProcess.onData((data) => {
-        mainWindow?.webContents.send("pty:output", { sessionId, data });
-        // Buffer for replay
         const currentMeta = ptySessionMetadata.get(sessionId);
         if (currentMeta) {
+          // Send to the owner window
+          const ownerWin = BrowserWindow.getAllWindows().find(
+            (w) => w.webContents.id === currentMeta.ownerWebContentsId,
+          );
+          if (ownerWin && !ownerWin.isDestroyed()) {
+            ownerWin.webContents.send("pty:output", { sessionId, data });
+          }
+          // Buffer for replay
           currentMeta.outputBuffer.push(data);
           if (currentMeta.outputBuffer.length > PTY_OUTPUT_BUFFER_SIZE) {
             currentMeta.outputBuffer.shift();
@@ -1722,7 +1908,15 @@ ipcMain.handle(
       });
 
       ptyProcess.onExit(({ exitCode }) => {
-        mainWindow?.webContents.send("pty:exit", { sessionId, exitCode });
+        const currentMeta = ptySessionMetadata.get(sessionId);
+        if (currentMeta) {
+          const ownerWin = BrowserWindow.getAllWindows().find(
+            (w) => w.webContents.id === currentMeta.ownerWebContentsId,
+          );
+          if (ownerWin && !ownerWin.isDestroyed()) {
+            ownerWin.webContents.send("pty:exit", { sessionId, exitCode });
+          }
+        }
         cleanupPtySession(sessionId);
       });
 
@@ -1735,13 +1929,16 @@ ipcMain.handle(
 );
 
 // Attach to an existing session - returns buffered output for replay
-ipcMain.handle("pty:attach", async (_event, sessionId: string) => {
+ipcMain.handle("pty:attach", async (event, sessionId: string) => {
   const meta = ptySessionMetadata.get(sessionId);
   const ptyProcess = ptySessions.get(sessionId);
 
   if (!meta || !ptyProcess) {
     return { success: false, error: "Session not found" };
   }
+
+  // Update owner to the attaching window so output routes correctly
+  meta.ownerWebContentsId = event.sender.id;
 
   // Reset idle timeout on attach
   resetPtyIdleTimeout(sessionId);
@@ -2147,6 +2344,20 @@ ipcMain.handle("updater:check", async () => {
   } catch (err) {
     console.error("Update check failed:", err);
     return { updateAvailable: null };
+  }
+});
+
+// ==================== Window Management IPC Handlers ====================
+
+ipcMain.handle("window:new", async (_event, urlPath?: string) => {
+  createWindow(urlPath);
+  return { success: true };
+});
+
+ipcMain.handle("window:set-title", async (event, title: string) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) {
+    win.setTitle(title);
   }
 });
 
