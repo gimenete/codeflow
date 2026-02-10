@@ -171,7 +171,11 @@ body {
   /* Base prose styling */
   @apply prose prose-sm dark:prose-invert max-w-none;
   @apply prose-pre:bg-muted prose-pre:rounded-md;
-  @apply prose-code:bg-muted prose-code:px-1 prose-code:rounded;
+  @apply prose-code:bg-muted prose-code:px-1 prose-code:rounded prose-code:before:content-none prose-code:after:content-none;
+
+  code {
+    font-weight: inherit;
+  }
   @apply prose-a:text-primary prose-a:no-underline;
   @apply prose-img:rounded-md prose-img:max-w-full;
   @apply prose-blockquote:border-l-primary;
