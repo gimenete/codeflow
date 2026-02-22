@@ -26,10 +26,10 @@
     "prepare": "husky"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,jsx,mjs,cjs}": [
+    "!(web/**)*.{ts,tsx,js,jsx,mjs,cjs}": [
       "eslint --fix"
     ],
-    "*.{ts,tsx,js,jsx,mjs,cjs,json,md,css,html}": [
+    "!(web/**)*.{ts,tsx,js,jsx,mjs,cjs,json,md,css,html}": [
       "prettier --write"
     ]
   },

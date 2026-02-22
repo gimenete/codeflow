@@ -29,3 +29,8 @@ src/generated/
 
 # Copied assets from node_modules
 public/ghostty-vt.wasm
+
+# Web landing page build artifacts
+web/node_modules/
+web/dist/
+web/.astro/

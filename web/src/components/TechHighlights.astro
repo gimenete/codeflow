@@ -1,0 +1,59 @@
+---
+import { badgeVariants } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+
+const platforms = [
+  {
+    name: "macOS",
+    format: ".dmg",
+    icon: `<svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" /></svg>`,
+  },
+  {
+    name: "Windows",
+    format: ".exe",
+    icon: `<svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.125m-10.5 0H3m7.5 0h3m-3 0v7.5m0-7.5h6.375c.621 0 1.125.504 1.125 1.125V21m-7.5-12.75v12.75m0 0H4.125C3.504 21 3 20.496 3 19.875V8.25m7.5 12.75h6.375c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H10.5" /></svg>`,
+  },
+  {
+    name: "Linux",
+    format: ".AppImage",
+    icon: `<svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7m0 0h.375a2.625 2.625 0 010 5.25H17.25" /></svg>`,
+  },
+];
+
+const techStack = ["Electron", "React 19", "TypeScript", "Tailwind CSS", "Vite"];
+---
+
+<div class="bg-border mx-auto max-w-6xl h-px"></div>
+
+<section id="tech" class="px-6 py-20">
+  <div class="mx-auto max-w-6xl">
+    <h2 class="mb-4 text-center text-3xl font-bold tracking-tight md:text-4xl">
+      Cross-platform
+    </h2>
+    <p class="mx-auto mb-12 max-w-2xl text-center text-muted-foreground">
+      One IDE, every platform. Built with modern technologies.
+    </p>
+
+    <div class="mb-12 grid grid-cols-1 gap-6 sm:grid-cols-3">
+      {platforms.map((platform) => (
+        <div class="bg-card text-card-foreground flex flex-col items-center gap-3 rounded-xl border p-6 shadow-sm">
+          <div class="text-muted-foreground" set:html={platform.icon} />
+          <div class="text-center">
+            <p class="font-medium text-foreground">{platform.name}</p>
+            <p class="text-sm text-muted-foreground">{platform.format}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <div class="flex flex-wrap items-center justify-center gap-3">
+      {
+        techStack.map((tech) => (
+          <span class={cn(badgeVariants({ variant: "secondary" }), "px-4 py-2 text-sm")}>
+            {tech}
+          </span>
+        ))
+      }
+    </div>
+  </div>
+</section>

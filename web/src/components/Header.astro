@@ -1,0 +1,107 @@
+---
+import { buttonVariants } from "@/components/ui/button";
+---
+
+<header
+  class="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-lg"
+>
+  <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+    <a href={import.meta.env.BASE_URL} class="text-lg font-semibold tracking-tight">Codeflow</a>
+
+    <nav class="hidden items-center gap-8 md:flex">
+      <a
+        href="#features"
+        class="text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        Features
+      </a>
+      <a
+        href="#tech"
+        class="text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        Tech
+      </a>
+      <button
+        type="button"
+        class="theme-toggle cursor-pointer text-muted-foreground transition-colors hover:text-foreground"
+        aria-label="Toggle theme"
+      >
+        <svg class="sun-icon hidden h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m8.66-13.66l-.71.71M4.05 19.95l-.71.71M21 12h-1M4 12H3m16.66 7.66l-.71-.71M4.05 4.05l-.71-.71M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+        <svg class="moon-icon hidden h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.005 9.005 0 0012 21a9.005 9.005 0 008.354-5.646z" />
+        </svg>
+      </button>
+      <a href="#download" class={buttonVariants({ size: "sm" })}>
+        Download
+      </a>
+    </nav>
+
+    <!-- Mobile hamburger -->
+    <input type="checkbox" id="nav-toggle" class="hidden" />
+    <label for="nav-toggle" class="flex cursor-pointer flex-col gap-[5px] p-1 md:hidden" aria-label="Toggle navigation">
+      <span class="hamburger-line block h-0.5 w-6 bg-foreground transition-all duration-300 origin-center"></span>
+      <span class="hamburger-line block h-0.5 w-6 bg-foreground transition-all duration-300 origin-center"></span>
+      <span class="hamburger-line block h-0.5 w-6 bg-foreground transition-all duration-300 origin-center"></span>
+    </label>
+
+    <div class="mobile-nav absolute top-full left-0 right-0 border-b border-border bg-background/95 backdrop-blur-lg md:hidden">
+      <nav class="flex flex-col gap-4 px-6 py-6">
+        <a
+          href="#features"
+          class="text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          Features
+        </a>
+        <a
+          href="#tech"
+          class="text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          Tech
+        </a>
+        <button
+          type="button"
+          class="theme-toggle flex w-fit cursor-pointer items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          aria-label="Toggle theme"
+        >
+          <svg class="sun-icon hidden h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m8.66-13.66l-.71.71M4.05 19.95l-.71.71M21 12h-1M4 12H3m16.66 7.66l-.71-.71M4.05 4.05l-.71-.71M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+          <svg class="moon-icon hidden h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.005 9.005 0 0012 21a9.005 9.005 0 008.354-5.646z" />
+          </svg>
+          <span class="theme-label"></span>
+        </button>
+        <a href="#download" class:list={[buttonVariants({ size: "sm" }), "w-fit"]}>
+          Download
+        </a>
+      </nav>
+    </div>
+  </div>
+</header>
+
+<script is:inline>
+  (function() {
+    function updateIcons() {
+      var isDark = document.documentElement.classList.contains("dark");
+      document.querySelectorAll(".sun-icon").forEach(function(el) {
+        el.style.display = isDark ? "block" : "none";
+      });
+      document.querySelectorAll(".moon-icon").forEach(function(el) {
+        el.style.display = isDark ? "none" : "block";
+      });
+      document.querySelectorAll(".theme-label").forEach(function(el) {
+        el.textContent = isDark ? "Light mode" : "Dark mode";
+      });
+    }
+    updateIcons();
+    document.querySelectorAll(".theme-toggle").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        var isDark = document.documentElement.classList.toggle("dark");
+        localStorage.setItem("theme", isDark ? "dark" : "light");
+        updateIcons();
+      });
+    });
+  })();
+</script>
